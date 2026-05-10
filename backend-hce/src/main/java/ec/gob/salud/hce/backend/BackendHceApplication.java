@@ -2,6 +2,7 @@ package ec.gob.salud.hce.backend;
 
 import ec.gob.salud.hce.backend.entity.Usuario;
 import ec.gob.salud.hce.backend.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,6 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootApplication
 public class BackendHceApplication {
+
+	@Value("${HCE_DEFAULT_USER_PASSWORD}")
+	private String defaultUserPassword;
 
 	public static void main(String[] args) {
 		SpringApplication.run(BackendHceApplication.class, args);
@@ -24,7 +28,7 @@ public class BackendHceApplication {
 				u.setUsername("amora");
 				return u;
 			});
-			admin.setPassword(passwordEncoder.encode("Salud2026!"));
+			admin.setPassword(passwordEncoder.encode(defaultUserPassword));
 			admin.setNombres("Angel Rodolfo");
 			admin.setApellidos("Mora Nupia");
 			admin.setCargo("admin");
@@ -36,7 +40,7 @@ public class BackendHceApplication {
 				u.setUsername("fvasquez");
 				return u;
 			});
-			posgradista.setPassword(passwordEncoder.encode("Salud2026!"));
+			posgradista.setPassword(passwordEncoder.encode(defaultUserPassword));
 			posgradista.setNombres("Francis");
 			posgradista.setApellidos("Vasquez");
 			posgradista.setCargo("posgradista");
