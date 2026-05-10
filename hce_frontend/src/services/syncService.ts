@@ -63,11 +63,8 @@ class SyncService {
             await this.notifyListeners();
             this.showToast('📥 Descargando datos del servidor...', 'info');
 
-            const token = localStorage.getItem('token');
             const response = await fetch(`${API_BASE_URL}/sync/down`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -158,12 +155,11 @@ class SyncService {
                         }
                     }
 
-                    const token = localStorage.getItem('token');
                     const response = await fetch(`${API_BASE_URL}/sync/up`, {
                         method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ ...item, data: dataToSend })
                     });

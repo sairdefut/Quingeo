@@ -23,6 +23,7 @@ export default function Login() {
       
       const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: usuario, password })
       });
@@ -34,9 +35,8 @@ export default function Login() {
 
       const data = await response.json();
 
-      // Guardamos en el navegador para que las otras pantallas lo lean
+      // Guardamos solo los datos de perfil; el JWT queda en cookie HttpOnly
       localStorage.setItem('usuarioLogueado', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
 
       // PASO 2: Sincronización automática de datos
       if (navigator.onLine) {
@@ -82,6 +82,7 @@ export default function Login() {
             <input className="form-control" type="password" placeholder="***" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <div className="alert alert-danger py-2 small text-center mb-3">{error}</div>}
+          {mensajeSincronizacion && <div className="alert alert-info py-2 small text-center mb-3">{mensajeSincronizacion}</div>}
           <button className="btn btn-primary w-100 fw-bold py-2 shadow-sm" type="submit" disabled={cargando}>
             {cargando ? "Ingresando..." : "INGRESAR"}
           </button>

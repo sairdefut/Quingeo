@@ -26,11 +26,21 @@ export default function HeaderUsuario({ titulo }: { titulo?: string }) {
     }
   }, []);
 
-  const cerrarSesion = () => {
+  const cerrarSesion = async () => {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+      try {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (error) {
+        console.warn('[HeaderUsuario] Error cerrando sesion en servidor:', error);
+      }
+
       localStorage.removeItem('usuarioLogueado');
-      localStorage.removeItem('token');
       navigate('/'); // Vuelve al Login
-  };
+   };
 
   return (
     <div className="bg-white border-bottom py-2 px-4 d-flex justify-content-between align-items-center shadow-sm flex-shrink-0" style={{height: '70px'}}>

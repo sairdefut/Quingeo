@@ -22,12 +22,11 @@ export default function AdminUsuarios() {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const token = localStorage.getItem('token');
 
   const cargarUsuarios = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/usuarios`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Error al cargar usuarios');
       const data = await response.json();
@@ -49,9 +48,9 @@ export default function AdminUsuarios() {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/usuarios`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(nuevoUsuario)
       });
