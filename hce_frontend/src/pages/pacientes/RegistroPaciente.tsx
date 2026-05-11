@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'; // Se agrega useEffect
 import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
 import { useToast } from "../../contexts/ToastContext";
-import { dbHelpers } from "../../db/db";
+import { dbHelpers, db } from "../../db/db";
 import { syncService } from "../../services/syncService";
 
 export default function RegistroPaciente() {
@@ -106,20 +106,34 @@ export default function RegistroPaciente() {
     setEdad({ años: anos, meses: meses });
   };
 
-  // LISTAS
-  const provincias = ["Azuay", "Pichincha", "Guayas", "Manabí", "Loja", "Imbabura", "Cotopaxi"];
-  const cantonesPorProvincia: Record<string, string[]> = {
-    "Azuay": ["Cuenca", "Gualaceo", "Paute"],
-    "Pichincha": ["Quito", "Cayambe", "Rumiñahui"],
-    "Guayas": ["Guayaquil", "Daule", "Samborondón"]
-  };
-  const parroquiasPorCanton: Record<string, string[]> = {
-    "Cuenca": ["El Vecino", "Tarqui", "Baños", "Totoracocha"],
-    "Quito": ["Centro Histórico", "Carcelén", "Iñaquito"],
-    "Guayaquil": ["Tarqui", "Ximena", "Kennedy"]
-  };
-  const parentescos = ["Madre", "Padre", "Abuelo/a", "Tío/a", "Hermano/a", "Otro/Tutor"];
-  const nivelesEducativos = ["Ninguno", "Primaria", "Secundaria", "Superior / Universitario", "Postgrado"];
+  // LISTAS DESDE CATÁLOGOS LOCALES
+  const [provincias, setProvincias] = useState<any[]>([]);
+  const [cantonesList, setCantonesList] = useState<any[]>([]);
+  const [parroquiasList, setParroquiasList] = useState<any[]>([]);
+  const [etnias, setEtnias] = useState<any[]>([]);
+  const [sexos, setSexos] = useState<any[]>([]);
+  const [tiposSangreList, setTiposSangreList] = useState<any[]>([]);
+  const [parentescosList, setParentescosList] = useState<any[]>([]);
+  const [nivelesEducativosList, setNivelesEducativosList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const cargarCatalogos = async () => {
+      try {
+        const catalogos = await db.catalogos.toArray();
+        setProvincias(catalogos.filter(c => c.tipo === 'provincia'));
+        setCantonesList(catalogos.filter(c => c.tipo === 'canton'));
+        setParroquiasList(catalogos.filter(c => c.tipo === 'parroquia'));
+        setEtnias(catalogos.filter(c => c.tipo === 'etnia'));
+        setSexos(catalogos.filter(c => c.tipo === 'sexo'));
+        setTiposSangreList(catalogos.filter(c => c.tipo === 'tipoSangre'));
+        setParentescosList(catalogos.filter(c => c.tipo === 'parentesco'));
+        setNivelesEducativosList(catalogos.filter(c => c.tipo === 'nivelEducativo'));
+      } catch (err) {
+        console.error("Error cargando catálogos", err);
+      }
+    };
+    cargarCatalogos();
+  }, []);
 
   // VALIDACIÓN
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -244,36 +258,36 @@ export default function RegistroPaciente() {
                 <input type="text" maxLength={10} className={`form-control ${errores.cedula ? 'is-invalid' : ''}`} value={cedula} onChange={e => { if (/^\d*$/.test(e.target.value)) setCedula(e.target.value); }} placeholder="Ingrese los 10 dígitos" />
                 {errores.cedula && <div className="invalid-feedback">{errores.cedula}</div>}
               </div>
-              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombre ? 'is-invalid' : ''}`} value={primerNombre} onChange={e => setPrimerNombre(e.target.value)} /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO NOMBRE</label><input className="form-control" value={segundoNombre} onChange={e => setSegundoNombre(e.target.value)} placeholder="(Opcional)" /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER APELLIDO <span className="text-danger">*</span></label><input className={`form-control ${errores.primerApellido ? 'is-invalid' : ''}`} value={primerApellido} onChange={e => setPrimerApellido(e.target.value)} /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO APELLIDO</label><input className="form-control" value={segundoApellido} onChange={e => setSegundoApellido(e.target.value)} placeholder="(Opcional)" /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombre ? 'is-invalid' : ''}`} value={primerNombre} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerNombre(e.target.value); }} /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO NOMBRE</label><input className="form-control" value={segundoNombre} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setSegundoNombre(e.target.value); }} placeholder="(Opcional)" /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER APELLIDO <span className="text-danger">*</span></label><input className={`form-control ${errores.primerApellido ? 'is-invalid' : ''}`} value={primerApellido} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerApellido(e.target.value); }} /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO APELLIDO</label><input className="form-control" value={segundoApellido} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setSegundoApellido(e.target.value); }} placeholder="(Opcional)" /></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Fecha de Creación</label><input type="date" className={`form-control ${errores.fechaCreacion ? 'is-invalid' : ''}`} value={fechaCreacion} onChange={e => setFechaCreacion(e.target.value)} /></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Fecha de Nacimiento</label><input type="date" className={`form-control ${errores.fechaNacimiento ? 'is-invalid' : ''}`} value={fechaNacimiento} onChange={e => manejarFechaNacimiento(e.target.value)} /></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Edad</label><input className={`form-control ${mensajeEdad ? 'is-invalid' : 'bg-light'}`} disabled value={mensajeEdad ? mensajeEdad : (edad ? `${edad.años} años, ${edad.meses} meses` : 'Seleccione fecha...')} style={{ fontWeight: 'bold', color: mensajeEdad ? '#dc3545' : '#0d6efd', fontSize: mensajeEdad ? '0.8rem' : '1rem' }} /></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Sexo</label><select className="form-select" value={sexo} onChange={e => setSexo(e.target.value)}><option value="">Seleccione...</option><option>Masculino</option><option>Femenino</option></select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Tipo de Sangre</label><select className="form-select" value={tipoSangre} onChange={e => setTipoSangre(e.target.value)}><option value="">Seleccione...</option><option>O+</option><option>O-</option><option>A+</option><option>A-</option></select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Grupo Étnico</label><select className="form-select" value={grupoEtnico} onChange={e => setGrupoEtnico(e.target.value)}><option value="">Seleccione...</option><option>Mestizo</option><option>Blanco</option><option>Indígena</option><option>Afroecuatoriano</option></select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Sexo</label><select className="form-select" value={sexo} onChange={e => setSexo(e.target.value)}><option value="">Seleccione...</option>{sexos.map(s => <option key={s.codigo} value={s.nombre}>{s.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Tipo de Sangre</label><select className="form-select" value={tipoSangre} onChange={e => setTipoSangre(e.target.value)}><option value="">Seleccione...</option>{tiposSangreList.map(t => <option key={t.codigo} value={t.nombre}>{t.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Grupo Étnico</label><select className="form-select" value={grupoEtnico} onChange={e => setGrupoEtnico(e.target.value)}><option value="">Seleccione...</option>{etnias.length > 0 ? etnias.map(e => <option key={e.codigo} value={e.nombre}>{e.nombre}</option>) : <><option value="Mestizo">Mestizo</option><option value="Blanco">Blanco</option><option value="Indígena">Indígena</option><option value="Afroecuatoriano">Afroecuatoriano</option></>}</select></div>
               <div className="col-12 mt-4"><h6 className="text-muted border-bottom pb-2">Ubicación Geográfica del Paciente</h6></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => { setProvincia(e.target.value); setCanton(''); setParroquia('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p}>{p}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => { setCanton(e.target.value); setParroquia('') }} disabled={!provincia}><option value="">Seleccione...</option>{provincia && cantonesPorProvincia[provincia]?.map(c => <option key={c}>{c}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquia} onChange={e => setParroquia(e.target.value)} disabled={!canton}><option value="">Seleccione...</option>{canton && parroquiasPorCanton[canton]?.map(p => <option key={p}>{p}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => { setProvincia(e.target.value); setCanton(''); setParroquia('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => { setCanton(e.target.value); setParroquia('') }} disabled={!provincia}><option value="">Seleccione...</option>{cantonesList.filter(c => c.parentId?.toString() === provincias.find(p => p.nombre === provincia)?.codigo).map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquia} onChange={e => setParroquia(e.target.value)} disabled={!canton}><option value="">Seleccione...</option>{parroquiasList.filter(p => String(p.parentId) === String(cantonesList.find(c => c.nombre === canton)?.codigo)).map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
             </div>
           )}
           {activeTab === 'filiacion' && (
             <div className="row g-3">
               <div className="col-12"><h6 className="text-muted border-bottom pb-2">Datos del Responsable / Tutor</h6></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombreRes ? 'is-invalid' : ''}`} value={primerNombreRes} onChange={e => setPrimerNombreRes(e.target.value)} placeholder="Ej: María" /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO NOMBRE</label><input className="form-control" value={segundoNombreRes} onChange={e => setSegundoNombreRes(e.target.value)} placeholder="(Opcional)" /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER APELLIDO <span className="text-danger">*</span></label><input className={`form-control ${errores.primerApellidoRes ? 'is-invalid' : ''}`} value={primerApellidoRes} onChange={e => setPrimerApellidoRes(e.target.value)} placeholder="Ej: Lopez" /></div>
-              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO APELLIDO</label><input className="form-control" value={segundoApellidoRes} onChange={e => setSegundoApellidoRes(e.target.value)} placeholder="(Opcional)" /></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Parentesco con el Paciente <span className="text-danger">*</span></label><select className={`form-select ${errores.parentesco ? 'is-invalid' : ''}`} value={parentesco} onChange={e => setParentesco(e.target.value)}><option value="">Seleccione...</option>{parentescos.map(p => <option key={p}>{p}</option>)}</select></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombreRes ? 'is-invalid' : ''}`} value={primerNombreRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerNombreRes(e.target.value); }} placeholder="Ej: Maria" /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO NOMBRE</label><input className="form-control" value={segundoNombreRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setSegundoNombreRes(e.target.value); }} placeholder="(Opcional)" /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">PRIMER APELLIDO <span className="text-danger">*</span></label><input className={`form-control ${errores.primerApellidoRes ? 'is-invalid' : ''}`} value={primerApellidoRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerApellidoRes(e.target.value); }} placeholder="Ej: Lopez" /></div>
+              <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO APELLIDO</label><input className="form-control" value={segundoApellidoRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setSegundoApellidoRes(e.target.value); }} placeholder="(Opcional)" /></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Parentesco con el Paciente <span className="text-danger">*</span></label><select className={`form-select ${errores.parentesco ? 'is-invalid' : ''}`} value={parentesco} onChange={e => setParentesco(e.target.value)}><option value="">Seleccione...</option>{parentescosList.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Teléfono (Celular) <span className="text-danger">*</span></label><input type="text" maxLength={10} className={`form-control ${errores.telefonoContacto ? 'is-invalid' : ''}`} value={telefonoContacto} onChange={e => { if (/^\d*$/.test(e.target.value)) setTelefonoContacto(e.target.value); }} placeholder="09XXXXXXXX" /><div className="form-text small">Máximo 10 dígitos.</div></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Nivel Educativo</label><select className="form-select" value={nivelEducativoResponsable} onChange={e => setNivelEducativoResponsable(e.target.value)}><option value="">Seleccione...</option>{nivelesEducativos.map(n => <option key={n}>{n}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Nivel Educativo</label><select className="form-select" value={nivelEducativoResponsable} onChange={e => setNivelEducativoResponsable(e.target.value)}><option value="">Seleccione...</option>{nivelesEducativosList.map(n => <option key={n.codigo} value={n.nombre}>{n.nombre}</option>)}</select></div>
               <div className="col-12 mt-3"><h6 className="text-muted border-bottom pb-2">Ubicación del Responsable</h6></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provinciaRes} onChange={e => { setProvinciaRes(e.target.value); setCantonRes(''); setParroquiaRes('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p}>{p}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => { setCantonRes(e.target.value); setParroquiaRes('') }} disabled={!provinciaRes}><option value="">Seleccione...</option>{provinciaRes && cantonesPorProvincia[provinciaRes]?.map(c => <option key={c}>{c}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquiaRes} onChange={e => setParroquiaRes(e.target.value)} disabled={!cantonRes}><option value="">Seleccione...</option>{cantonRes && parroquiasPorCanton[cantonRes]?.map(p => <option key={p}>{p}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provinciaRes} onChange={e => { setProvinciaRes(e.target.value); setCantonRes(''); setParroquiaRes('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => { setCantonRes(e.target.value); setParroquiaRes('') }} disabled={!provinciaRes}><option value="">Seleccione...</option>{cantonesList.filter(c => c.parentId?.toString() === provincias.find(p => p.nombre === provinciaRes)?.codigo).map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquiaRes} onChange={e => setParroquiaRes(e.target.value)} disabled={!cantonRes}><option value="">Seleccione...</option>{parroquiasList.filter(p => String(p.parentId) === String(cantonesList.find(c => c.nombre === cantonRes)?.codigo)).map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
               <div className="col-12"><label className="form-label fw-bold small">Dirección Domiciliaria (Calle y Nro)</label><textarea className="form-control" rows={2} value={domicilioActual} onChange={e => setDomicilioActual(e.target.value)} placeholder="Ej: Calle Larga y Benigno Malo..."></textarea></div>
             </div>
           )}

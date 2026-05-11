@@ -105,9 +105,28 @@ class SyncService {
                     } as Paciente;
                 });
 
+                const pendingItems = await dbHelpers.getPendingSyncItems();
+                const pendingPacientesCedulas = new Set(
+                    pendingItems
+                        .filter(item => item.entity === 'paciente')
+                        .map(item => item.data.cedula)
+                );
+
+                const pacientesToUpdate = pacientesConUuid.filter(p => !pendingPacientesCedulas.has(p.cedula));
+
                 await db.transaction('rw', db.pacientes, async () => {
-                    await db.pacientes.clear();
-                    await db.pacientes.bulkPut(pacientesConUuid);
+                    // Eliminamos db.pacientes.clear() para no perder datos offline.
+                    // Solo actualizamos los que no tienen cambios pendientes de subida.
+                    if (pacientesToUpdate.length > 0) {
+                        await db.pacientes.bulkPut(pacientesToUpdate);
+                    }
+                });
+            }
+
+            if (data.catalogos && Array.isArray(data.catalogos)) {
+                await db.transaction('rw', db.catalogos, async () => {
+                    await db.catalogos.clear();
+                    await db.catalogos.bulkPut(data.catalogos);
                 });
             }
 

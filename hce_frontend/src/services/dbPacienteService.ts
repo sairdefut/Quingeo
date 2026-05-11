@@ -43,21 +43,11 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
     console.log('[DEBUG] Paciente original:', paciente);
     console.log('[DEBUG] Filiacion:', paciente.filiacion);
 
-    // --- MAPEO DE CATALOGOS (TEMPORAL) ---
-    const mapaParroquias: Record<string, number> = {
-        "Tarqui": 120,
-        "El Vecino": 92,
-        "Baños": 103,
-        "Totoracocha": 100
-        // Agregar más según base de datos
-    };
-
-    const mapaGruposEtnicos: Record<string, number> = {
-        "Mestizo": 15, // Asumiendo ID validado en base
-        "Blanco": 1,
-        "Indígena": 2,
-        "Afroecuatoriano": 3
-    };
+    // --- MAPEO DE CATALOGOS DINAMICO ---
+    const catalogos = await db.catalogos.toArray();
+    
+    const idGrupoEtnico = catalogos.find(c => c.tipo === 'etnia' && c.nombre === paciente.grupoEtnico)?.codigo;
+    const idParroquia = catalogos.find(c => c.tipo === 'parroquia' && c.nombre === paciente.parroquia)?.codigo;
 
     // Transformar datos de filiacion a TutorDTO que espera el backend
     const pacienteParaBackend: any = {
@@ -69,16 +59,16 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
         fechaNacimiento: paciente.fechaNacimiento,
         sexo: paciente.sexo,
         tipoSangre: paciente.tipoSangre,
-        // Mapeo manual: Si 'paciente.grupoEtnico' es nombre, buscamos ID.
-        idGrupoEtnico: mapaGruposEtnicos[paciente.grupoEtnico] || null,
-        // Mapeo manual: Si 'paciente.parroquia' es nombre, buscamos ID.
-        idParroquia: mapaParroquias[paciente.parroquia] || null,
-        uuidOffline: paciente.uuidOffline || paciente.id
+        idGrupoEtnico: idGrupoEtnico ? parseInt(idGrupoEtnico) : null,
+        idParroquia: idParroquia ? parseInt(idParroquia) : null,
+        uuidOffline: paciente.uuidOffline || paciente.id || crypto.randomUUID()
     };
 
     // Si tiene datos de filiación, mapearlos a TutorDTO
     if (paciente.filiacion && paciente.filiacion.nombreResponsable) {
         const nombresCompletos = paciente.filiacion.nombreResponsable.split(' ');
+        const idParroquiaTutor = catalogos.find(c => c.tipo === 'parroquia' && c.nombre === paciente.filiacion?.parroquia)?.codigo;
+        
         pacienteParaBackend.tutor = {
             primerNombre: nombresCompletos[0] || '',
             segundoNombre: nombresCompletos[1] || '',
@@ -88,7 +78,7 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
             telefono: paciente.filiacion.telefonoContacto,
             nivelEducativo: paciente.filiacion.nivelEducativoResponsable,
             direccion: paciente.filiacion.domicilioActual,
-            idParroquia: mapaParroquias[paciente.filiacion.parroquia] || null
+            idParroquia: idParroquiaTutor ? parseInt(idParroquiaTutor) : null
         };
         console.log('[DEBUG] Tutor mapeado:', pacienteParaBackend.tutor);
     } else {
@@ -100,12 +90,16 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
     if (navigator.onLine) {
         // ONLINE: POST directo al backend
         console.log('[DEBUG] ONLINE: Enviando POST directo al backend...');
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api';
+        const token = localStorage.getItem('token');
 
-        const response = await fetch(`${API_BASE_URL}/api/sync/up`, {
+        const fetchUrl = API_BASE_URL.endsWith('/api') ? `${API_BASE_URL}/sync/up` : `${API_BASE_URL}/api/sync/up`;
+
+        const response = await fetch(fetchUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 entity: 'paciente',
