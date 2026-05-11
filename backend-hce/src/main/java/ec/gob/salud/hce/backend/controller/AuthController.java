@@ -5,7 +5,10 @@ import ec.gob.salud.hce.backend.entity.Usuario;
 import ec.gob.salud.hce.backend.repository.ConsultaRepository;
 import ec.gob.salud.hce.backend.repository.UsuarioRepository;
 import ec.gob.salud.hce.backend.security.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,13 +27,15 @@ import java.util.stream.Collectors;
 // Nota: El CORS se maneja globalmente en tu WebConfig para evitar conflictos con allowCredentials
 public class AuthController {
 
+    private static final String AUTH_COOKIE_NAME = "HCE_AUTH_TOKEN";
+
     private final AuthenticationManager authenticationManager;
     private final UsuarioRepository usuarioRepository;
     private final ConsultaRepository consultaRepository;
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
@@ -45,19 +50,53 @@ public class AuthController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("mensaje", "Login exitoso");
-            response.put("token", token);
             response.put("username", usuarioReal.getUsername());
             response.put("nombres", usuarioReal.getNombres());
             response.put("apellidos", usuarioReal.getApellidos());
             response.put("cargo", usuarioReal.getCargo());
-            
-            return ResponseEntity.ok(response);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, buildAuthCookie(token, httpRequest.isSecure()).toString())
+                    .body(response);
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "Credenciales incorrectas");
             return ResponseEntity.status(401).body(errorResponse);
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> logout(HttpServletRequest httpRequest) {
+        SecurityContextHolder.clearContext();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("mensaje", "Logout exitoso");
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, clearAuthCookie(httpRequest.isSecure()).toString())
+                .body(response);
+    }
+
+    private ResponseCookie buildAuthCookie(String token, boolean secure) {
+        return ResponseCookie.from(AUTH_COOKIE_NAME, token)
+                .httpOnly(true)
+                .secure(secure)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(jwtService.getExpirationSeconds())
+                .build();
+    }
+
+    private ResponseCookie clearAuthCookie(boolean secure) {
+        return ResponseCookie.from(AUTH_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(secure)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(0)
+                .build();
     }
 
     /**

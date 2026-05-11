@@ -104,6 +104,7 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
 
         const response = await fetch(`${API_BASE_URL}/api/sync/up`, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json'
             },
