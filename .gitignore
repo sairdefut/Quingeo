@@ -47,3 +47,7 @@ pnpm-debug.log*
 # --- Database Dumps ---
 # Descomentar si no se quieren subir los dumps grandes
 # *.sql
+
+.fake
+SPLIT.md
+sistemasalud_tech_analysis_v2.html
