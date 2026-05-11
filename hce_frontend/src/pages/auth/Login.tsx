@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncService } from '../../services/syncService';
+import { API_BASE_URL, clearStoredSession } from '../../services/authSession';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,12 +17,13 @@ export default function Login() {
     setError('');
     setCargando(true);
     setMensajeSincronizacion('');
+    clearStoredSession();
 
     try {
       // PASO 1: Autenticación Real
       setMensajeSincronizacion('Validando credenciales...');
       
-      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

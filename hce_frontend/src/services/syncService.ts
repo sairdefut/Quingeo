@@ -4,8 +4,7 @@
 import { db, dbHelpers } from '../db/db';
 import { mapConsultaFrontendToBackend, mapConsultaBackendToFrontend } from './consultaMapper';
 import type { Paciente } from '../models/Paciente';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api';
+import { API_BASE_URL, handleUnauthorized } from './authSession';
 
 export interface SyncStatus {
     lastSync: number | null;
@@ -72,6 +71,11 @@ class SyncService {
             const response = await fetch(`${API_BASE_URL}/sync/down`, {
                 credentials: 'include'
             });
+            if (response.status === 403) {
+                this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                handleUnauthorized();
+                return;
+            }
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
@@ -173,6 +177,12 @@ class SyncService {
                                 },
                                 body: JSON.stringify({ ...item, data: dataToSend })
                             });
+
+                            if (response.status === 403) {
+                                this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                                handleUnauthorized();
+                                return;
+                            }
 
                             if (response.ok) {
                                 break;

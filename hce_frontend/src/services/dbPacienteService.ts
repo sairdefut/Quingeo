@@ -4,6 +4,7 @@
 
 import { db, dbHelpers } from '../db/db';
 import type { Paciente } from '../models/Paciente';
+import { API_BASE_URL, handleUnauthorized } from './authSession';
 
 /**
  * Obtener todos los pacientes desde IndexedDB
@@ -100,9 +101,8 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
     if (navigator.onLine) {
         // ONLINE: POST directo al backend
         console.log('[DEBUG] ONLINE: Enviando POST directo al backend...');
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-        const response = await fetch(`${API_BASE_URL}/api/sync/up`, {
+        const response = await fetch(`${API_BASE_URL}/sync/up`, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -114,6 +114,11 @@ export const registrarPaciente = async (paciente: Paciente): Promise<void> => {
                 data: pacienteParaBackend
             })
         });
+
+        if (response.status === 403) {
+            handleUnauthorized();
+            return;
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
