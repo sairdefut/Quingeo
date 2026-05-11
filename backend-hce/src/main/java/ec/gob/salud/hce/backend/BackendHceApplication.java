@@ -23,24 +23,24 @@ public class BackendHceApplication {
 	public CommandLineRunner initData(UsuarioRepository repository, PasswordEncoder passwordEncoder) {
 		return args -> {
 			// Asegurar Admin: Angel Rodolfo Mora Nupia
-			Usuario admin = repository.findByUsername("amora").orElseGet(() -> {
-				Usuario u = new Usuario();
-				u.setUsername("amora");
-				return u;
-			});
-			admin.setPassword(passwordEncoder.encode(defaultUserPassword));
+			Usuario admin = repository.findByUsername("amora").orElse(null);
+			if (admin == null) {
+				admin = new Usuario();
+				admin.setUsername("amora");
+				admin.setPassword(passwordEncoder.encode(defaultUserPassword));
+			}
 			admin.setNombres("Angel Rodolfo");
 			admin.setApellidos("Mora Nupia");
 			admin.setCargo("admin");
 			repository.save(admin);
 
 			// Asegurar Posgradista: Francis Vasquez
-			Usuario posgradista = repository.findByUsername("fvasquez").orElseGet(() -> {
-				Usuario u = new Usuario();
-				u.setUsername("fvasquez");
-				return u;
-			});
-			posgradista.setPassword(passwordEncoder.encode(defaultUserPassword));
+			Usuario posgradista = repository.findByUsername("fvasquez").orElse(null);
+			if (posgradista == null) {
+				posgradista = new Usuario();
+				posgradista.setUsername("fvasquez");
+				posgradista.setPassword(passwordEncoder.encode(defaultUserPassword));
+			}
 			posgradista.setNombres("Francis");
 			posgradista.setApellidos("Vasquez");
 			posgradista.setCargo("posgradista");

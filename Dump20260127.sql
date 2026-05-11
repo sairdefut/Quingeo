@@ -1088,7 +1088,7 @@ CREATE TABLE `personal` (
 
 LOCK TABLES `personal` WRITE;
 /*!40000 ALTER TABLE `personal` DISABLE KEYS */;
-INSERT INTO `personal` VALUES (1,'Andrés','Mora','admin','disponible','Calle Falsa 123','0999999999','amora','364e2456-fb07-11f0-b60b-0a0027000003','synced','2026-01-26 22:34:44','local','$2a$10$FSRE1U1LZKeFMLBw8L/9dO8fTGr.d5KSdCSzK.bAazsZu.91F1.ia'),(2,'Fernanda','Vasquez','medico','disponible','Av. Central 456','0888888888','fvasquez','36540ca7-fb07-11f0-b60b-0a0027000003','synced','2026-01-26 22:34:44','local','$2a$10$7IJNOMMeoPPj5bWzptW0rutuo1B686AkZ1oZll5QpDteuNKWWKv2.');
+INSERT INTO `personal` VALUES (1,'Andrés','Mora','admin','disponible','Calle Falsa 123','0999999999','amora','364e2456-fb07-11f0-b60b-0a0027000003','synced','2026-01-26 22:34:44','local','$2a$10$P5OgDNeSS.PEgPQnB/1.LO8QKftSXmqBLfU1Lr4N.CrRp4VTJA1ee'),(2,'Fernanda','Vasquez','medico','disponible','Av. Central 456','0888888888','fvasquez','36540ca7-fb07-11f0-b60b-0a0027000003','synced','2026-01-26 22:34:44','local','$2a$10$P5OgDNeSS.PEgPQnB/1.LO8QKftSXmqBLfU1Lr4N.CrRp4VTJA1ee');
 /*!40000 ALTER TABLE `personal` ENABLE KEYS */;
 UNLOCK TABLES;
 
