@@ -161,7 +161,6 @@ class SyncService {
                         }
                     }
 
-<<<<<<< HEAD
                     let response: Response | null = null;
 
                     for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {

@@ -14,7 +14,7 @@
 cp .env.example .env
 
 # Editar .env con tus credenciales (opcional)
-# Por defecto usa: root/root
+# Define al menos MYSQL_ROOT_PASSWORD y HCE_DEFAULT_USER_PASSWORD
 ```
 
 ### 2️⃣ Iniciar el Sistema
@@ -44,7 +44,7 @@ curl http://localhost:8080/actuator/health
 
 **Base de Datos:**
 ```bash
-docker exec -it hce-mysql mysql -uroot -proot -e "SHOW DATABASES;"
+docker exec -it hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> -e "SHOW DATABASES;"
 ```
 
 ---
@@ -55,7 +55,7 @@ docker exec -it hce-mysql mysql -uroot -proot -e "SHOW DATABASES;"
 |----------|-----|--------------|
 | **Frontend Web** | http://localhost | - |
 | **Backend API** | http://localhost:8080 | - |
-| **MySQL** | localhost:3306 | root/root |
+| **MySQL** | localhost:3306 | root / valor de `MYSQL_ROOT_PASSWORD` |
 | **Health Check Backend** | http://localhost:8080/actuator/health | - |
 
 > **Nota**: El frontend hace proxy de `/api/*` → `backend:8080/api/*` automáticamente
@@ -109,17 +109,17 @@ docker-compose up -d backend
 
 ### Acceder a MySQL
 ```bash
-docker exec -it hce-mysql mysql -uroot -proot hce_prueba2
+docker exec -it hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2
 ```
 
 ### Backup de la BD
 ```bash
-docker exec hce-mysql mysqldump -uroot -proot hce_prueba2 > backup_$(date +%Y%m%d).sql
+docker exec hce-mysql mysqldump -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2 > backup_$(date +%Y%m%d).sql
 ```
 
 ### Restaurar Backup
 ```bash
-docker exec -i hce-mysql mysql -uroot -proot hce_prueba2 < backup.sql
+docker exec -i hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2 < backup.sql
 ```
 
 ---

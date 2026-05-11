@@ -27,11 +27,13 @@ Este documento resume los cambios técnicos realizados para estabilizar el front
 - **Backend**: 
     - Integración de **Spring Security** con filtro de autenticación por Token (JWT).
     - Creación de endpoints protegidos para administración de usuarios (`/api/admin/**`).
-    - Reset automático de contraseñas de usuarios base (`amora` y `fvasquez`) a `Salud2026!`.
+    - Contraseñas iniciales movidas a `HCE_DEFAULT_USER_PASSWORD` y credenciales de base de datos externalizadas a variables de entorno.
+    - CORS restringido mediante `ALLOWED_ORIGINS` en lugar de permitir cualquier origen.
 - **Frontend**:
     - Login funcional conectado a la base de datos centralizada.
-    - Persistencia de sesión mediante tokens en `localStorage`.
+    - Persistencia de sesión migrada de `localStorage` a cookies `HttpOnly` emitidas por el backend.
     - Sidebar inteligente que oculta opciones administrativas según el rol del usuario logueado.
+    - Sincronización offline con reintentos y backoff exponencial para `syncUp()`.
 
 ## 5. Limpieza y Mantenimiento
 - Se eliminaron imports no utilizados y clases redundantes en controladores.
