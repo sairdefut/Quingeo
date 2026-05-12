@@ -22,6 +22,18 @@ public class SyncService {
     private AntecedenteFamiliarRepository antecedenteFamiliarRepository;
 
     @Autowired
+    private ec.gob.salud.hce.backend.repository.ProvinciaRepository provinciaRepository;
+
+    @Autowired
+    private ec.gob.salud.hce.backend.repository.CantonRepository cantonRepository;
+
+    @Autowired
+    private ec.gob.salud.hce.backend.repository.ParroquiaRepository parroquiaRepository;
+
+    @Autowired
+    private ec.gob.salud.hce.backend.repository.GrupoEtnicoRepository grupoEtnicoRepository;
+
+    @Autowired
     private PacienteMapper pacienteMapper;
 
     @Autowired
@@ -108,6 +120,43 @@ public class SyncService {
                 // Continuar sin consultas
                 response.setConsultas(new java.util.ArrayList<>());
             }
+
+            // CARGAR CATÁLOGOS
+            System.out.println("DEBUG: Cargando Catálogos...");
+            List<ec.gob.salud.hce.backend.dto.CatalogoDTO> catalogos = new java.util.ArrayList<>();
+            
+            // Provincias
+            provinciaRepository.findAll().forEach(p -> {
+                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("provincia", p.getId().toString(), p.getNombre(), null));
+            });
+            // Cantones
+            cantonRepository.findAll().forEach(c -> {
+                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("canton", c.getId().toString(), c.getNombre(), c.getProvincia().getId()));
+            });
+            // Parroquias
+            parroquiaRepository.findAll().forEach(p -> {
+                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("parroquia", p.getId().toString(), p.getNombre(), p.getCanton().getId()));
+            });
+            // Etnia
+            grupoEtnicoRepository.findAll().forEach(e -> {
+                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("etnia", e.getIdGrupoEtnico().toString(), e.getDescripcion(), null));
+            });
+            
+            // Catálogos estáticos
+            String[] sexos = {"Masculino", "Femenino"};
+            for(String s : sexos) catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("sexo", s, s, null));
+            
+            String[] tiposSangre = {"O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"};
+            for(String t : tiposSangre) catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("tipoSangre", t, t, null));
+            
+            String[] parentescos = {"Madre", "Padre", "Abuelo/a", "Tío/a", "Hermano/a", "Otro/Tutor"};
+            for(String p : parentescos) catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("parentesco", p, p, null));
+            
+            String[] niveles = {"Ninguno", "Primaria", "Secundaria", "Superior / Universitario", "Postgrado"};
+            for(String n : niveles) catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("nivelEducativo", n, n, null));
+            
+            response.setCatalogos(catalogos);
+            System.out.println("DEBUG: Catálogos cargados: " + catalogos.size());
 
             return response;
         } catch (Exception e) {

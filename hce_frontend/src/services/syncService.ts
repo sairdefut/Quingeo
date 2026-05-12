@@ -89,32 +89,57 @@ class SyncService {
                     }
                 });
 
-                const pacientesConUuid = Array.from(pacientesUnicosMap.values()).map((p: any): Paciente => {
-                    const nombres = [p.primerNombre, p.segundoNombre].filter(Boolean).join(' ').trim();
-                    const apellidos = [p.apellidoPaterno, p.apellidoMaterno].filter(Boolean).join(' ').trim();
-                    
-                    let filiacion = null;
-                    if (p.tutor) {
-                        filiacion = {
-                            nombreResponsable: [p.tutor.primerNombre, p.tutor.segundoNombre, p.tutor.primerApellido, p.tutor.segundoApellido].filter(Boolean).join(' ').trim(),
-                            parentesco: p.tutor.parentesco,
-                            telefonoContacto: p.tutor.telefono,
-                            domicilioActual: p.tutor.direccion
-                        };
-                    }
+                const pendingItems = await dbHelpers.getPendingSyncItems();
+                const pendingPacientesCedulas = new Set(
+                    pendingItems
+                        .filter(item => item.entity === 'paciente')
+                        .map(item => item.data.cedula)
+                );
 
-                    return {
-                        ...p,
-                        nombres,
-                        apellidos,
-                        filiacion,
-                        uuidOffline: p.uuidOffline || p.idPaciente?.toString() || crypto.randomUUID()
-                    } as Paciente;
-                });
+                // Fetch all local patients to map cedula -> uuidOffline to prevent duplicates
+                const localPacientes = await db.pacientes.toArray();
+                const localCedulaToUuid = new Map(localPacientes.map(lp => [lp.cedula, lp.uuidOffline]));
+
+                const pacientesToUpdate = Array.from(pacientesUnicosMap.values())
+                    .filter((p: any) => !pendingPacientesCedulas.has(p.cedula))
+                    .map((p: any): Paciente => {
+                        const nombres = [p.primerNombre, p.segundoNombre].filter(Boolean).join(' ').trim();
+                        const apellidos = [p.apellidoPaterno, p.apellidoMaterno].filter(Boolean).join(' ').trim();
+                        
+                        let filiacion = null;
+                        if (p.tutor) {
+                            filiacion = {
+                                nombreResponsable: [p.tutor.primerNombre, p.tutor.segundoNombre, p.tutor.primerApellido, p.tutor.segundoApellido].filter(Boolean).join(' ').trim(),
+                                parentesco: p.tutor.parentesco,
+                                telefonoContacto: p.tutor.telefono,
+                                domicilioActual: p.tutor.direccion
+                            };
+                        }
+
+                        const existingUuid = localCedulaToUuid.get(p.cedula);
+
+                        return {
+                            ...p,
+                            nombres,
+                            apellidos,
+                            filiacion,
+                            uuidOffline: existingUuid || p.uuidOffline || p.idPaciente?.toString() || crypto.randomUUID()
+                        } as Paciente;
+                    });
 
                 await db.transaction('rw', db.pacientes, async () => {
-                    await db.pacientes.clear();
-                    await db.pacientes.bulkPut(pacientesConUuid);
+                    // Eliminamos db.pacientes.clear() para no perder datos offline.
+                    // Solo actualizamos los que no tienen cambios pendientes de subida.
+                    if (pacientesToUpdate.length > 0) {
+                        await db.pacientes.bulkPut(pacientesToUpdate);
+                    }
+                });
+            }
+
+            if (data.catalogos && Array.isArray(data.catalogos)) {
+                await db.transaction('rw', db.catalogos, async () => {
+                    await db.catalogos.clear();
+                    await db.catalogos.bulkPut(data.catalogos);
                 });
             }
 

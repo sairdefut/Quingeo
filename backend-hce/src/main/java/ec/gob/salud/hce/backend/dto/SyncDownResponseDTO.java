@@ -12,5 +12,6 @@ public class SyncDownResponseDTO {
     private List<AlergiaPacienteDTO> alergiasPaciente; // Agrega la entidad AlergiaPacienteTO> alergias;
     private List<AlimentacionDTO> alimentacion;
     private List<ConsultaDTO> consultas; // Agregar consultas completas
+    private List<CatalogoDTO> catalogos; // NUEVO: Para catálogos
     // Agrega aquí todas las tablas que el sistema necesite offline
 }
