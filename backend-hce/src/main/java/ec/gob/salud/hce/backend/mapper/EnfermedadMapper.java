@@ -16,6 +16,7 @@ public class EnfermedadMapper {
 
         EnfermedadDTO dto = new EnfermedadDTO();
         dto.setIdEnfermedad(entity.getIdEnfermedad());
+        dto.setCodigo(entity.getCodigo());
         dto.setNombre(entity.getNombre());
        
         return dto;
@@ -26,6 +27,7 @@ public class EnfermedadMapper {
 
         Enfermedad entity = new Enfermedad();
         entity.setIdEnfermedad(dto.getIdEnfermedad());
+        entity.setCodigo(dto.getCodigo());
         entity.setNombre(dto.getNombre());
        
         return entity;

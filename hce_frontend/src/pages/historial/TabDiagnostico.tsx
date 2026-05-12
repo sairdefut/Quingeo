@@ -1,4 +1,10 @@
-import React from 'react';
+import { useEffect, useState, type Dispatch, type FC, type SetStateAction } from 'react';
+import { db } from '../../db/db';
+
+type EnfermedadCatalogo = {
+  codigo: string;
+  nombre: string;
+};
 
 interface Props {
   // Diagnósticos
@@ -7,15 +13,15 @@ interface Props {
     descripcion: string;
     tipo: 'Presuntivo' | 'Definitivo';
   };
-  setDiagnosticoPrincipal: React.Dispatch<React.SetStateAction<any>>;
+  setDiagnosticoPrincipal: Dispatch<SetStateAction<any>>;
   secundarios: any[];
-  setSecundarios: React.Dispatch<React.SetStateAction<any[]>>;
+  setSecundarios: Dispatch<SetStateAction<any[]>>;
 
   // Estudios y Laboratorios
   estudios: string;
   setEstudios: (val: string) => void;
   resultados: any[];
-  setResultados: React.Dispatch<React.SetStateAction<any[]>>;
+  setResultados: Dispatch<SetStateAction<any[]>>;
 
   // Plan Terapéutico
   planFarmacologico: {
@@ -23,7 +29,7 @@ interface Props {
     viaVenosa: string;
     viaOral: string;
   };
-  setPlanFarmacologico: React.Dispatch<React.SetStateAction<any>>;
+  setPlanFarmacologico: Dispatch<SetStateAction<any>>;
   planNoFarmacologico: {
     hidratacion: boolean;
     dieta: boolean;
@@ -31,7 +37,7 @@ interface Props {
     fisio: boolean;
     otros: string;
   };
-  setPlanNoFarmacologico: React.Dispatch<React.SetStateAction<any>>;
+  setPlanNoFarmacologico: Dispatch<SetStateAction<any>>;
 
   // Cierre
   pronostico: string;
@@ -41,7 +47,7 @@ interface Props {
   handleGuardar: () => void;
 }
 
-export const TabDiagnostico: React.FC<Props> = ({
+export const TabDiagnostico: FC<Props> = ({
   diagnosticoPrincipal,
   setDiagnosticoPrincipal,
   secundarios,
@@ -60,6 +66,32 @@ export const TabDiagnostico: React.FC<Props> = ({
   handleProximaCitaChange,
   handleGuardar
 }) => {
+  const [enfermedades, setEnfermedades] = useState<EnfermedadCatalogo[]>([]);
+
+  useEffect(() => {
+    const cargarEnfermedades = async () => {
+      const catalogos = await db.catalogos.where('tipo').equals('enfermedad').toArray();
+      setEnfermedades(catalogos.map(item => ({
+        codigo: item.codigo || '',
+        nombre: item.nombre
+      })));
+    };
+
+    cargarEnfermedades().catch(console.error);
+  }, []);
+
+  const findEnfermedadByCodigo = (codigo: string) => enfermedades.find((item) => item.codigo.toLowerCase() === codigo.trim().toLowerCase());
+  const findEnfermedadByNombre = (nombre: string) => enfermedades.find((item) => item.nombre.toLowerCase() === nombre.trim().toLowerCase());
+
+  const actualizarDiagnosticoPrincipal = (changes: Partial<Props['diagnosticoPrincipal']>) => {
+    setDiagnosticoPrincipal({ ...diagnosticoPrincipal, ...changes });
+  };
+
+  const actualizarSecundario = (idx: number, changes: Record<string, string>) => {
+    const newDiags = [...secundarios];
+    newDiags[idx] = { ...newDiags[idx], ...changes };
+    setSecundarios(newDiags);
+  };
 
   // Función para añadir una fila vacía a la tabla de resultados
   const agregarFilaExamen = () => {
@@ -88,7 +120,15 @@ export const TabDiagnostico: React.FC<Props> = ({
                 className="form-control" 
                 placeholder="Código CIE-10" 
                 value={diagnosticoPrincipal.cie10} 
-                onChange={(e) => setDiagnosticoPrincipal({...diagnosticoPrincipal, cie10: e.target.value})} 
+                list="cie-catalogo-codigos"
+                onChange={(e) => {
+                  const codigo = e.target.value;
+                  const match = findEnfermedadByCodigo(codigo);
+                  actualizarDiagnosticoPrincipal({
+                    cie10: codigo,
+                    descripcion: match?.nombre || diagnosticoPrincipal.descripcion
+                  });
+                }} 
               />
             </div>
             <div className="col-md-7">
@@ -97,7 +137,15 @@ export const TabDiagnostico: React.FC<Props> = ({
                 className="form-control" 
                 placeholder="Impresión Diagnóstica / Justificación" 
                 value={diagnosticoPrincipal.descripcion} 
-                onChange={(e) => setDiagnosticoPrincipal({...diagnosticoPrincipal, descripcion: e.target.value})} 
+                list="cie-catalogo-descripciones"
+                onChange={(e) => {
+                  const descripcion = e.target.value;
+                  const match = findEnfermedadByNombre(descripcion);
+                  actualizarDiagnosticoPrincipal({
+                    descripcion,
+                    cie10: match?.codigo || diagnosticoPrincipal.cie10
+                  });
+                }} 
               />
             </div>
             <div className="col-md-3">
@@ -127,10 +175,14 @@ export const TabDiagnostico: React.FC<Props> = ({
                     className="form-control form-control-sm" 
                     placeholder="CIE-10" 
                     value={diag.cie10} 
+                    list="cie-catalogo-codigos"
                     onChange={(e) => {
-                      const newDiags = [...secundarios];
-                      newDiags[idx].cie10 = e.target.value;
-                      setSecundarios(newDiags);
+                      const codigo = e.target.value;
+                      const match = findEnfermedadByCodigo(codigo);
+                      actualizarSecundario(idx, {
+                        cie10: codigo,
+                        descripcion: match?.nombre || diag.descripcion || ''
+                      });
                     }} 
                   />
                 </div>
@@ -140,10 +192,14 @@ export const TabDiagnostico: React.FC<Props> = ({
                     className="form-control form-control-sm" 
                     placeholder="Descripción" 
                     value={diag.descripcion} 
+                    list="cie-catalogo-descripciones"
                     onChange={(e) => {
-                      const newDiags = [...secundarios];
-                      newDiags[idx].descripcion = e.target.value;
-                      setSecundarios(newDiags);
+                      const descripcion = e.target.value;
+                      const match = findEnfermedadByNombre(descripcion);
+                      actualizarSecundario(idx, {
+                        descripcion,
+                        cie10: match?.codigo || diag.cie10 || ''
+                      });
                     }} 
                   />
                 </div>
@@ -301,6 +357,16 @@ export const TabDiagnostico: React.FC<Props> = ({
 
       {/* PRONÓSTICO Y FECHA */}
       <div className="col-12 mt-2">
+        <datalist id="cie-catalogo-codigos">
+          {enfermedades.map((item) => (
+            <option key={`codigo-${item.codigo}-${item.nombre}`} value={item.codigo}>{item.nombre}</option>
+          ))}
+        </datalist>
+        <datalist id="cie-catalogo-descripciones">
+          {enfermedades.map((item) => (
+            <option key={`nombre-${item.codigo}-${item.nombre}`} value={item.nombre}>{item.codigo}</option>
+          ))}
+        </datalist>
         <div className="row g-3 align-items-end border-top pt-3">
           <div className="col-md-4">
             <label className="small fw-bold text-primary text-uppercase">Pronóstico del Paciente</label>

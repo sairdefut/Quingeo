@@ -7,6 +7,10 @@ import ec.gob.salud.hce.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +23,7 @@ public class ConsultaService {
     private final HistoriaClinicaRepository historiaRepository;
     private final ec.gob.salud.hce.backend.mapper.PlanTerapeuticoMapper planMapper;
     private final ec.gob.salud.hce.backend.mapper.EstudioLaboratorioMapper estudioMapper;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public ConsultaDTO guardarConsultaCompleta(ConsultaDTO dto) {
@@ -38,6 +43,14 @@ public class ConsultaService {
         consulta.setIdHistoriaClinica(historia.getIdHistoriaClinica().intValue());
         if (dto.getUsuario() != null)
             consulta.setUsuarioMedico(dto.getUsuario());
+
+        if (dto.getJsonCompleto() != null) {
+            try {
+                consulta.setDatosCompletosJson(objectMapper.writeValueAsString(dto.getJsonCompleto()));
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("No se pudo serializar el detalle completo de la consulta", e);
+            }
+        }
 
         // UN SOLO SAVE - cascade automático guarda planes y estudios
         Consulta consultaGuardada = consultaRepository.save(consulta);

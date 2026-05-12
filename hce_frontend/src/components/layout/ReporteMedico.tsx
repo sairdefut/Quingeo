@@ -16,6 +16,13 @@ export default function ReporteMedico({ paciente, consulta, nombreDoctor, onClos
 
   // Filtramos el historial para que no se rompa si es undefined
   const historialPrevio = paciente.historiaClinica?.filter((c: any) => c.id !== consulta.id) || [];
+  const diagnosticos = [consulta.diagnostico?.principal, ...(consulta.diagnostico?.secundarios || [])].filter(Boolean);
+  const planTratamiento = [
+    consulta.diagnostico?.plan?.farmacologico?.esquema,
+    consulta.diagnostico?.plan?.farmacologico?.viaVenosa,
+    consulta.diagnostico?.plan?.farmacologico?.viaOral,
+    consulta.diagnostico?.plan?.noFarmacologico?.otros
+  ].filter(Boolean).join(' | ');
 
   return (
     <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
@@ -100,7 +107,7 @@ export default function ReporteMedico({ paciente, consulta, nombreDoctor, onClos
                     <div className="ps-2 mb-3">
                          <p className="mb-1 fw-bold text-decoration-underline small">Diagnósticos:</p>
                          <ul className="small mb-1 ps-3">
-                            {consulta.diagnostico?.cie10?.map((d:any, i:number) => (
+                            {diagnosticos.map((d:any, i:number) => (
                                 <li key={i}><strong>{d.cie10}</strong> - {d.descripcion} ({d.tipo})</li>
                             ))}
                          </ul>
@@ -108,7 +115,7 @@ export default function ReporteMedico({ paciente, consulta, nombreDoctor, onClos
 
                     <div className="ps-2 border rounded p-2 bg-light">
                         <p className="mb-1 fw-bold text-danger small">PLAN Y TRATAMIENTO:</p>
-                        <div className="small" style={{whiteSpace: 'pre-wrap'}}>{consulta.diagnostico?.plan || 'Sin indicaciones.'}</div>
+                        <div className="small" style={{whiteSpace: 'pre-wrap'}}>{planTratamiento || 'Sin indicaciones.'}</div>
                         <div className="d-flex justify-content-between mt-2 small border-top pt-1">
                              <span><strong>Próxima Cita:</strong> {consulta.diagnostico?.proximaCita || '-'}</span>
                              <span><strong>Pronóstico:</strong> {consulta.diagnostico?.pronostico || '-'}</span>

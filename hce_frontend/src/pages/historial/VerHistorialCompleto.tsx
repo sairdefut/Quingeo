@@ -56,6 +56,23 @@ export default function VerHistorialCompleto() {
         ? [...paciente.historiaClinica].reverse()
         : [];
 
+    const obtenerDiagnosticos = (consulta: any) => {
+        const diagnosticos = [];
+        if (consulta.diagnostico?.principal?.descripcion) {
+            diagnosticos.push(consulta.diagnostico.principal);
+        }
+        if (Array.isArray(consulta.diagnostico?.secundarios)) {
+            diagnosticos.push(...consulta.diagnostico.secundarios.filter(Boolean));
+        }
+        return diagnosticos;
+    };
+
+    const obtenerPlan = (consulta: any) => {
+        const planFarmacologico = consulta.diagnostico?.plan?.farmacologico?.esquema;
+        const planNoFarmacologico = consulta.diagnostico?.plan?.noFarmacologico?.otros;
+        return [planFarmacologico, planNoFarmacologico].filter(Boolean).join(' | ') || "No registrado";
+    };
+
     // --- NUEVO: Obtener fecha de creación (si no existe en el objeto, usamos una por defecto o la actual) ---
     const fechaCreacion = paciente.fechaCreacion || new Date().toLocaleDateString();
 
@@ -171,9 +188,9 @@ export default function VerHistorialCompleto() {
                                             <li className="mb-2">
                                                 <strong className="text-dark small text-uppercase">Diagnóstico:</strong>
                                                 <div className="ms-2">
-                                                    {consulta.diagnostico?.cie10?.length > 0 ? (
-                                                        consulta.diagnostico.cie10.map((d: any, i: number) => (
-                                                            <span key={i} className="badge bg-secondary me-1">{d.descripcion}</span>
+                                                    {obtenerDiagnosticos(consulta).length > 0 ? (
+                                                        obtenerDiagnosticos(consulta).map((d: any, i: number) => (
+                                                            <span key={i} className="badge bg-secondary me-1">{d.descripcion} {d.cie10 ? `(${d.cie10})` : ''}</span>
                                                         ))
                                                     ) : <span className="text-muted small fst-italic">Sin diagnóstico CIE-10</span>}
                                                     <div className="small text-muted mt-1">{consulta.diagnostico?.impresion}</div>
@@ -182,7 +199,7 @@ export default function VerHistorialCompleto() {
                                             <li className="mb-2">
                                                 <strong className="text-dark small text-uppercase">Tratamiento:</strong>
                                                 <p className="ms-2 mb-0 small text-success fw-bold bg-success bg-opacity-10 p-2 rounded">
-                                                    {consulta.planTratamiento?.receta || consulta.diagnostico?.plan || "No registrado"}
+                                                    {consulta.planTratamiento?.receta || obtenerPlan(consulta)}
                                                 </p>
                                             </li>
                                             <li>

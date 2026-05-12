@@ -7,6 +7,7 @@ import lombok.Setter;
 @Setter
 public class EnfermedadDTO {
     private Integer idEnfermedad;
+    private String codigo;
     private String nombre;
     private String estado;
     private String usuario;

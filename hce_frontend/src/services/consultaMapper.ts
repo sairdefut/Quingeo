@@ -19,6 +19,7 @@ export interface ConsultaBackend {
     usuario: string;
     listaPlan?: PlanTerapeuticoDTO[];
     listaEstudios?: EstudioLaboratorioDTO[];
+    jsonCompleto?: Record<string, any>;
 }
 
 export interface PlanTerapeuticoDTO {
@@ -43,20 +44,31 @@ export interface EstudioLaboratorioDTO {
  * en paciente.historiaClinica[]
  */
 export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
+    const respaldo = consulta.jsonCompleto ?? {};
+    const planFarmacologico = respaldo.diagnostico?.plan?.farmacologico;
+    const planNoFarmacologico = respaldo.diagnostico?.plan?.noFarmacologico;
+
     return {
-        // Identificador único (usar idConsulta del backend)
-        id: `consulta-${consulta.idConsulta}`,
-
-        // Fecha y hora
-        fecha: consulta.fecha,
-        hora: consulta.hora,
-
-        // Motivo y enfermedad actual
-        motivoConsulta: consulta.motivo,
-        enfermedadActual: consulta.enfermedadActual,
-
-        // Signos vitales
-        signosVitales: {
+        ...respaldo,
+        id: respaldo.id || `consulta-${consulta.idConsulta}`,
+        fecha: respaldo.fecha || consulta.fecha,
+        hora: respaldo.hora || consulta.hora,
+        motivo: respaldo.motivo || respaldo.motivoConsulta || consulta.motivo,
+        motivoConsulta: respaldo.motivoConsulta || respaldo.motivo || consulta.motivo,
+        enfermedadActual: respaldo.enfermedadActual || consulta.enfermedadActual,
+        examenFisico: respaldo.examenFisico || {
+            vitales: {
+                peso: consulta.peso,
+                talla: consulta.talla,
+                temperatura: consulta.temperatura,
+                fc: consulta.fc,
+                fr: consulta.fr,
+                spo2: consulta.spo2
+            },
+            segmentario: {},
+            evolucion: ''
+        },
+        signosVitales: respaldo.signosVitales || respaldo.examenFisico?.vitales || {
             peso: consulta.peso,
             talla: consulta.talla,
             temperatura: consulta.temperatura,
@@ -64,33 +76,38 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
             fr: consulta.fr,
             spo2: consulta.spo2
         },
-
-        // Diagnóstico
-        diagnostico: {
-            texto: consulta.diagnosticoTexto,
-            tipo: consulta.tipoDiagnostico
+        diagnostico: respaldo.diagnostico || {
+            principal: {
+                cie10: consulta.diagnosticoTexto || '',
+                descripcion: consulta.diagnosticoTexto || 'Sin diagnóstico',
+                tipo: consulta.tipoDiagnostico === 'DEFINITIVO' ? 'Definitivo' : 'Presuntivo'
+            },
+            secundarios: [],
+            estudios: consulta.listaEstudios?.map(estudio => estudio.descripcion || estudio.tipo) || [],
+            resultados: consulta.listaEstudios?.map(estudio => ({
+                examen: estudio.descripcion || estudio.tipo,
+                tipo: estudio.tipo,
+                resultado: estudio.resultado
+            })) || [],
+            plan: {
+                farmacologico: planFarmacologico || {
+                    esquema: consulta.listaPlan?.[0]?.medicamento || '',
+                    viaVenosa: '',
+                    viaOral: ''
+                },
+                noFarmacologico: planNoFarmacologico || {
+                    hidratacion: false,
+                    dieta: false,
+                    oxigeno: false,
+                    fisio: false,
+                    otros: consulta.listaPlan?.[0]?.indicaciones || ''
+                }
+            },
+            pronostico: respaldo.diagnostico?.pronostico || 'Bueno',
+            proximaCita: respaldo.diagnostico?.proximaCita || ''
         },
-
-        // Plan terapéutico
-        planTerapeutico: consulta.listaPlan?.map(plan => ({
-            medicamento: plan.medicamento,
-            dosis: plan.dosis,
-            frecuencia: plan.frecuencia,
-            duracion: plan.duracion,
-            indicaciones: plan.indicaciones
-        })) || [],
-
-        // Estudios de laboratorio
-        estudios: consulta.listaEstudios?.map(estudio => ({
-            tipo: estudio.tipo,
-            descripcion: estudio.descripcion,
-            fecha: estudio.fecha,
-            resultado: estudio.resultado
-        })) || [],
-
-        // Metadata
         usuario: consulta.usuario,
-        sincronizado: true  // Viene del servidor
+        sincronizado: true
     };
 }
 /**
@@ -110,11 +127,22 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
         horaISO = `${horaISO}:00`;
     }
 
+    const diagnosticoPrincipal = consulta.diagnostico?.principal || {};
+    const tipoDiagnostico = diagnosticoPrincipal.tipo === 'Definitivo' ? 'DEFINITIVO' : 'PRESUNTIVO';
+    const planFarmacologico = consulta.diagnostico?.plan?.farmacologico || {};
+    const planNoFarmacologico = consulta.diagnostico?.plan?.noFarmacologico || {};
+    const resultados = Array.isArray(consulta.diagnostico?.resultados) ? consulta.diagnostico.resultados : [];
+    const estudiosTexto = consulta.diagnostico?.estudios;
+    const usuario = consulta.usuario
+        || JSON.parse(localStorage.getItem('usuarioLogueado') || '{}')?.username
+        || JSON.parse(localStorage.getItem('usuarioLogueado') || '{}')?.usuario
+        || 'admin';
+
     return {
         idPaciente: idPaciente,
         fecha: fechaISO,
         hora: horaISO,
-        motivo: consulta.motivoConsulta || consulta.motivo || "Sin motivo",
+        motivo: consulta.motivo || consulta.motivoConsulta || "Sin motivo",
         enfermedadActual: consulta.enfermedadActual || "Sin enfermedad actual",
         
         // Vitales
@@ -126,25 +154,45 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
         spo2: parseInt(consulta.signosVitales?.spo2) || 0,
         
         // Diagnóstico
-        diagnosticoTexto: consulta.diagnostico?.principal?.diagnostico || consulta.diagnostico?.texto || "Sin diagnóstico",
-        tipoDiagnostico: consulta.diagnostico?.principal?.presuntivoDefinitivo || consulta.diagnostico?.tipo || "PRESUNTIVO",
+        diagnosticoTexto: [diagnosticoPrincipal.cie10, diagnosticoPrincipal.descripcion].filter(Boolean).join(' - ') || "Sin diagnóstico",
+        tipoDiagnostico: tipoDiagnostico,
         
-        usuario: consulta.usuario || 'admin',
+        usuario,
+        jsonCompleto: consulta,
 
         // Listas detalladas
-        listaPlan: consulta.diagnostico?.plan?.farmacologico?.map((p: any) => ({
-            medicamento: p.medicamento,
-            dosis: p.dosis,
-            frecuencia: p.frecuencia,
-            duracion: p.duracion,
-            indicaciones: p.indicaciones
-        })) || [],
+        listaPlan: [
+            {
+                medicamento: planFarmacologico.esquema || '',
+                dosis: '',
+                frecuencia: '',
+                duracion: '',
+                indicaciones: [
+                    planFarmacologico.viaVenosa ? `Via venosa: ${planFarmacologico.viaVenosa}` : '',
+                    planFarmacologico.viaOral ? `Via oral: ${planFarmacologico.viaOral}` : '',
+                    planNoFarmacologico.hidratacion ? 'Hidratacion' : '',
+                    planNoFarmacologico.dieta ? 'Dieta' : '',
+                    planNoFarmacologico.oxigeno ? 'Oxigeno' : '',
+                    planNoFarmacologico.fisio ? 'Fisio' : '',
+                    planNoFarmacologico.otros || ''
+                ].filter(Boolean).join(' | ')
+            }
+        ].filter(plan => plan.medicamento || plan.indicaciones),
 
-        listaEstudios: consulta.diagnostico?.estudios?.map((e: any) => ({
-            tipo: e.tipo,
-            descripcion: e.descripcion,
-            fecha: e.fecha || new Date().toISOString().split('T')[0],
-            resultado: e.resultado || ""
-        })) || []
+        listaEstudios: resultados.length > 0
+            ? resultados.map((e: any) => ({
+                tipo: e.tipo || 'General',
+                descripcion: e.examen || estudiosTexto || 'Estudio',
+                fecha: e.fecha || fechaISO,
+                resultado: e.resultado || ""
+            }))
+            : (typeof estudiosTexto === 'string' && estudiosTexto.trim()
+                ? [{
+                    tipo: 'General',
+                    descripcion: estudiosTexto.trim(),
+                    fecha: fechaISO,
+                    resultado: ''
+                }]
+                : [])
     };
 }

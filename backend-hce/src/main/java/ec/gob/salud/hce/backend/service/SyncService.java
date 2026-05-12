@@ -42,6 +42,9 @@ public class SyncService {
     private ec.gob.salud.hce.backend.repository.GrupoEtnicoRepository grupoEtnicoRepository;
 
     @Autowired
+    private ec.gob.salud.hce.backend.repository.EnfermedadRepository enfermedadRepository;
+
+    @Autowired
     private PacienteMapper pacienteMapper;
 
     @Autowired
@@ -107,8 +110,12 @@ public class SyncService {
                     List<ec.gob.salud.hce.backend.dto.ConsultaDTO> consultasDTO = consultas.stream()
                             .map(c -> {
                                 try {
-                                    return ec.gob.salud.hce.backend.mapper.ConsultaMapper.toDto(c, planMapper,
-                                            estudioMapper);
+                                    ec.gob.salud.hce.backend.dto.ConsultaDTO dto = ec.gob.salud.hce.backend.mapper.ConsultaMapper
+                                            .toDto(c, planMapper, estudioMapper);
+                                    if (c.getDatosCompletosJson() != null && !c.getDatosCompletosJson().isBlank()) {
+                                        dto.setJsonCompleto(objectMapper.readValue(c.getDatosCompletosJson(), java.util.Map.class));
+                                    }
+                                    return dto;
                                 } catch (Exception e) {
                                     System.err.println(
                                             "ERROR mapeando consulta ID " + c.getIdConsulta() + ": " + e.getMessage());
@@ -198,6 +205,10 @@ public class SyncService {
             // Etnia
             grupoEtnicoRepository.findAll().forEach(e -> {
                 catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("etnia", e.getIdGrupoEtnico().toString(), e.getDescripcion(), null));
+            });
+
+            enfermedadRepository.findAll().forEach(e -> {
+                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("enfermedad", e.getCodigo(), e.getNombre(), null));
             });
             
             // Catálogos estáticos
