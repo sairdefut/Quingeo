@@ -3,6 +3,7 @@ import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
 import { useToast } from "../../contexts/ToastContext";
 import { dbHelpers, db } from "../../db/db";
+import { syncService } from "../../services/syncService";
 
 export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
@@ -117,7 +118,13 @@ export default function RegistroPaciente() {
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
-        const catalogos = await db.catalogos.toArray();
+        let catalogos = await db.catalogos.toArray();
+
+        if (catalogos.length === 0 && navigator.onLine) {
+          await syncService.syncDown();
+          catalogos = await db.catalogos.toArray();
+        }
+
         setProvincias(catalogos.filter(c => c.tipo === 'provincia'));
         setCantonesList(catalogos.filter(c => c.tipo === 'canton'));
         setParroquiasList(catalogos.filter(c => c.tipo === 'parroquia'));
