@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface ReporteProps {
   paciente: any;
   consulta: any;

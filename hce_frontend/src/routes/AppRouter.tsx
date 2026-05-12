@@ -22,7 +22,7 @@ const ReporteHCEWrapper = () => {
   useEffect(() => {
     const cargar = async () => {
       const lista = await obtenerPacientes();
-      const encontrado = lista.find(p => String(p.cedula) === String(cedula));
+      const encontrado = lista.find((p: any) => String(p.cedula) === String(cedula));
       setPaciente(encontrado);
     };
     cargar();

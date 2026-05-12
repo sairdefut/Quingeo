@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const VistaIdentificacion = ({ cedula, paciente }: any) => (
     <div className="card mb-4 border-0 shadow-sm bg-light">
         <div className="card-body p-3">

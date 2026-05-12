@@ -1,5 +1,4 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import type { FC } from 'react';
 
 interface Props {
   consultas: any[];
@@ -9,7 +8,7 @@ interface Props {
   onNuevaConsulta: () => void;
 }
 
-const ListaConsultasHistorial: React.FC<Props> = ({
+const ListaConsultasHistorial: FC<Props> = ({
   consultas,
   idEdicionActual,
   onVerExpediente,

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const TabDesarrolloPsicomotor = ({ isAntBlocked, desarrollo, setDesarrollo, alimentacion, setAlimentacion }: any) => (
     <div className="row g-3 w-100 m-0 p-2">
         <div className="col-12 border-bottom pb-2 mb-2">

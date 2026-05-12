@@ -9,11 +9,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.List;
 
 @Service
 public class SyncService {
+
+    private record CantonCatalogEntry(Long id, Long provinciaId, String nombre, long parroquias) {
+    }
 
     @Autowired
     private PacienteRepository pacienteRepository;
@@ -124,19 +132,69 @@ public class SyncService {
             // CARGAR CATÁLOGOS
             System.out.println("DEBUG: Cargando Catálogos...");
             List<ec.gob.salud.hce.backend.dto.CatalogoDTO> catalogos = new java.util.ArrayList<>();
+            List<ec.gob.salud.hce.backend.entity.Canton> cantones = cantonRepository.findAll();
+            List<ec.gob.salud.hce.backend.entity.Parroquia> parroquias = parroquiaRepository.findAll();
+            Map<Long, Long> parroquiasPorCanton = parroquias.stream().collect(Collectors.groupingBy(
+                    p -> p.getCanton().getId(),
+                    Collectors.counting()));
+            Map<String, CantonCatalogEntry> cantonesCanonicos = new LinkedHashMap<>();
+            Map<Long, Long> canonicosPorCantonId = new HashMap<>();
             
             // Provincias
             provinciaRepository.findAll().forEach(p -> {
                 catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("provincia", p.getId().toString(), p.getNombre(), null));
             });
-            // Cantones
-            cantonRepository.findAll().forEach(c -> {
-                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("canton", c.getId().toString(), c.getNombre(), c.getProvincia().getId()));
+
+            // Cantones: deduplicar por provincia + nombre, prefiriendo el que sí tenga parroquias.
+            cantones.forEach(c -> {
+                String key = c.getProvincia().getId() + ":" + normalizeCatalogName(c.getNombre());
+                CantonCatalogEntry candidato = new CantonCatalogEntry(
+                        c.getId(),
+                        c.getProvincia().getId(),
+                        c.getNombre(),
+                        parroquiasPorCanton.getOrDefault(c.getId(), 0L));
+
+                CantonCatalogEntry actual = cantonesCanonicos.get(key);
+                if (actual == null || isBetterCatalogCandidate(candidato, actual)) {
+                    cantonesCanonicos.put(key, candidato);
+                }
             });
-            // Parroquias
-            parroquiaRepository.findAll().forEach(p -> {
-                catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("parroquia", p.getId().toString(), p.getNombre(), p.getCanton().getId()));
+
+            cantones.forEach(c -> {
+                String key = c.getProvincia().getId() + ":" + normalizeCatalogName(c.getNombre());
+                canonicosPorCantonId.put(c.getId(), cantonesCanonicos.get(key).id());
             });
+
+            cantonesCanonicos.values().stream()
+                    .sorted(Comparator.comparing(CantonCatalogEntry::provinciaId)
+                            .thenComparing(CantonCatalogEntry::nombre))
+                    .forEach(c -> catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO(
+                            "canton",
+                            c.id().toString(),
+                            c.nombre(),
+                            c.provinciaId())));
+
+            // Parroquias: re-mapear al cantón canónico y deduplicar por nombre.
+            Map<String, ec.gob.salud.hce.backend.entity.Parroquia> parroquiasCanonicas = new LinkedHashMap<>();
+            parroquias.forEach(p -> {
+                Long cantonCanonicoId = canonicosPorCantonId.getOrDefault(p.getCanton().getId(), p.getCanton().getId());
+                String key = cantonCanonicoId + ":" + normalizeCatalogName(p.getNombre());
+                ec.gob.salud.hce.backend.entity.Parroquia actual = parroquiasCanonicas.get(key);
+                if (actual == null || p.getId() < actual.getId()) {
+                    parroquiasCanonicas.put(key, p);
+                }
+            });
+
+            parroquiasCanonicas.values().stream()
+                    .sorted(Comparator.comparing((ec.gob.salud.hce.backend.entity.Parroquia p) -> canonicosPorCantonId
+                            .getOrDefault(p.getCanton().getId(), p.getCanton().getId()))
+                            .thenComparing(ec.gob.salud.hce.backend.entity.Parroquia::getNombre))
+                    .forEach(p -> catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO(
+                            "parroquia",
+                            p.getId().toString(),
+                            p.getNombre(),
+                            canonicosPorCantonId.getOrDefault(p.getCanton().getId(), p.getCanton().getId()))));
+
             // Etnia
             grupoEtnicoRepository.findAll().forEach(e -> {
                 catalogos.add(new ec.gob.salud.hce.backend.dto.CatalogoDTO("etnia", e.getIdGrupoEtnico().toString(), e.getDescripcion(), null));
@@ -238,5 +296,24 @@ public class SyncService {
             e.printStackTrace();
             throw new RuntimeException("Error al procesar sincronización: " + e.getMessage(), e);
         }
+    }
+
+    private boolean isBetterCatalogCandidate(CantonCatalogEntry candidato, CantonCatalogEntry actual) {
+        if (candidato.parroquias() != actual.parroquias()) {
+            return candidato.parroquias() > actual.parroquias();
+        }
+        return candidato.id() < actual.id();
+    }
+
+    private String normalizeCatalogName(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^\\p{Alnum}]+", " ")
+                .trim()
+                .toLowerCase();
     }
 }

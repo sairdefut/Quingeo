@@ -1,4 +1,3 @@
-import React from 'react';
 import { TabAntecedentesPerinatales } from '../TabAntecedentesPerinatales';
 import { TabAntecedentesPersonales } from '../TabAntecedentesPersonales';
 import { TabInmunizaciones } from '../TabInmunizaciones';

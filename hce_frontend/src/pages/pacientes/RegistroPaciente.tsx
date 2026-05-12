@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react'; // Se agrega useEffect
+import { useState, useEffect } from 'react';
 import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
 import { useToast } from "../../contexts/ToastContext";
 import { dbHelpers, db } from "../../db/db";
-import { syncService } from "../../services/syncService";
 
 export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
-  const { showSuccessToast, showWarningToast, showToast } = useToast();
-  const showInfoToast = (msg: string) => showToast(msg, 'info');
+  const { showSuccessToast, showWarningToast } = useToast();
 
   // MODIFICACIÓN 1: El nombre se inicializa vacío y se carga del login
   const [nombreDoctor, setNombreDoctor] = useState("Cargando...");

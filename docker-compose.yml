@@ -18,6 +18,7 @@ services:
       - mysql-data:/var/lib/mysql
       # Inicializar BD con dump (solo primera vez)
       - ./Dump20260127.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/patches/001-fix-azuay-parroquias.sql:/docker-entrypoint-initdb.d/02-fix-azuay-parroquias.sql:ro
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     networks:

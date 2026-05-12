@@ -1,4 +1,3 @@
-import React from 'react';
 import { TabAnamnesis } from '../TabAnamnesis'; 
 import { TabExamenFisico } from '../tabExamenFisico'; 
 import { TabDiagnostico } from '../TabDiagnostico'; 

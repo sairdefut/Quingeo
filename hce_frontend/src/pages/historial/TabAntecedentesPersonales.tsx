@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const TabAntecedentesPersonales = ({ 
     isAntBlocked, enfermedadesCronicas, setEnfermedadesCronicas, 
     hospitalizaciones, setHospitalizaciones,

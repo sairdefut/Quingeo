@@ -1,10 +1,10 @@
-import React from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
 
 interface Props {
   signosVitales: any;
-  setSignosVitales: React.Dispatch<React.SetStateAction<any>>;
+  setSignosVitales: Dispatch<SetStateAction<any>>;
   examenSegmentario: any;
-  setExamenSegmentario: React.Dispatch<React.SetStateAction<any>>;
+  setExamenSegmentario: Dispatch<SetStateAction<any>>;
   zPesoEdad: any;
   zTallaEdad: any;
   zIMCEdad: any;
@@ -14,7 +14,7 @@ interface Props {
   paciente: any; // Se añade para corregir error TS2322
 }
 
-export const TabExamenFisico: React.FC<Props> = ({
+export const TabExamenFisico: FC<Props> = ({
   signosVitales,
   setSignosVitales,
   examenSegmentario,
@@ -25,7 +25,7 @@ export const TabExamenFisico: React.FC<Props> = ({
   resultadoIMC,
   evolucionClinica,
   setEvolucionClinica,
-  paciente
+  paciente: _paciente
 }) => {
 
   const renderValue = (val: any) => {

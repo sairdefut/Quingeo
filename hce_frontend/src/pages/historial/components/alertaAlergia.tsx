@@ -1,5 +1,3 @@
-import React from 'react';
-
 // Exportación nombrada exacta para que el Padre lo encuentre
 export const AlertaAlergia = ({ tiene, descripcion }: { tiene: boolean, descripcion: string }) => {
     if (!tiene) return null;
