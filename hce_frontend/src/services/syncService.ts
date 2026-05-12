@@ -82,29 +82,6 @@ class SyncService {
                     }
                 });
 
-                const pacientesConUuid = Array.from(pacientesUnicosMap.values()).map((p: any): Paciente => {
-                    const nombres = [p.primerNombre, p.segundoNombre].filter(Boolean).join(' ').trim();
-                    const apellidos = [p.apellidoPaterno, p.apellidoMaterno].filter(Boolean).join(' ').trim();
-                    
-                    let filiacion = null;
-                    if (p.tutor) {
-                        filiacion = {
-                            nombreResponsable: [p.tutor.primerNombre, p.tutor.segundoNombre, p.tutor.primerApellido, p.tutor.segundoApellido].filter(Boolean).join(' ').trim(),
-                            parentesco: p.tutor.parentesco,
-                            telefonoContacto: p.tutor.telefono,
-                            domicilioActual: p.tutor.direccion
-                        };
-                    }
-
-                    return {
-                        ...p,
-                        nombres,
-                        apellidos,
-                        filiacion,
-                        uuidOffline: p.uuidOffline || p.idPaciente?.toString() || crypto.randomUUID()
-                    } as Paciente;
-                });
-
                 const pendingItems = await dbHelpers.getPendingSyncItems();
                 const pendingPacientesCedulas = new Set(
                     pendingItems
@@ -112,7 +89,36 @@ class SyncService {
                         .map(item => item.data.cedula)
                 );
 
-                const pacientesToUpdate = pacientesConUuid.filter(p => !pendingPacientesCedulas.has(p.cedula));
+                // Fetch all local patients to map cedula -> uuidOffline to prevent duplicates
+                const localPacientes = await db.pacientes.toArray();
+                const localCedulaToUuid = new Map(localPacientes.map(lp => [lp.cedula, lp.uuidOffline]));
+
+                const pacientesToUpdate = Array.from(pacientesUnicosMap.values())
+                    .filter((p: any) => !pendingPacientesCedulas.has(p.cedula))
+                    .map((p: any): Paciente => {
+                        const nombres = [p.primerNombre, p.segundoNombre].filter(Boolean).join(' ').trim();
+                        const apellidos = [p.apellidoPaterno, p.apellidoMaterno].filter(Boolean).join(' ').trim();
+                        
+                        let filiacion = null;
+                        if (p.tutor) {
+                            filiacion = {
+                                nombreResponsable: [p.tutor.primerNombre, p.tutor.segundoNombre, p.tutor.primerApellido, p.tutor.segundoApellido].filter(Boolean).join(' ').trim(),
+                                parentesco: p.tutor.parentesco,
+                                telefonoContacto: p.tutor.telefono,
+                                domicilioActual: p.tutor.direccion
+                            };
+                        }
+
+                        const existingUuid = localCedulaToUuid.get(p.cedula);
+
+                        return {
+                            ...p,
+                            nombres,
+                            apellidos,
+                            filiacion,
+                            uuidOffline: existingUuid || p.uuidOffline || p.idPaciente?.toString() || crypto.randomUUID()
+                        } as Paciente;
+                    });
 
                 await db.transaction('rw', db.pacientes, async () => {
                     // Eliminamos db.pacientes.clear() para no perder datos offline.
