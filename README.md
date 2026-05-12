@@ -25,7 +25,7 @@ docker-compose ps
 Una vez iniciados los contenedores, accede a:
 *   **Frontend (App):** [http://localhost](http://localhost)
 *   **Backend (API):** [http://localhost:8080](http://localhost:8080)
-*   **Base de Datos (MySQL):** Puerto `3306` (Usuario: `root`, Password: `root`, DB: `hce_prueba2`)
+*   **Base de Datos (MySQL):** Puerto `3306` (Usuario: `root`, Password: definida en `.env`, DB: `hce_prueba2`)
 
 ---
 
@@ -98,12 +98,11 @@ Al crear un paciente sin internet:
 2.  **Sincronización Completa de Consultas:**
     *   Extender la lógica de `syncUp` para soportar la subida de nuevas consultas médicas individuales, no solo pacientes.
 
-3.  **Seguridad:**
-    *   Habilitar seguridad JWT en los endpoints de sincronización.
-    *   Implementar manejo seguro de sesiones en el frontend.
+3.  **Seguridad adicional:**
+    *   Externalizar el secreto JWT para evitar claves embebidas en el código.
+    *   Revisar endurecimiento adicional de cookies (`Secure` forzado detrás de HTTPS y expiración/rotación).
 
 4.  **PWA (Progressive Web App):**
     *   Configurar Service Workers para cachear los archivos estáticos (HTML, CSS, JS), permitiendo que la app cargue "instantáneamente" sin red.
 
 # Quingeo
-

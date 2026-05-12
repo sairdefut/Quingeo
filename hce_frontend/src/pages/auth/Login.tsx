@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncService } from '../../services/syncService';
+import { API_BASE_URL, clearStoredSession } from '../../services/authSession';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,13 +17,15 @@ export default function Login() {
     setError('');
     setCargando(true);
     setMensajeSincronizacion('');
+    clearStoredSession();
 
     try {
       // PASO 1: Autenticación Real
       setMensajeSincronizacion('Validando credenciales...');
       
-      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: usuario, password })
       });
@@ -34,9 +37,8 @@ export default function Login() {
 
       const data = await response.json();
 
-      // Guardamos en el navegador para que las otras pantallas lo lean
+      // Guardamos solo los datos de perfil; el JWT queda en cookie HttpOnly
       localStorage.setItem('usuarioLogueado', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
 
       // PASO 2: Sincronización automática de datos
       if (navigator.onLine) {
@@ -82,6 +84,7 @@ export default function Login() {
             <input className="form-control" type="password" placeholder="***" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <div className="alert alert-danger py-2 small text-center mb-3">{error}</div>}
+          {mensajeSincronizacion && <div className="alert alert-info py-2 small text-center mb-3">{mensajeSincronizacion}</div>}
           <button className="btn btn-primary w-100 fw-bold py-2 shadow-sm" type="submit" disabled={cargando}>
             {cargando ? "Ingresando..." : "INGRESAR"}
           </button>

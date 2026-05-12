@@ -4,8 +4,7 @@
 import { db, dbHelpers } from '../db/db';
 import { mapConsultaFrontendToBackend, mapConsultaBackendToFrontend } from './consultaMapper';
 import type { Paciente } from '../models/Paciente';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api';
+import { API_BASE_URL, handleUnauthorized } from './authSession';
 
 export interface SyncStatus {
     lastSync: number | null;
@@ -21,6 +20,8 @@ class SyncService {
     private listeners: Array<(status: SyncStatus) => void> = [];
     private toastCallback: ToastCallback | null = null;
 
+    private readonly retryDelaysMs = [1000, 2000, 4000];
+
     setToastCallback(callback: ToastCallback) {
         this.toastCallback = callback;
     }
@@ -29,6 +30,10 @@ class SyncService {
         if (this.toastCallback) {
             this.toastCallback(message, type);
         }
+    }
+
+    private async wait(ms: number): Promise<void> {
+        await new Promise(resolve => setTimeout(resolve, ms));
     }
 
     async getStatus(): Promise<SyncStatus> {
@@ -63,12 +68,14 @@ class SyncService {
             await this.notifyListeners();
             this.showToast('📥 Descargando datos del servidor...', 'info');
 
-            const token = localStorage.getItem('token');
             const response = await fetch(`${API_BASE_URL}/sync/down`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
+            if (response.status === 403) {
+                this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                handleUnauthorized();
+                return;
+            }
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
@@ -183,17 +190,40 @@ class SyncService {
                         }
                     }
 
-                    const token = localStorage.getItem('token');
-                    const response = await fetch(`${API_BASE_URL}/sync/up`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({ ...item, data: dataToSend })
-                    });
+                    let response: Response | null = null;
 
-                    if (response.ok) {
+                    for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
+                        try {
+                            response = await fetch(`${API_BASE_URL}/sync/up`, {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ ...item, data: dataToSend })
+                            });
+
+                            if (response.status === 403) {
+                                this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                                handleUnauthorized();
+                                return;
+                            }
+
+                            if (response.ok) {
+                                break;
+                            }
+
+                            throw new Error(`HTTP ${response.status}`);
+                        } catch (error) {
+                            if (attempt === this.retryDelaysMs.length) {
+                                throw error;
+                            }
+
+                            await this.wait(this.retryDelaysMs[attempt]);
+                        }
+                    }
+
+                    if (response?.ok) {
                         const mappings = await response.json();
                         if (Array.isArray(mappings)) {
                             for (const m of mappings) {
@@ -206,6 +236,7 @@ class SyncService {
                     }
                 } catch (e) {
                     console.error('[SyncService] Error enviando item:', e);
+                    this.showToast('❌ No se pudo completar la sincronizacion pendiente', 'error');
                 }
             }
             await dbHelpers.clearSyncedItems();

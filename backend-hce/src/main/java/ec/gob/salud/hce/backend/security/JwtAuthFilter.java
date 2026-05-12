@@ -15,6 +15,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    private static final String AUTH_COOKIE_NAME = "HCE_AUTH_TOKEN";
+
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
@@ -25,10 +27,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        String token = extractTokenFromCookie(request);
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+        if (token != null && !token.isBlank()) {
             
             try {
                 if (jwtService.isTokenValid(token)) {
@@ -46,11 +47,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             } catch (Exception e) {
                 System.out.println("Error procesando JWT: " + e.getMessage());
             }
-        } else {
-            // Log para depuración si es necesario
-            // System.out.println("Petición sin cabecera Authorization o formato incorrecto");
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+
+        for (Cookie cookie : cookies) {
+            if (AUTH_COOKIE_NAME.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+
+        return null;
     }
 }
