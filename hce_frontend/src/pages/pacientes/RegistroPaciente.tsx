@@ -120,7 +120,11 @@ export default function RegistroPaciente() {
       try {
         let catalogos = await db.catalogos.toArray();
 
-        if (catalogos.length === 0 && navigator.onLine) {
+        const parroquiasActuales = catalogos.filter(c => c.tipo === 'parroquia').length;
+        const cantonesActuales = catalogos.filter(c => c.tipo === 'canton').length;
+        const provinciasActuales = catalogos.filter(c => c.tipo === 'provincia').length;
+
+        if (navigator.onLine && (catalogos.length === 0 || provinciasActuales < 24 || cantonesActuales < 200 || parroquiasActuales < 1000)) {
           await syncService.syncDown();
           catalogos = await db.catalogos.toArray();
         }
