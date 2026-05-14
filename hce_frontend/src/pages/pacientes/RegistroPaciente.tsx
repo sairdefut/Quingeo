@@ -56,6 +56,7 @@ export default function RegistroPaciente() {
   };
 
   // ================= 1. DATOS DE IDENTIFICACIÓN DEL PACIENTE =================
+  const [tipoIdentificacion, setTipoIdentificacion] = useState<'CEDULA' | 'EXTRANJERO'>('CEDULA');
   const [cedula, setCedula] = useState('');
   const [primerNombre, setPrimerNombre] = useState('');
   const [segundoNombre, setSegundoNombre] = useState('');
@@ -71,6 +72,30 @@ export default function RegistroPaciente() {
   const [canton, setCanton] = useState('');
   const [parroquia, setParroquia] = useState('');
   const [tipoSangre, setTipoSangre] = useState('');
+
+  // ================= VALIDAR CÉDULA SEGÚN TIPO =================
+  const validarCedula = (cedulaValor: string) => {
+    if (tipoIdentificacion === 'EXTRANJERO') {
+      return true; // Extranjero acepta cualquier valor
+    }
+    // Ecuatoriana: validar módulo 10
+    if (cedulaValor.length !== 10) return false;
+    const digits = cedulaValor.split('').map(Number);
+    if (digits.some(isNaN)) return false;
+    const provincia = Number(cedulaValor.substring(0, 2));
+    if (provincia < 1 || provincia > 24) return false;
+    const digitoTercero = digits[2];
+    if (digitoTercero >= 6) return false;
+    const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+    let suma = 0;
+    for (let i = 0; i < 9; i++) {
+      let valor = digits[i] * coeficientes[i];
+      if (valor >= 10) valor -= 9;
+      suma += valor;
+    }
+    const digitoVerificadorCalculado = suma % 10 === 0 ? 0 : 10 - (suma % 10);
+    return digitoVerificadorCalculado === digits[9];
+  };
 
   // ================= 2. DATOS DE FILIACIÓN (RESPONSABLE) =================
   const [primerNombreRes, setPrimerNombreRes] = useState('');
@@ -152,7 +177,7 @@ export default function RegistroPaciente() {
 
     // Validación de Identificación
     if (!cedula.trim()) e.cedula = 'Requerido';
-    else if (!validarCedulaEcuatoriana(cedula)) e.cedula = 'Cédula inválida';
+    else if (!validarCedula(cedula)) e.cedula = tipoIdentificacion === 'EXTRANJERO' ? 'Requerido' : 'Cédula inválida';
     if (!primerNombre.trim()) e.primerNombre = 'Requerido';
     if (!primerApellido.trim()) e.primerApellido = 'Requerido';
     if (!fechaNacimiento) e.fechaNacimiento = 'Requerido';
@@ -209,7 +234,7 @@ export default function RegistroPaciente() {
 
     const paciente = {
       id: nuevoId,
-      cedula, nombres: nombresPaciente, apellidos: apellidosPaciente,
+      cedula, tipoIdentificacion, nombres: nombresPaciente, apellidos: apellidosPaciente,
       fechaCreacion, fechaNacimiento,
       edad: edad ? `${edad.años} años, ${edad.meses} meses` : '',
       sexo, grupoEtnico, provincia, canton, parroquia, tipoSangre,
@@ -264,9 +289,16 @@ export default function RegistroPaciente() {
           {activeTab === 'identificacion' && (
             <div className="row g-3">
               <div className="col-12"><h6 className="text-muted border-bottom pb-2">Datos Personales del Paciente</h6></div>
-              <div className="col-md-12">
-                <label className="form-label fw-bold small text-primary">NÚMERO DE CÉDULA</label>
-                <input type="text" maxLength={10} className={`form-control ${errores.cedula ? 'is-invalid' : ''}`} value={cedula} onChange={e => { if (/^\d*$/.test(e.target.value)) setCedula(e.target.value); }} placeholder="Ingrese los 10 dígitos" />
+              <div className="col-md-4">
+                <label className="form-label fw-bold small text-primary">TIPO DE IDENTIFICACIÓN</label>
+                <select className="form-select" value={tipoIdentificacion} onChange={e => { setTipoIdentificacion(e.target.value as 'CEDULA' | 'EXTRANJERO'); setCedula(''); }}>
+                  <option value="CEDULA">CÉDULA ECUATORIANA</option>
+                  <option value="EXTRANJERO">PASAPORTE / IDENTIFICACIÓN EXTRANJERA</option>
+                </select>
+              </div>
+              <div className="col-md-8">
+                <label className="form-label fw-bold small text-primary">{tipoIdentificacion === 'CEDULA' ? 'NÚMERO DE CÉDULA' : 'NÚMERO DE IDENTIFICACIÓN'}</label>
+                <input type="text" maxLength={20} className={`form-control ${errores.cedula ? 'is-invalid' : ''}`} value={cedula} onChange={e => { if (tipoIdentificacion === 'EXTRANJERO' || /^\d*$/.test(e.target.value)) setCedula(e.target.value); }} placeholder={tipoIdentificacion === 'CEDULA' ? 'Ingrese los 10 dígitos' : 'Ingrese número de identificación'} />
                 {errores.cedula && <div className="invalid-feedback">{errores.cedula}</div>}
               </div>
               <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombre ? 'is-invalid' : ''}`} value={primerNombre} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerNombre(e.target.value); }} /></div>

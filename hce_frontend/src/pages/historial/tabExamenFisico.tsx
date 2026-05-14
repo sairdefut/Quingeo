@@ -12,8 +12,15 @@ interface Props {
   resultadoIMC?: any;
   evolucionClinica: string;
   setEvolucionClinica: (val: string) => void;
-  paciente: any; // Se añade para corregir error TS2322
+  paciente: any;
 }
+
+// Función para calcular aspecto general desde puntaje Glasgow
+const calcularAspectoGlasgow = (puntaje: number): string => {
+  if (puntaje >= 13) return "Sobrealerta";
+  if (puntaje >= 9) return "Normal";
+  return "Activo";
+};
 
 export const TabExamenFisico: FC<Props> = ({
   signosVitales,
@@ -100,6 +107,37 @@ export const TabExamenFisico: FC<Props> = ({
                 />
               </div>
             ))}
+
+            {/* D-2: Campo Glasgow */}
+            <div className="col-6 col-sm-4 col-md-2">
+              <label className="small fw-bold text-muted" style={{fontSize: '11px'}}>Glasgow</label>
+              <input 
+                type="number" 
+                min="3" 
+                max="15"
+                className="form-control form-control-sm border-primary" 
+                value={signosVitales?.glasgow ?? ''} 
+                onChange={e => {
+                  const valor = parseInt(e.target.value);
+                  setSignosVitales({
+                    ...signosVitales, 
+                    glasgow: e.target.value,
+                    aspectoGeneral: (valor >= 3 && valor <= 15) ? calcularAspectoGlasgow(valor) : ''
+                  });
+                }} 
+                placeholder="3-15"
+              />
+            </div>
+            <div className="col-6 col-sm-4 col-md-2">
+              <label className="small fw-bold text-muted" style={{fontSize: '11px'}}>Aspecto General</label>
+              <input 
+                type="text" 
+                className="form-control form-control-sm bg-light" 
+                value={signosVitales?.aspectoGeneral ?? ''} 
+                readOnly 
+                placeholder="Auto"
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -13,7 +13,7 @@ public class JwtService {
     private static final Key SECRET_KEY =
             Keys.hmacShaKeyFor("HCE_SECRET_KEY_2026_BACKEND_SALUD".getBytes());
 
-    private static final long EXPIRATION = 1000 * 60 * 60; // 1 hora
+    private static final long EXPIRATION = 1000 * 60 * 60 * 8; // 8 horas
 
     public String generateToken(String username) {
         return Jwts.builder()

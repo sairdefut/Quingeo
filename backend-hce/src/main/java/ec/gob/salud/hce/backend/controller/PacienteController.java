@@ -117,6 +117,7 @@ public class PacienteController {
         
         dto.setIdPaciente(entity.getIdPaciente());
         dto.setCedula(entity.getCedula());
+        dto.setTipoIdentificacion(entity.getTipoIdentificacion());
         dto.setPrimerNombre(entity.getPrimerNombre());
         dto.setSegundoNombre(entity.getSegundoNombre());
         dto.setApellidoPaterno(entity.getApellidoPaterno());

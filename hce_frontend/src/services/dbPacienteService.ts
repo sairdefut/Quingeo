@@ -96,6 +96,7 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
         primerNombre: nombres.first,
         segundoNombre: nombres.second,
         cedula: paciente.cedula,
+        tipoIdentificacion: paciente.tipoIdentificacion || 'CEDULA',
         tipoSangre: paciente.tipoSangre,
         fechaNacimiento: paciente.fechaNacimiento,
         sexo: paciente.sexo,

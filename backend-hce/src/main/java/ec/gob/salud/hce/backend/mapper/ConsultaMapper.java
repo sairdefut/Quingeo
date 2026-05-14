@@ -40,6 +40,10 @@ public class ConsultaMapper {
         entity.setTipoDiagnostico(dto.getTipoDiagnostico());
         entity.setUsuarioMedico(dto.getUsuario()); // usuario -> usuarioMedico
 
+        // D-5: Referencia médica
+        entity.setReferenciaHospital(dto.getReferenciaHospital());
+        entity.setMotivoReferencia(dto.getMotivoReferencia());
+
         // Manejo del JSON de backup (opcional)
         if (dto.getJsonCompleto() != null) {
             entity.setDatosCompletosJson(dto.getJsonCompleto().toString());
