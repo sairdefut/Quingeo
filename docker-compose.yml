@@ -21,6 +21,7 @@ services:
       - ./db/patches/001-fix-azuay-parroquias.sql:/docker-entrypoint-initdb.d/02-fix-azuay-parroquias.sql:ro
       - ./db/patches/002-referencia-medica.sql:/docker-entrypoint-initdb.d/03-referencia-medica.sql:ro
       - ./db/patches/003-agregar-enfermedades-cie10.sql:/docker-entrypoint-initdb.d/04-agregar-enfermedades-cie10.sql:ro
+      - ./db/patches/004-anio-escolar.sql:/docker-entrypoint-initdb.d/05-anio-escolar.sql:ro
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     networks:

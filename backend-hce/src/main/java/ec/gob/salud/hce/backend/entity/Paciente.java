@@ -52,6 +52,9 @@ public class Paciente {
     @Column(name = "tipo_sangre", length = 10)
     private String tipoSangre;
 
+    @Column(name = "anio_escolar", length = 50)
+    private String anioEscolar;
+
     // --- UBICACIÓN ---
     @Column(name = "id_grupo_etnico")
     private Integer idGrupoEtnico;

@@ -19,6 +19,7 @@ public class PacienteRequestDTO {
     private String tipoIdentificacion; // CEDULA o EXTRANJERO
     
     private String tipoSangre;
+    private String anioEscolar;
     private LocalDate fechaNacimiento;
     private String sexo;
     

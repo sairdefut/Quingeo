@@ -11,6 +11,7 @@ type PacienteBackendPayload = {
     segundoNombre: string;
     cedula: string;
     tipoSangre?: string;
+    anioEscolar?: string;
     fechaNacimiento?: string;
     sexo?: string;
     idGrupoEtnico?: number;
@@ -97,6 +98,7 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
         segundoNombre: nombres.second,
         cedula: paciente.cedula,
         tipoIdentificacion: paciente.tipoIdentificacion || 'CEDULA',
+        anioEscolar: paciente.anioEscolar || null,
         tipoSangre: paciente.tipoSangre,
         fechaNacimiento: paciente.fechaNacimiento,
         sexo: paciente.sexo,
