@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +31,14 @@ public class ConsultaService {
     public ConsultaDTO guardarConsultaCompleta(ConsultaDTO dto) {
         Paciente paciente = pacienteRepository.findById(dto.getIdPaciente())
                 .orElseThrow(() -> new RuntimeException("Paciente no encontrado"));
+
+        // D-3: Validar perímetro cefálico (solo para 2-3 años = 24-36 meses)
+        if (dto.getPerimetroCefalico() != null) {
+            int edadMeses = calcularEdadMeses(paciente.getFechaNacimiento());
+            if (edadMeses < 24 || edadMeses > 36) {
+                dto.setPerimetroCefalico(null); // Ignorar el valor
+            }
+        }
 
         HistoriaClinica historia = historiaRepository.findByPaciente_IdPaciente(paciente.getIdPaciente())
                 .orElseGet(() -> {
@@ -73,5 +83,12 @@ public class ConsultaService {
             dto.setUsuario(c.getUsuarioMedico());
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    // D-3: Calcular edad en meses
+    private int calcularEdadMeses(LocalDate fechaNacimiento) {
+        if (fechaNacimiento == null) return 0;
+        return Period.between(fechaNacimiento, LocalDate.now()).getYears() * 12 
+               + Period.between(fechaNacimiento, LocalDate.now()).getMonths();
     }
 }

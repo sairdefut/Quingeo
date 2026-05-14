@@ -23,6 +23,7 @@ public class ConsultaDTO {
     private Integer fc;
     private Integer fr;
     private Integer spo2;
+    private Double perimetroCefalico;
     
     private String diagnosticoTexto;
     private String tipoDiagnostico;
