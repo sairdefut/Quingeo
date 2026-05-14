@@ -4,7 +4,8 @@ export const TabAntecedentesPersonales = ({
     cirugias, setCirugias,
     alergias, setAlergias,
     familiares, setFamiliares,
-    descripcionCronicas, setDescripcionCronicas
+    descripcionCronicas, setDescripcionCronicas,
+    descripcionOtrasCronicas, setDescripcionOtrasCronicas
 }: any) => {
 
     // Obtener fecha actual en formato YYYY-MM-DD para el max del input date
@@ -46,6 +47,14 @@ export const TabAntecedentesPersonales = ({
                         </div>
                     ))}
                 </div>
+                {enfermedadesCronicas['Otros'] && (
+                    <div className="mt-2 animate__animated animate__fadeIn">
+                        <textarea className="form-control form-control-sm" rows={2} disabled={isAntBlocked}
+                            placeholder="Describa la otra enfermedad crónica..." 
+                            value={descripcionOtrasCronicas} 
+                            onChange={e => setDescripcionOtrasCronicas(e.target.value)} />
+                    </div>
+                )}
             </div>
 
             {/* Hospitalizaciones, Cirugías y Alergias - Grid Responsivo */}

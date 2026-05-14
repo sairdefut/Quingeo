@@ -40,12 +40,13 @@ export default function HistorialConsultas() {
     const [descripcionComplicaciones, setDescripcionComplicaciones] = useState("");
 
     // Antecedentes Personales y Alergias
-    const [enfermedadesCronicas, setEnfermedadesCronicas] = useState({ "Asma": false, "Diabetes": false, "Cardiopatías": false, "Epilepsia": false });
+    const [enfermedadesCronicas, setEnfermedadesCronicas] = useState({ "Asma": false, "Diabetes": false, "Cardiopatías": false, "Epilepsia": false, "Otros": false });
     const [hospitalizaciones, setHospitalizaciones] = useState({ tiene: false, descripcion: "", fecha: "" });
     const [cirugias, setCirugias] = useState({ tiene: false, descripcion: "", fecha: "" });
     const [alergias, setAlergias] = useState({ tiene: false, descripcion: "" });
     const [familiares, setFamiliares] = useState({ HTA: false, Diabetes: false, Cáncer: false, Genéticas: false, Ninguna: false, Otros: false });
     const [descripcionCronicas, setDescripcionCronicas] = useState("");
+    const [descripcionOtrasCronicas, setDescripcionOtrasCronicas] = useState("");
 
     // Inmunizaciones y Desarrollo
     const [estadoVacunacion, setEstadoVacunacion] = useState("");
@@ -109,6 +110,16 @@ export default function HistorialConsultas() {
 
     // --- CÁLCULOS MÉDICOS ---
     const edadM = useMemo(() => pacienteActual ? calcularEdadMeses(pacienteActual.fechaNacimiento) : 0, [pacienteActual]);
+    
+    const edadFormateada = useMemo(() => {
+        if (!edadM) return "";
+        const años = Math.floor(edadM / 12);
+        const meses = edadM % 12;
+        if (años === 0) return `${meses} meses`;
+        if (meses === 0) return `${años} años`;
+        return `${años} años, ${meses} meses`;
+    }, [edadM]);
+
     const resIMC = useMemo(() => {
         const p = parseFloat(signosVitales.peso); const t = parseFloat(signosVitales.talla);
         return (p && t) ? calcularIMC(p, t) : { valor: "0.00", interpretacion: "Pendiente", color: "#6c757d" };
@@ -131,7 +142,7 @@ export default function HistorialConsultas() {
                 antecedentes: {
                     perinatales: { productoGestacion, edadGestacional, viaParto, pesoNacimiento, tallaNacimiento, apgar, checksComplicaciones, descripcionComplicaciones },
                     vacunacion: estadoVacunacion,
-                    personales: { enfermedadesCronicas, hospitalizaciones, cirugias, alergias, familiares, descripcionCronicas },
+                    personales: { enfermedadesCronicas, hospitalizaciones, cirugias, alergias, familiares, descripcionCronicas, descripcionOtrasCronicas },
                     desarrollo: { hitos: desarrollo, alimentacion }
                 },
                 examenFisico: { vitales: signosVitales, segmentario: examenSegmentario, evolucion: evolucionClinica, nutricion: { resIMC, zP, zT, zI } },
@@ -167,7 +178,7 @@ export default function HistorialConsultas() {
                     </div>
                     <div>
                         <h4 className="m-0 fw-bold">Historia Clínica</h4>
-                        <small className="text-secondary">Nueva Consulta - {pacienteActual?.nombres} {pacienteActual?.apellidos}</small>
+                        <small className="text-secondary">Nueva Consulta - {pacienteActual?.nombres} {pacienteActual?.apellidos} {edadFormateada ? `(${edadFormateada})` : ''}</small>
                     </div>
                 </div>
                 <div className="d-flex gap-3">
@@ -190,7 +201,7 @@ export default function HistorialConsultas() {
                         <SeccionAntecedentes
                             bloquear={bloquearAntecedentes} setBloquear={setBloquearAntecedentes}
                             perinatales={{ productoGestacion, setProductoGestacion, edadGestacional, setEdadGestacional, viaParto, setViaParto, pesoNacimiento, setPesoNacimiento, tallaNacimiento, setTallaNacimiento, apgar, setApgar, checksComplicaciones, setChecksComplicaciones, descripcionComplicaciones, setDescripcionComplicaciones }}
-                            personales={{ enfermedadesCronicas, setEnfermedadesCronicas, hospitalizaciones, setHospitalizaciones, cirugias, setCirugias, alergias, setAlergias, familiares, setFamiliares, descripcionCronicas, setDescripcionCronicas }}
+                            personales={{ enfermedadesCronicas, setEnfermedadesCronicas, hospitalizaciones, setHospitalizaciones, cirugias, setCirugias, alergias, setAlergias, familiares, setFamiliares, descripcionCronicas, setDescripcionCronicas, descripcionOtrasCronicas, setDescripcionOtrasCronicas }}
                             inmunizaciones={{ estadoVacunacion, setEstadoVacunacion }}
                             desarrollo={{ desarrollo, setDesarrollo, alimentacion, setAlimentacion }}
                         />
