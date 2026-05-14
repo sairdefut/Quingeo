@@ -99,6 +99,8 @@ public class ConsultaMapper {
         dto.setDiagnosticoTexto(entity.getDiagnosticoPrincipal());
         dto.setTipoDiagnostico(entity.getTipoDiagnostico());
         dto.setUsuario(entity.getUsuarioMedico());
+        dto.setReferenciaHospital(entity.getReferenciaHospital());
+        dto.setMotivoReferencia(entity.getMotivoReferencia());
 
         // Mapear planes si están cargados
         if (entity.getPlanes() != null && !entity.getPlanes().isEmpty() && planMapper != null) {

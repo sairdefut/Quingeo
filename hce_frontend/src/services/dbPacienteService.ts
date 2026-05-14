@@ -10,6 +10,7 @@ type PacienteBackendPayload = {
     primerNombre: string;
     segundoNombre: string;
     cedula: string;
+    tipoIdentificacion?: string;
     tipoSangre?: string;
     anioEscolar?: string;
     fechaNacimiento?: string;
