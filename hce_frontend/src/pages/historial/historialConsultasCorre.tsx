@@ -170,22 +170,22 @@ export default function HistorialConsultas() {
 
     return (
         <div className="container-fluid p-0 bg-light" style={{ height: "100vh", overflowY: "auto" }}>
-            {/* Header Sticky con diseño premium */}
-            <div className="bg-dark text-white p-3 shadow-lg d-flex justify-content-between align-items-center sticky-top" style={{ zIndex: 1050 }}>
-                <div className="d-flex align-items-center">
-                    <div className="bg-success rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
-                        <i className="bi bi-clipboard2-pulse-fill text-white fs-5"></i>
+            {/* Header Sticky con diseño limpio y moderno */}
+            <div className="bg-white text-dark p-2 border-bottom shadow-sm d-flex justify-content-between align-items-center sticky-top" style={{ zIndex: 1050 }}>
+                <div className="d-flex align-items-center px-2">
+                    <div className="bg-primary bg-opacity-10 rounded-circle me-3 d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
+                        <i className="bi bi-clipboard2-pulse-fill text-primary fs-5"></i>
                     </div>
                     <div>
-                        <h4 className="m-0 fw-bold">Historia Clínica</h4>
-                        <small className="text-secondary">Nueva Consulta - {pacienteActual?.nombres} {pacienteActual?.apellidos} {edadFormateada ? `(${edadFormateada})` : ''}</small>
+                        <h5 className="m-0 fw-bold text-dark">Historia Clínica</h5>
+                        <small className="text-muted">Nueva Consulta - {pacienteActual?.nombres} {pacienteActual?.apellidos} {edadFormateada ? `(${edadFormateada})` : ''}</small>
                     </div>
                 </div>
-                <div className="d-flex gap-3">
-                    <button className="btn btn-outline-light px-4 fw-bold border-2" onClick={() => navigate(-1)}>
+                <div className="d-flex gap-2 pe-2">
+                    <button className="btn btn-outline-secondary px-3 fw-bold btn-sm" onClick={() => navigate(-1)}>
                         <i className="bi bi-x-lg me-2"></i>CANCELAR
                     </button>
-                    <button className="btn btn-success px-4 fw-bold shadow-sm border-2" onClick={handleGuardar} id="btn-guardar-todo">
+                    <button className="btn btn-primary px-3 fw-bold shadow-sm btn-sm" onClick={handleGuardar} id="btn-guardar-todo">
                         <i className="bi bi-check2-all me-2"></i>GUARDAR TODO
                     </button>
                 </div>
