@@ -14,11 +14,14 @@ export interface ConsultaBackend {
     fc: number;
     fr: number;
     spo2: number;
+    perimetroCefalico?: number;
     diagnosticoTexto: string;
     tipoDiagnostico: string;
     usuario: string;
     listaPlan?: PlanTerapeuticoDTO[];
     listaEstudios?: EstudioLaboratorioDTO[];
+    referenciaHospital?: boolean;
+    motivoReferencia?: string;
     jsonCompleto?: Record<string, any>;
 }
 
@@ -39,14 +42,18 @@ export interface EstudioLaboratorioDTO {
     resultado: string;
 }
 
-/**
- * Convierte ConsultaDTO del backend al formato que usa el frontend
- * en paciente.historiaClinica[]
- */
 export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
     const respaldo = consulta.jsonCompleto ?? {};
     const planFarmacologico = respaldo.diagnostico?.plan?.farmacologico;
     const planNoFarmacologico = respaldo.diagnostico?.plan?.noFarmacologico;
+    const referenciaHospital = respaldo.referenciaHospital
+        ?? respaldo.diagnostico?.cierre?.referenciaHospital
+        ?? consulta.referenciaHospital
+        ?? false;
+    const motivoReferencia = respaldo.motivoReferencia
+        ?? respaldo.diagnostico?.cierre?.motivoReferencia
+        ?? consulta.motivoReferencia
+        ?? '';
 
     return {
         ...respaldo,
@@ -63,7 +70,8 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
                 temperatura: consulta.temperatura,
                 fc: consulta.fc,
                 fr: consulta.fr,
-                spo2: consulta.spo2
+                spo2: consulta.spo2,
+                perimetroCefalico: consulta.perimetroCefalico
             },
             segmentario: {},
             evolucion: ''
@@ -74,7 +82,8 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
             temperatura: consulta.temperatura,
             fc: consulta.fc,
             fr: consulta.fr,
-            spo2: consulta.spo2
+            spo2: consulta.spo2,
+            perimetroCefalico: consulta.perimetroCefalico
         },
         diagnostico: respaldo.diagnostico || {
             principal: {
@@ -104,24 +113,26 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
                 }
             },
             pronostico: respaldo.diagnostico?.pronostico || 'Bueno',
-            proximaCita: respaldo.diagnostico?.proximaCita || ''
+            proximaCita: respaldo.diagnostico?.proximaCita || '',
+            cierre: {
+                referenciaHospital,
+                motivoReferencia
+            }
         },
+        referenciaHospital,
+        motivoReferencia,
         usuario: consulta.usuario,
         sincronizado: true
     };
 }
-/**
- * Convierte el formato del frontend al formato ConsultaDTO del backend
- */
+
 export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number): any {
-    // Normalizar fecha (DD/MM/YYYY o locale a YYYY-MM-DD)
     let fechaISO = consulta.fecha;
     if (consulta.fecha && consulta.fecha.includes('/')) {
         const [d, m, y] = consulta.fecha.split('/');
         fechaISO = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     }
 
-    // Normalizar hora (HH:mm:ss o HH:mm a HH:mm:ss)
     let horaISO = consulta.hora;
     if (horaISO && horaISO.length === 5) {
         horaISO = `${horaISO}:00`;
@@ -133,34 +144,39 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
     const planNoFarmacologico = consulta.diagnostico?.plan?.noFarmacologico || {};
     const resultados = Array.isArray(consulta.diagnostico?.resultados) ? consulta.diagnostico.resultados : [];
     const estudiosTexto = consulta.diagnostico?.estudios;
+    const referenciaHospital = Boolean(consulta.diagnostico?.cierre?.referenciaHospital ?? consulta.referenciaHospital);
     const usuario = consulta.usuario
         || JSON.parse(localStorage.getItem('usuarioLogueado') || '{}')?.username
         || JSON.parse(localStorage.getItem('usuarioLogueado') || '{}')?.usuario
         || 'admin';
 
     return {
-        idPaciente: idPaciente,
+        idPaciente,
         fecha: fechaISO,
         hora: horaISO,
-        motivo: consulta.motivo || consulta.motivoConsulta || "Sin motivo",
-        enfermedadActual: consulta.enfermedadActual || "Sin enfermedad actual",
-        
-        // Vitales
+        motivo: consulta.motivo || consulta.motivoConsulta || 'Sin motivo',
+        enfermedadActual: consulta.enfermedadActual || 'Sin enfermedad actual',
+
         peso: parseFloat(consulta.signosVitales?.peso) || 0,
         talla: parseFloat(consulta.signosVitales?.talla) || 0,
         temperatura: parseFloat(consulta.signosVitales?.temperatura) || 0,
         fc: parseInt(consulta.signosVitales?.fc) || 0,
         fr: parseInt(consulta.signosVitales?.fr) || 0,
         spo2: parseInt(consulta.signosVitales?.spo2) || 0,
-        
-        // Diagnóstico
-        diagnosticoTexto: [diagnosticoPrincipal.cie10, diagnosticoPrincipal.descripcion].filter(Boolean).join(' - ') || "Sin diagnóstico",
-        tipoDiagnostico: tipoDiagnostico,
-        
+        perimetroCefalico: consulta.signosVitales?.perimetroCefalico
+            ? parseFloat(consulta.signosVitales.perimetroCefalico)
+            : null,
+
+        diagnosticoTexto: [diagnosticoPrincipal.cie10, diagnosticoPrincipal.descripcion].filter(Boolean).join(' - ') || 'Sin diagnóstico',
+        tipoDiagnostico,
+        referenciaHospital,
+        motivoReferencia: referenciaHospital
+            ? (consulta.diagnostico?.cierre?.motivoReferencia || consulta.motivoReferencia || '')
+            : '',
+
         usuario,
         jsonCompleto: consulta,
 
-        // Listas detalladas
         listaPlan: [
             {
                 medicamento: planFarmacologico.esquema || '',
@@ -184,7 +200,7 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
                 tipo: e.tipo || 'General',
                 descripcion: e.examen || estudiosTexto || 'Estudio',
                 fecha: e.fecha || fechaISO,
-                resultado: e.resultado || ""
+                resultado: e.resultado || ''
             }))
             : (typeof estudiosTexto === 'string' && estudiosTexto.trim()
                 ? [{

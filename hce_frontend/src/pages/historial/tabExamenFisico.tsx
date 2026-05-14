@@ -15,11 +15,10 @@ interface Props {
   paciente: any;
 }
 
-// Función para calcular aspecto general desde puntaje Glasgow
 const calcularAspectoGlasgow = (puntaje: number): string => {
-  if (puntaje >= 13) return "Sobrealerta";
-  if (puntaje >= 9) return "Normal";
-  return "Activo";
+  if (puntaje >= 13) return 'Sobrealerta';
+  if (puntaje >= 9) return 'Normal';
+  return 'Activo';
 };
 
 export const TabExamenFisico: FC<Props> = ({
@@ -35,38 +34,48 @@ export const TabExamenFisico: FC<Props> = ({
   setEvolucionClinica,
   paciente: _paciente
 }) => {
-
   const renderValue = (val: any) => {
-    if (val === null || val === undefined) return "0.00";
-    if (typeof val === 'object') return val.valor ?? "0.00";
+    if (val === null || val === undefined) return '0.00';
+    if (typeof val === 'object') return val.valor ?? '0.00';
     const num = parseFloat(val);
-    return isNaN(num) ? "0.00" : num.toFixed(2);
+    return Number.isNaN(num) ? '0.00' : num.toFixed(2);
   };
 
   const edadMeses = _paciente?.fechaNacimiento ? calcularEdadMeses(_paciente.fechaNacimiento) : 0;
-  const isCampoDisabled = (id: string) => {
-    if (id === 'perimetroCefalico') {
-      return edadMeses < 24 || edadMeses > 36;
-    }
-    return false;
+  const isCampoDisabled = (id: string) => id === 'perimetroCefalico' ? edadMeses < 24 || edadMeses > 36 : false;
+
+  const toggleSegmentario = (grupo: string, item: string) => {
+    setExamenSegmentario({
+      ...examenSegmentario,
+      [grupo]: {
+        ...(examenSegmentario?.[grupo] || {}),
+        [item]: !examenSegmentario?.[grupo]?.[item]
+      }
+    });
   };
 
-  // Gráfica de Curva Z estilo OMS (Indicador visual)
+  const setTextoCabezaOtros = (value: string) => {
+    setExamenSegmentario({
+      ...examenSegmentario,
+      cabezaOtros: value
+    });
+  };
+
   const CurvaZGrafica = ({ valor }: { valor: any }) => {
     const v = parseFloat(valor?.valor || valor || 0);
     const posicion = Math.min(Math.max(((v + 3) / 6) * 100, 0), 100);
-    
+
     return (
       <div className="mt-2 mb-3 px-1 w-100">
-        <div style={{ 
-          position: 'relative', height: '12px', width: '100%', 
-          display: 'flex', borderRadius: '6px', border: '1px solid #ccc', background: '#eee' 
+        <div style={{
+          position: 'relative', height: '12px', width: '100%',
+          display: 'flex', borderRadius: '6px', border: '1px solid #ccc', background: '#eee'
         }}>
-          <div style={{ width: '16.6%', backgroundColor: '#d9534f', borderRadius: '6px 0 0 6px' }}></div> 
-          <div style={{ width: '16.6%', backgroundColor: '#f0ad4e' }}></div> 
-          <div style={{ width: '33.4%', backgroundColor: '#5cb85c' }}></div> 
-          <div style={{ width: '16.6%', backgroundColor: '#f0ad4e' }}></div> 
-          <div style={{ width: '16.6%', backgroundColor: '#d9534f', borderRadius: '0 6px 6px 0' }}></div> 
+          <div style={{ width: '16.6%', backgroundColor: '#d9534f', borderRadius: '6px 0 0 6px' }}></div>
+          <div style={{ width: '16.6%', backgroundColor: '#f0ad4e' }}></div>
+          <div style={{ width: '33.4%', backgroundColor: '#5cb85c' }}></div>
+          <div style={{ width: '16.6%', backgroundColor: '#f0ad4e' }}></div>
+          <div style={{ width: '16.6%', backgroundColor: '#d9534f', borderRadius: '0 6px 6px 0' }}></div>
           <div style={{
             position: 'absolute', left: `${posicion}%`, top: '50%',
             width: '10px', height: '10px', backgroundColor: '#000',
@@ -84,65 +93,56 @@ export const TabExamenFisico: FC<Props> = ({
         <h6 className="text-primary m-0 fw-bold">A. Signos Vitales y Antropometría</h6>
       </div>
 
-      {/* SIGNOS VITALES RESPONSIVOS */}
       <div className="col-12">
         <div className="card border-0 shadow-sm bg-white p-3">
           <div className="row g-2">
             {[
-              { id: 'peso', label: 'Peso (Kg)' }, { id: 'talla', label: 'Talla (cm)' },
-              { id: 'perimetroCefalico', label: 'P. Cefálico' }, { id: 'temperatura', label: 'Temp' },
+              { id: 'peso', label: 'Peso (kg)' }, { id: 'talla', label: 'Talla (cm)' },
+              { id: 'perimetroCefalico', label: 'P. Cefálico' }, { id: 'temperatura', label: 'Temp.' },
               { id: 'fc', label: 'FC' }, { id: 'fr', label: 'FR' },
               { id: 'paSistolica', label: 'PA Sist.' }, { id: 'paDiastolica', label: 'PA Diast.' },
               { id: 'spo2', label: 'SpO2' }
             ].map((campo) => (
               <div className="col-6 col-sm-4 col-md-2" key={campo.id}>
-                <label className="small fw-bold text-muted" style={{fontSize: '11px'}}>{campo.label}</label>
-                <input 
-                  type="number" 
-                  className="form-control form-control-sm" 
-                  value={signosVitales?.[campo.id] ?? ''} 
+                <label className="small fw-bold text-muted" style={{ fontSize: '11px' }}>{campo.label}</label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  value={signosVitales?.[campo.id] ?? ''}
                   disabled={isCampoDisabled(campo.id)}
-                  onChange={e => setSignosVitales({...signosVitales, [campo.id]: e.target.value})} 
+                  onChange={e => setSignosVitales({ ...signosVitales, [campo.id]: e.target.value })}
                   title={isCampoDisabled(campo.id) && campo.id === 'perimetroCefalico' ? 'Solo aplicable entre 2 y 3 años' : ''}
                 />
               </div>
             ))}
 
-            {/* D-2: Campo Glasgow */}
             <div className="col-6 col-sm-4 col-md-2">
-              <label className="small fw-bold text-muted" style={{fontSize: '11px'}}>Glasgow</label>
-              <input 
-                type="number" 
-                min="3" 
+              <label className="small fw-bold text-muted" style={{ fontSize: '11px' }}>Glasgow</label>
+              <input
+                type="number"
+                min="3"
                 max="15"
-                className="form-control form-control-sm border-primary" 
-                value={signosVitales?.glasgow ?? ''} 
+                className={`form-control form-control-sm ${signosVitales?.glasgow && (Number(signosVitales.glasgow) < 3 || Number(signosVitales.glasgow) > 15) ? 'is-invalid' : 'border-primary'}`}
+                value={signosVitales?.glasgow ?? ''}
                 onChange={e => {
-                  const valor = parseInt(e.target.value);
+                  const valor = Number(e.target.value);
                   setSignosVitales({
-                    ...signosVitales, 
+                    ...signosVitales,
                     glasgow: e.target.value,
-                    aspectoGeneral: (valor >= 3 && valor <= 15) ? calcularAspectoGlasgow(valor) : ''
+                    aspectoGeneral: valor >= 3 && valor <= 15 ? calcularAspectoGlasgow(valor) : ''
                   });
-                }} 
+                }}
                 placeholder="3-15"
               />
             </div>
             <div className="col-6 col-sm-4 col-md-2">
-              <label className="small fw-bold text-muted" style={{fontSize: '11px'}}>Aspecto General</label>
-              <input 
-                type="text" 
-                className="form-control form-control-sm bg-light" 
-                value={signosVitales?.aspectoGeneral ?? ''} 
-                readOnly 
-                placeholder="Auto"
-              />
+              <label className="small fw-bold text-muted" style={{ fontSize: '11px' }}>Aspecto General</label>
+              <input type="text" className="form-control form-control-sm bg-light" value={signosVitales?.aspectoGeneral ?? ''} readOnly placeholder="Auto" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* EVALUACIÓN NUTRICIONAL */}
       <div className="col-12 mt-2">
         <div className="card border-0 shadow-sm bg-light p-3">
           <label className="fw-bold text-secondary small d-block mb-2 text-center">EVALUACIÓN NUTRICIONAL (Z-SCORE)</label>
@@ -176,75 +176,73 @@ export const TabExamenFisico: FC<Props> = ({
       <div className="col-12">
         <div className="card border-0 shadow-sm p-3 bg-light">
           <div className="row g-4">
-            {/* Aspecto General */}
             <div className="col-12 col-md-4">
               <label className="small fw-bold text-success border-bottom d-block mb-2">Aspecto General</label>
               <div className="d-flex flex-wrap gap-2">
                 {['Consciente', 'Alerta', 'Activo', 'Decaído'].map(item => (
                   <div className="form-check" key={item}>
-                    <input className="form-check-input" type="checkbox" 
-                      checked={examenSegmentario?.aspecto?.[item] || false} 
-                      onChange={() => setExamenSegmentario({...examenSegmentario, aspecto: {...examenSegmentario.aspecto, [item]: !examenSegmentario.aspecto[item]}})} />
+                    <input className="form-check-input" type="checkbox" checked={examenSegmentario?.aspecto?.[item] || false} onChange={() => toggleSegmentario('aspecto', item)} />
                     <label className="form-check-label small">{item}</label>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Piel y Faneras */}
             <div className="col-12 col-md-4">
               <label className="small fw-bold text-success border-bottom d-block mb-2">Piel y Faneras</label>
               <div className="d-flex flex-wrap gap-2">
                 {['Ictericia', 'Cianosis', 'Rash', 'Normal'].map(item => (
                   <div className="form-check" key={item}>
-                    <input className="form-check-input" type="checkbox" 
-                      checked={examenSegmentario?.piel?.[item] || false} 
-                      onChange={() => setExamenSegmentario({...examenSegmentario, piel: {...examenSegmentario.piel, [item]: !examenSegmentario.piel[item]}})} />
+                    <input className="form-check-input" type="checkbox" checked={examenSegmentario?.piel?.[item] || false} onChange={() => toggleSegmentario('piel', item)} />
                     <label className="form-check-label small">{item}</label>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Cabeza y Cuello */}
             <div className="col-12 col-md-4">
-              <label className="small fw-bold text-success border-bottom d-block mb-2">Cabeza y Cuello</label>
+              <div className="d-flex align-items-center justify-content-between border-bottom mb-2">
+                <label className="small fw-bold text-success mb-0">Cabeza y Cuello</label>
+                <span className="badge text-bg-info" title="Fontanela anterior: se cierra alrededor de los 18-24 meses. Fontanela posterior: se cierra alrededor de los 2-3 meses.">Info</span>
+              </div>
+              <div className="small text-muted mb-2">Fontanela anterior: 18-24 meses. Fontanela posterior: 2-3 meses.</div>
               <div className="d-flex flex-wrap gap-2">
-                {['Fontanela Anterior', 'Adenopatías', 'Normal'].map(item => (
+                {['Fontanela Anterior', 'Fontanela Posterior', 'Adenopatías', 'Normal', 'Otros'].map(item => (
                   <div className="form-check" key={item}>
-                    <input className="form-check-input" type="checkbox" 
-                      checked={examenSegmentario?.cabeza?.[item] || false} 
-                      onChange={() => setExamenSegmentario({...examenSegmentario, cabeza: {...examenSegmentario.cabeza, [item]: !examenSegmentario.cabeza[item]}})} />
+                    <input className="form-check-input" type="checkbox" checked={examenSegmentario?.cabeza?.[item] || false} onChange={() => toggleSegmentario('cabeza', item)} />
                     <label className="form-check-label small">{item}</label>
                   </div>
                 ))}
               </div>
+              {examenSegmentario?.cabeza?.Otros && (
+                <input
+                  type="text"
+                  className="form-control form-control-sm mt-2"
+                  value={examenSegmentario?.cabezaOtros || ''}
+                  onChange={(e) => setTextoCabezaOtros(e.target.value)}
+                  placeholder="Describa otros hallazgos en cabeza y cuello"
+                />
+              )}
             </div>
 
-            {/* Cardiopulmonar */}
             <div className="col-12 col-md-6">
               <label className="small fw-bold text-success border-bottom d-block mb-2">Cardiopulmonar</label>
               <div className="d-flex flex-wrap gap-3">
                 {['Ruidos cardiacos', 'Murmullo vesicular', 'Soplos', 'Crepitantes'].map(item => (
                   <div className="form-check" key={item}>
-                    <input className="form-check-input" type="checkbox" 
-                      checked={examenSegmentario?.cardio?.[item] || false} 
-                      onChange={() => setExamenSegmentario({...examenSegmentario, cardio: {...examenSegmentario.cardio, [item]: !examenSegmentario.cardio[item]}})} />
+                    <input className="form-check-input" type="checkbox" checked={examenSegmentario?.cardio?.[item] || false} onChange={() => toggleSegmentario('cardio', item)} />
                     <label className="form-check-label small">{item}</label>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Abdomen */}
             <div className="col-12 col-md-6">
               <label className="small fw-bold text-success border-bottom d-block mb-2">Abdomen</label>
               <div className="d-flex flex-wrap gap-3">
                 {['Blando', 'Depresible', 'Hepatomegalia', 'Esplenomegalia'].map(item => (
                   <div className="form-check" key={item}>
-                    <input className="form-check-input" type="checkbox" 
-                      checked={examenSegmentario?.abdomen?.[item] || false} 
-                      onChange={() => setExamenSegmentario({...examenSegmentario, abdomen: {...examenSegmentario.abdomen, [item]: !examenSegmentario.abdomen[item]}})} />
+                    <input className="form-check-input" type="checkbox" checked={examenSegmentario?.abdomen?.[item] || false} onChange={() => toggleSegmentario('abdomen', item)} />
                     <label className="form-check-label small">{item}</label>
                   </div>
                 ))}
@@ -256,9 +254,7 @@ export const TabExamenFisico: FC<Props> = ({
 
       <div className="col-12 mt-3">
         <label className="small fw-bold">Evolución Clínica / Hallazgos Adicionales</label>
-        <textarea className="form-control" rows={3} value={evolucionClinica} 
-          onChange={e => setEvolucionClinica(e.target.value)} 
-          placeholder="Describa el resumen del curso de la enfermedad..." />
+        <textarea className="form-control" rows={3} value={evolucionClinica} onChange={e => setEvolucionClinica(e.target.value)} placeholder="Describa el resumen del curso de la enfermedad..." />
       </div>
     </div>
   );
