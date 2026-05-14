@@ -19,6 +19,7 @@ public class PacienteResponseDTO {
     private String tipoIdentificacion;
     
     private String tipoSangre;
+    private String anioEscolar;
     private LocalDate fechaCreacion;
     private LocalDate fechaNacimiento;
     private String sexo;

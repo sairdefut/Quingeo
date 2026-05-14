@@ -42,6 +42,7 @@ public class PacienteService {
         paciente.setSexo(dto.getSexo());
         paciente.setTipoSangre(dto.getTipoSangre());
         paciente.setTipoIdentificacion(dto.getTipoIdentificacion());
+        paciente.setAnioEscolar(dto.getAnioEscolar());
 
         // VALIDACIÓN DE CÉDULA VS EXTRANJERO
         if (dto.getTipoIdentificacion() != null && dto.getTipoIdentificacion().equals("EXTRANJERO")) {

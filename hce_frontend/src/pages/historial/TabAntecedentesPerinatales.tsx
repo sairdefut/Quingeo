@@ -54,6 +54,9 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
   descripcionComplicaciones,
   setDescripcionComplicaciones
 }) => {
+  const [noRecuerdaPeso, setNoRecuerdaPeso] = React.useState(false);
+  const [noRecuerdaTalla, setNoRecuerdaTalla] = React.useState(false);
+  const [noRecuerdaApgar, setNoRecuerdaApgar] = React.useState(false);
 
   // 🔥 TOTAL APGAR
   const totalApgar =
@@ -121,14 +124,26 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
       </div>
 
       <div className="col-md-2">
-        <label className="small fw-bold">Peso (g)</label>
-        <input type="number" className="form-control" disabled={isAntBlocked} value={pesoNacimiento}
+        <div className="d-flex justify-content-between align-items-center">
+          <label className="small fw-bold">Peso (g)</label>
+          <div className="form-check form-check-inline mb-0 me-0">
+            <input className="form-check-input" type="checkbox" disabled={isAntBlocked} checked={noRecuerdaPeso} onChange={e => { setNoRecuerdaPeso(e.target.checked); if(e.target.checked) setPesoNacimiento(""); }} style={{transform: "scale(0.8)"}} />
+            <label className="form-check-label text-muted" style={{fontSize: "0.7rem"}}>N/R</label>
+          </div>
+        </div>
+        <input type="number" className="form-control" disabled={isAntBlocked || noRecuerdaPeso} value={pesoNacimiento}
           onChange={e => setPesoNacimiento(e.target.value === "" ? "" : Number(e.target.value))} />
       </div>
 
       <div className="col-md-2">
-        <label className="small fw-bold">Talla (cm)</label>
-        <input type="number" className="form-control" disabled={isAntBlocked} value={tallaNacimiento}
+        <div className="d-flex justify-content-between align-items-center">
+          <label className="small fw-bold">Talla (cm)</label>
+          <div className="form-check form-check-inline mb-0 me-0">
+            <input className="form-check-input" type="checkbox" disabled={isAntBlocked} checked={noRecuerdaTalla} onChange={e => { setNoRecuerdaTalla(e.target.checked); if(e.target.checked) setTallaNacimiento(""); }} style={{transform: "scale(0.8)"}} />
+            <label className="form-check-label text-muted" style={{fontSize: "0.7rem"}}>N/R</label>
+          </div>
+        </div>
+        <input type="number" className="form-control" disabled={isAntBlocked || noRecuerdaTalla} value={tallaNacimiento}
           onChange={e => setTallaNacimiento(e.target.value === "" ? "" : Number(e.target.value))} />
       </div>
 
@@ -137,15 +152,27 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
         <div className="card bg-light border-0 shadow-sm">
           <div className="card-body">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <span className="fw-bold text-primary">Prueba de Apgar</span>
+              <div className="d-flex align-items-center gap-3">
+                <span className="fw-bold text-primary">Prueba de Apgar</span>
+                <div className="form-check mb-0">
+                  <input className="form-check-input" type="checkbox" id="checkApgar" disabled={isAntBlocked} checked={noRecuerdaApgar} onChange={e => { setNoRecuerdaApgar(e.target.checked); if(e.target.checked) setApgar({ apariencia: 0, pulso: 0, reflejos: 0, tonoMuscular: 0, respiracion: 0 }); }} />
+                  <label className="form-check-label small text-muted" htmlFor="checkApgar">No recuerda</label>
+                </div>
+              </div>
 
               <div className="text-end">
-                <span className={`badge fs-6 ${colorApgar}`}>
-                  Total: {totalApgar} / 10
-                </span>
-                <div className="small mt-1">
-                  Promedio: {clasificacionApgar}
-                </div>
+                {noRecuerdaApgar ? (
+                  <span className="badge fs-6 bg-secondary">Desconocido</span>
+                ) : (
+                  <>
+                    <span className={`badge fs-6 ${colorApgar}`}>
+                      Total: {totalApgar} / 10
+                    </span>
+                    <div className="small mt-1">
+                      Promedio: {clasificacionApgar}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -161,7 +188,7 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
                   <label className="small d-block text-muted mb-1">{label}</label>
                   <select
                     className="form-select form-select-sm"
-                    disabled={isAntBlocked}
+                    disabled={isAntBlocked || noRecuerdaApgar}
                     value={apgar[key as keyof ApgarType]}
                     onChange={e => handleApgarChange(key as keyof ApgarType, e.target.value)}
                   >
