@@ -7,8 +7,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ec.gob.salud.hce.backend.entity.Enfermedad;
 import ec.gob.salud.hce.backend.entity.GrupoEtnico;
+import ec.gob.salud.hce.backend.repository.EnfermedadRepository;
 import ec.gob.salud.hce.backend.repository.GrupoEtnicoRepository;
 
 @RestController
@@ -17,6 +20,9 @@ public class CatalogoController {
 
     @Autowired
     private GrupoEtnicoRepository grupoEtnicoRepository;
+
+    @Autowired
+    private EnfermedadRepository enfermedadRepository;
 
     @GetMapping("/etnias")
     public List<GrupoEtnico> listarEtnias() {
@@ -54,5 +60,19 @@ public class CatalogoController {
         } else {
             return "Activo";
         }
+    }
+
+    // D-4: Buscador CIE-10 por código o nombre
+    @GetMapping("/cie10/buscar")
+    public ResponseEntity<List<Enfermedad>> buscarCie10(@RequestParam("q") String q) {
+        if (q == null || q.length() < 1) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<Enfermedad> resultados = enfermedadRepository.buscarPorCodigoONombre(q);
+        // Limitar a 20 resultados para no saturar la UI
+        if (resultados.size() > 20) {
+            resultados = resultados.subList(0, 20);
+        }
+        return ResponseEntity.ok(resultados);
     }
 }
