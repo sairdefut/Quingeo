@@ -16,6 +16,7 @@ public class PacienteResponseDTO {
     private String primerNombre;
     private String segundoNombre;
     private String cedula;
+    private String tipoIdentificacion;
     
     private String tipoSangre;
     private LocalDate fechaCreacion;
