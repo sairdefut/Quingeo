@@ -56,6 +56,8 @@ export default function RegistroPaciente() {
   };
 
   // ================= 1. DATOS DE IDENTIFICACIÓN DEL PACIENTE =================
+  void validarCedulaEcuatoriana;
+
   const [tipoIdentificacion, setTipoIdentificacion] = useState<'CEDULA' | 'EXTRANJERO'>('CEDULA');
   const [cedula, setCedula] = useState('');
   const [primerNombre, setPrimerNombre] = useState('');
