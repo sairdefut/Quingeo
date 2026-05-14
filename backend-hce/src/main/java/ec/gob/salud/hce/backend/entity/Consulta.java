@@ -70,6 +70,13 @@ public class Consulta {
     @Column(name = "usuario_medico")
     private String usuarioMedico;
 
+    // D-5: Referencia médica
+    @Column(name = "referencia_hospital")
+    private Boolean referenciaHospital;
+
+    @Column(name = "motivo_referencia", length = 500)
+    private String motivoReferencia;
+
     @Column(name = "fecha_creacion")
     private LocalDateTime fechaCreacion;
 

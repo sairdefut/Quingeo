@@ -41,6 +41,19 @@ public class PacienteService {
         paciente.setFechaNacimiento(dto.getFechaNacimiento());
         paciente.setSexo(dto.getSexo());
         paciente.setTipoSangre(dto.getTipoSangre());
+        paciente.setTipoIdentificacion(dto.getTipoIdentificacion());
+
+        // VALIDACIÓN DE CÉDULA VS EXTRANJERO
+        if (dto.getTipoIdentificacion() != null && dto.getTipoIdentificacion().equals("EXTRANJERO")) {
+            // Extranjero: permitir alfanumérico sin validación módulo 11
+        } else {
+            // Ecuatoriano: validar módulo 11 si tiene 10 dígitos
+            if (dto.getCedula() != null && dto.getCedula().length() == 10) {
+                if (!validarCedulaEcuatoriana(dto.getCedula())) {
+                    throw new IllegalArgumentException("Cédula ecuatoriana inválida (falló verificación módulo 11)");
+                }
+            }
+        }
 
         // CORRECCIÓN DE TIPOS: Pasamos Integer directamente (sin .longValue())
         paciente.setIdParroquia(dto.getIdParroquia());
@@ -95,5 +108,22 @@ public class PacienteService {
 
     public List<Paciente> buscarPorCriterio(String criterio) {
         return pacienteRepository.buscarPorCriterio(criterio);
+    }
+
+    // VALIDACIÓN DE CÉDULA ECUATORIANA (MÓDULO 10)
+    private boolean validarCedulaEcuatoriana(String cedula) {
+        if (cedula == null || cedula.length() != 10) return false;
+        
+        int[] coef = {2, 1, 2, 1, 2, 1, 2, 1, 2};
+        int suma = 0;
+        
+        for (int i = 0; i < 9; i++) {
+            int digito = Character.getNumericValue(cedula.charAt(i));
+            int resultado = digito * coef[i];
+            suma += (resultado > 9) ? resultado - 9 : resultado;
+        }
+        
+        int verificador = (10 - (suma % 10)) % 10;
+        return verificador == Character.getNumericValue(cedula.charAt(9));
     }
 }

@@ -25,8 +25,11 @@ public class Paciente {
     private Integer idPaciente;
 
     // --- DATOS PERSONALES ---
-    @Column(name = "cedula", nullable = false, length = 10)
+    @Column(name = "cedula", nullable = false, length = 20)
     private String cedula;
+
+    @Column(name = "tipo_identificacion", length = 20)
+    private String tipoIdentificacion; // CEDULA o EXTRANJERO
 
     @Column(name = "primer_nombre", length = 60)
     private String primerNombre;

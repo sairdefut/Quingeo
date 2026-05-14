@@ -23,6 +23,7 @@ public class ConsultaDTO {
     private Integer fc;
     private Integer fr;
     private Integer spo2;
+    private Double perimetroCefalico;
     
     private String diagnosticoTexto;
     private String tipoDiagnostico;
@@ -35,4 +36,8 @@ public class ConsultaDTO {
     // --- NUEVO: LISTAS PARA TABLAS DETALLADAS ---
     private List<PlanTerapeuticoDTO> listaPlan;
     private List<EstudioLaboratorioDTO> listaEstudios;
+
+    // D-5: Referencia médica
+    private Boolean referenciaHospital;
+    private String motivoReferencia;
 }
