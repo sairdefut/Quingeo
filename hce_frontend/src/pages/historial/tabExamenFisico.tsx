@@ -1,4 +1,5 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
+import { calcularEdadMeses } from './medicaCalcular';
 
 interface Props {
   signosVitales: any;
@@ -33,6 +34,14 @@ export const TabExamenFisico: FC<Props> = ({
     if (typeof val === 'object') return val.valor ?? "0.00";
     const num = parseFloat(val);
     return isNaN(num) ? "0.00" : num.toFixed(2);
+  };
+
+  const edadMeses = _paciente?.fechaNacimiento ? calcularEdadMeses(_paciente.fechaNacimiento) : 0;
+  const isCampoDisabled = (id: string) => {
+    if (id === 'perimetroCefalico') {
+      return edadMeses < 24 || edadMeses > 36;
+    }
+    return false;
   };
 
   // Gráfica de Curva Z estilo OMS (Indicador visual)
@@ -85,7 +94,9 @@ export const TabExamenFisico: FC<Props> = ({
                   type="number" 
                   className="form-control form-control-sm" 
                   value={signosVitales?.[campo.id] ?? ''} 
+                  disabled={isCampoDisabled(campo.id)}
                   onChange={e => setSignosVitales({...signosVitales, [campo.id]: e.target.value})} 
+                  title={isCampoDisabled(campo.id) && campo.id === 'perimetroCefalico' ? 'Solo aplicable entre 2 y 3 años' : ''}
                 />
               </div>
             ))}

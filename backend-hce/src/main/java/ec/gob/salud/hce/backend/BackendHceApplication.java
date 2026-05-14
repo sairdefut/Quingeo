@@ -27,8 +27,8 @@ public class BackendHceApplication {
 			if (admin == null) {
 				admin = new Usuario();
 				admin.setUsername("amora");
-				admin.setPassword(passwordEncoder.encode(defaultUserPassword));
 			}
+			admin.setPassword(passwordEncoder.encode(defaultUserPassword));
 			admin.setNombres("Angel Rodolfo");
 			admin.setApellidos("Mora Nupia");
 			admin.setCargo("admin");
@@ -39,8 +39,8 @@ public class BackendHceApplication {
 			if (posgradista == null) {
 				posgradista = new Usuario();
 				posgradista.setUsername("fvasquez");
-				posgradista.setPassword(passwordEncoder.encode(defaultUserPassword));
 			}
+			posgradista.setPassword(passwordEncoder.encode(defaultUserPassword));
 			posgradista.setNombres("Francis");
 			posgradista.setApellidos("Vasquez");
 			posgradista.setCargo("posgradista");

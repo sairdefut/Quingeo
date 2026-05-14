@@ -84,6 +84,7 @@ export default function RegistroPaciente() {
   const [telefonoContacto, setTelefonoContacto] = useState('');
   const [domicilioActual, setDomicilioActual] = useState('');
   const [nivelEducativoResponsable, setNivelEducativoResponsable] = useState('');
+  const [anioEscolar, setAnioEscolar] = useState('');
 
   // LÓGICA DE EDAD
   const manejarFechaNacimiento = (fecha: string) => {
@@ -212,6 +213,7 @@ export default function RegistroPaciente() {
       fechaCreacion, fechaNacimiento,
       edad: edad ? `${edad.años} años, ${edad.meses} meses` : '',
       sexo, grupoEtnico, provincia, canton, parroquia, tipoSangre,
+      anioEscolar: (edad && edad.años < 25) ? anioEscolar : null,
       filiacion: {
         nombreResponsable: nombreCompletoResponsable,
         parentesco, telefonoContacto, nivelEducativoResponsable,
@@ -274,8 +276,11 @@ export default function RegistroPaciente() {
               <div className="col-md-4"><label className="form-label fw-bold small">Fecha de Creación</label><input type="date" className={`form-control ${errores.fechaCreacion ? 'is-invalid' : ''}`} value={fechaCreacion} onChange={e => setFechaCreacion(e.target.value)} /></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Fecha de Nacimiento</label><input type="date" className={`form-control ${errores.fechaNacimiento ? 'is-invalid' : ''}`} value={fechaNacimiento} onChange={e => manejarFechaNacimiento(e.target.value)} /></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Edad</label><input className={`form-control ${mensajeEdad ? 'is-invalid' : 'bg-light'}`} disabled value={mensajeEdad ? mensajeEdad : (edad ? `${edad.años} años, ${edad.meses} meses` : 'Seleccione fecha...')} style={{ fontWeight: 'bold', color: mensajeEdad ? '#dc3545' : '#0d6efd', fontSize: mensajeEdad ? '0.8rem' : '1rem' }} /></div>
+              {(!edad || edad.años < 25) && (
+                <div className="col-md-4"><label className="form-label fw-bold small">Año Escolar</label><select className="form-select" value={anioEscolar} onChange={e => setAnioEscolar(e.target.value)}><option value="">Seleccione...</option><option value="Inicial 1">Inicial 1</option><option value="Inicial 2">Inicial 2</option><option value="1ro Básica">1ro Básica</option><option value="2do Básica">2do Básica</option><option value="3ro Básica">3ro Básica</option><option value="4to Básica">4to Básica</option><option value="5to Básica">5to Básica</option><option value="6to Básica">6to Básica</option><option value="7mo Básica">7mo Básica</option><option value="8vo Básica">8vo Básica</option><option value="9no Básica">9no Básica</option><option value="10mo Básica">10mo Básica</option><option value="1ro Bachillerato">1ro Bachillerato</option><option value="2do Bachillerato">2do Bachillerato</option><option value="3ro Bachillerato">3ro Bachillerato</option><option value="Universidad">Universidad</option><option value="No aplica">No aplica</option></select></div>
+              )}
               <div className="col-md-4"><label className="form-label fw-bold small">Sexo</label><select className="form-select" value={sexo} onChange={e => setSexo(e.target.value)}><option value="">Seleccione...</option>{sexos.map(s => <option key={s.codigo} value={s.nombre}>{s.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Tipo de Sangre</label><select className="form-select" value={tipoSangre} onChange={e => setTipoSangre(e.target.value)}><option value="">Seleccione...</option>{tiposSangreList.map(t => <option key={t.codigo} value={t.nombre}>{t.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Tipo de Sangre</label><select className="form-select" value={tipoSangre} onChange={e => setTipoSangre(e.target.value)}><option value="">Seleccione...</option>{tiposSangreList.length > 0 ? tiposSangreList.map(t => <option key={t.codigo} value={t.nombre}>{t.nombre}</option>) : <><option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option></>}</select></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Grupo Étnico</label><select className="form-select" value={grupoEtnico} onChange={e => setGrupoEtnico(e.target.value)}><option value="">Seleccione...</option>{etnias.length > 0 ? etnias.map(e => <option key={e.codigo} value={e.nombre}>{e.nombre}</option>) : <><option value="Mestizo">Mestizo</option><option value="Blanco">Blanco</option><option value="Indígena">Indígena</option><option value="Afroecuatoriano">Afroecuatoriano</option></>}</select></div>
               <div className="col-12 mt-4"><h6 className="text-muted border-bottom pb-2">Ubicación Geográfica del Paciente</h6></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => { setProvincia(e.target.value); setCanton(''); setParroquia('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
@@ -285,6 +290,7 @@ export default function RegistroPaciente() {
           )}
           {activeTab === 'filiacion' && (
             <div className="row g-3">
+
               <div className="col-12"><h6 className="text-muted border-bottom pb-2">Datos del Responsable / Tutor</h6></div>
               <div className="col-md-3"><label className="form-label fw-bold small">PRIMER NOMBRE <span className="text-danger">*</span></label><input className={`form-control ${errores.primerNombreRes ? 'is-invalid' : ''}`} value={primerNombreRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setPrimerNombreRes(e.target.value); }} placeholder="Ej: Maria" /></div>
               <div className="col-md-3"><label className="form-label fw-bold small">SEGUNDO NOMBRE</label><input className="form-control" value={segundoNombreRes} onChange={e => { if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(e.target.value)) setSegundoNombreRes(e.target.value); }} placeholder="(Opcional)" /></div>
