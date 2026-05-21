@@ -1,15 +1,34 @@
 /// <reference types="react" />
-import React, { useEffect, useState } from "react";
-
+import React, { useEffect, useState, useRef } from "react"; // AGREGADO useRef
 import { useNavigate } from "react-router-dom";
 import { obtenerPacientes } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
+import { useReactToPrint } from "react-to-print"; // AGREGADO
+import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE"; // Asegúrate de que esta ruta sea la correcta en tu proyecto
 
 export default function ConsultaPacientes() {
   const navigate = useNavigate();
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [pacienteConsultas, setPacienteConsultas] = useState<any | null>(null);
+
+  // --- NUEVA LÓGICA PARA IMPRESIÓN DIRECTA ---
+  const [pacienteAImprimir, setPacienteAImprimir] = useState<any | null>(null);
+  const componentRef = useRef(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef, // <-- Cambia "content" por "contentRef" y pásale la variable directo
+    documentTitle: 'HCE_Pediatrica_Reporte',
+  });
+
+  const triggerPrint = (paciente: any) => {
+    setPacienteAImprimir(paciente);
+    // Damos un pequeño respiro para que el componente oculto se renderice con los datos
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
+  // -------------------------------------------
 
   useEffect(() => {
     const cargarPacientes = async () => {
@@ -126,11 +145,20 @@ export default function ConsultaPacientes() {
                           </button>
                           <button 
                             className="btn btn-white btn-sm border-end px-3 py-2" 
-                            title="Ver Reporte Completo"
+                            title="Ver Historial Clínico"
                             onClick={() => navigate(`/reporte-hce/${p.cedula}`)}
                           >
                             <i className="bi bi-file-earmark-medical-fill text-info"></i>
                           </button>
+                          {/* NUEVO BOTÓN PARA IMPRIMIR DIRECTO */}
+                          <button 
+                            className="btn btn-white btn-sm border-end px-3 py-2" 
+                            title="Imprimir Anexo Técnico"
+                            onClick={() => triggerPrint(p)}
+                          >
+                            <i className="bi bi-printer-fill text-dark"></i>
+                          </button>
+                          {/* FIN NUEVO BOTÓN */}
                           <button 
                             className="btn btn-white btn-sm px-3 py-2" 
                             title="Historial de Consultas"
@@ -162,7 +190,7 @@ export default function ConsultaPacientes() {
         </div>
       </div>
 
-      {/* MODAL DE CONSULTAS - REDISEÑADO */}
+      {/* MODAL DE CONSULTAS - INTACTO */}
       {pacienteConsultas && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 1050 }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -206,6 +234,13 @@ export default function ConsultaPacientes() {
           </div>
         </div>
       )}
+
+      {/* COMPONENTE OCULTO PARA IMPRESIÓN */}
+      <div style={{ display: 'none' }}>
+        {pacienteAImprimir && (
+          <ReporteCompletoHCE ref={componentRef} paciente={pacienteAImprimir} />
+        )}
+      </div>
 
       <style>{`
         .transition-hover:hover {
