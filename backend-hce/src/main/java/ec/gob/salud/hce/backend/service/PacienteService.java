@@ -27,12 +27,16 @@ public class PacienteService {
     @Autowired
     private PacienteTutorRepository pacienteTutorRepository;
 
+    private static final int HISTORIA_GRUPO_INICIAL = 1;
+    private static final int HISTORIA_GRUPO_MAXIMO = 999;
+
     // --- 1. CREAR PACIENTE (Renombrado para coincidir con el Controller) ---
     @Transactional
     public Paciente crearPaciente(PacienteRequestDTO dto) {
 
         // A. GUARDAR DATOS DEL PACIENTE
         Paciente paciente = new Paciente();
+        paciente.setNumeroHistoriaClinica(generarSiguienteNumeroHistoriaClinica());
         paciente.setCedula(dto.getCedula());
         paciente.setPrimerNombre(dto.getPrimerNombre());
         paciente.setSegundoNombre(dto.getSegundoNombre());
@@ -126,5 +130,43 @@ public class PacienteService {
         
         int verificador = (10 - (suma % 10)) % 10;
         return verificador == Character.getNumericValue(cedula.charAt(9));
+    }
+
+    private String generarSiguienteNumeroHistoriaClinica() {
+        return pacienteRepository.findTopByNumeroHistoriaClinicaIsNotNullOrderByNumeroHistoriaClinicaDesc()
+                .map(Paciente::getNumeroHistoriaClinica)
+                .map(this::incrementarNumeroHistoriaClinica)
+                .orElse("HC-001-001-001");
+    }
+
+    private String incrementarNumeroHistoriaClinica(String numeroActual) {
+        int[] grupos = parsearGruposHistoriaClinica(numeroActual);
+
+        grupos[2]++;
+        if (grupos[2] > HISTORIA_GRUPO_MAXIMO) {
+            grupos[2] = HISTORIA_GRUPO_INICIAL;
+            grupos[1]++;
+        }
+        if (grupos[1] > HISTORIA_GRUPO_MAXIMO) {
+            grupos[1] = HISTORIA_GRUPO_INICIAL;
+            grupos[0]++;
+        }
+        if (grupos[0] > HISTORIA_GRUPO_MAXIMO) {
+            throw new IllegalStateException("Se alcanzó el límite de números de historia clínica");
+        }
+
+        return String.format("HC-%03d-%03d-%03d", grupos[0], grupos[1], grupos[2]);
+    }
+
+    private int[] parsearGruposHistoriaClinica(String numeroHistoriaClinica) {
+        if (numeroHistoriaClinica == null || !numeroHistoriaClinica.matches("^HC-\\d{3}-\\d{3}-\\d{3}$")) {
+            return new int[] { HISTORIA_GRUPO_INICIAL, HISTORIA_GRUPO_INICIAL, 0 };
+        }
+
+        return new int[] {
+                Integer.parseInt(numeroHistoriaClinica.substring(3, 6)),
+                Integer.parseInt(numeroHistoriaClinica.substring(7, 10)),
+                Integer.parseInt(numeroHistoriaClinica.substring(11, 14))
+        };
     }
 }

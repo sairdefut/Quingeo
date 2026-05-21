@@ -24,7 +24,7 @@ export default function ConsultaPacientes() {
   }, []);
 
   const pacientesFiltrados = pacientes.filter((p: Paciente) =>
-    `${p.nombres} ${p.apellidos} ${p.cedula}`.toLowerCase().includes(busqueda.toLowerCase())
+    `${p.nombres} ${p.apellidos} ${p.cedula} ${p.numeroHistoriaClinica || ''}`.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   const getAvatar = (sexo: string) => {
@@ -76,7 +76,8 @@ export default function ConsultaPacientes() {
             <table className="table table-hover align-middle mb-0">
               <thead className="bg-light">
                 <tr>
-                  <th className="px-4 py-3 text-muted small text-uppercase fw-bold" style={{ width: '150px' }}>Cédula</th>
+                  <th className="px-4 py-3 text-muted small text-uppercase fw-bold" style={{ width: '170px' }}>Historia Clinica</th>
+                  <th className="py-3 text-muted small text-uppercase fw-bold" style={{ width: '150px' }}>Cédula</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Paciente</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Fecha Nacimiento</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Estado Sync</th>
@@ -88,6 +89,11 @@ export default function ConsultaPacientes() {
                   pacientesFiltrados.map((p: Paciente) => (
                     <tr key={p.cedula} className="border-bottom transition-hover">
                       <td className="px-4">
+                        <span className="badge bg-light text-dark border fw-bold px-2 py-1">
+                          {p.numeroHistoriaClinica || 'Pendiente'}
+                        </span>
+                      </td>
+                      <td>
                         <span className="badge bg-light text-dark border fw-bold px-2 py-1">
                           {p.cedula}
                         </span>
@@ -144,7 +150,7 @@ export default function ConsultaPacientes() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-5 text-center">
+                    <td colSpan={6} className="py-5 text-center">
                       <div className="py-4">
                         <i className="bi bi-search text-muted display-1 opacity-25"></i>
                         <h5 className="mt-3 text-muted">No se encontraron pacientes</h5>

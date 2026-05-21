@@ -9,6 +9,10 @@ export const VistaIdentificacion = ({ cedula, paciente }: any) => (
             </div>
             <div className="row g-3 px-2">
                 <div className="col-md-3">
+                    <span className="text-muted small text-uppercase fw-bold" style={{fontSize: "0.7rem"}}>Historia Clinica</span><br/>
+                    <span className="fs-6 fw-medium text-dark">{paciente?.numeroHistoriaClinica || "Pendiente"}</span>
+                </div>
+                <div className="col-md-3">
                     <span className="text-muted small text-uppercase fw-bold" style={{fontSize: "0.7rem"}}>Cédula</span><br/>
                     <span className="fs-6 fw-medium text-dark">{cedula}</span>
                 </div>

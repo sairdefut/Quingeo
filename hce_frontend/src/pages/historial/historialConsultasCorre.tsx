@@ -90,6 +90,51 @@ export default function HistorialConsultas() {
     const [referenciaHospital, setReferenciaHospital] = useState(false);
     const [motivoReferencia, setMotivoReferencia] = useState('');
 
+    const cargarAntecedentesEnFormulario = (consulta: any) => {
+        const antecedentes = consulta?.antecedentes;
+        if (!antecedentes) return;
+
+        const perinatales = antecedentes.perinatales || {};
+        setProductoGestacion(perinatales.productoGestacion || '');
+        setEdadGestacional(perinatales.edadGestacional ?? '');
+        setViaParto(perinatales.viaParto || '');
+        setPesoNacimiento(perinatales.pesoNacimiento ?? '');
+        setTallaNacimiento(perinatales.tallaNacimiento ?? '');
+        setApgar({
+            apariencia: Number(perinatales.apgar?.apariencia || 0),
+            pulso: Number(perinatales.apgar?.pulso || 0),
+            reflejos: Number(perinatales.apgar?.reflejos || 0),
+            tonoMuscular: Number(perinatales.apgar?.tonoMuscular || 0),
+            respiracion: Number(perinatales.apgar?.respiracion || 0)
+        });
+        if (perinatales.checksComplicaciones) {
+            setChecksComplicaciones(perinatales.checksComplicaciones);
+        }
+        setDescripcionComplicaciones(perinatales.descripcionComplicaciones || '');
+
+        const vacunacion = antecedentes.vacunacion;
+        if (typeof vacunacion === 'string') {
+            setEstadoVacunacion(vacunacion);
+            setVacunasFaltantes({});
+        } else if (vacunacion) {
+            setEstadoVacunacion(vacunacion.estado || '');
+            setVacunasFaltantes(vacunacion.vacunas || {});
+        }
+
+        const personales = antecedentes.personales || {};
+        if (personales.enfermedadesCronicas) setEnfermedadesCronicas(personales.enfermedadesCronicas);
+        if (personales.hospitalizaciones) setHospitalizaciones(personales.hospitalizaciones);
+        if (personales.cirugias) setCirugias(personales.cirugias);
+        if (personales.alergias) setAlergias(personales.alergias);
+        if (personales.familiares) setFamiliares(personales.familiares);
+        setDescripcionCronicas(personales.descripcionCronicas || '');
+        setDescripcionOtrasCronicas(personales.descripcionOtrasCronicas || '');
+
+        const desarrolloData = antecedentes.desarrollo || {};
+        if (desarrolloData.hitos) setDesarrollo(desarrolloData.hitos);
+        if (desarrolloData.alimentacion) setAlimentacion(desarrolloData.alimentacion);
+    };
+
     useEffect(() => {
         const cargarPaciente = async () => {
             const lista = await obtenerPacientes();
@@ -101,7 +146,7 @@ export default function HistorialConsultas() {
 
                 if (historia.length > 0) {
                     const ult = historia[historia.length - 1];
-                    if (ult.antecedentes?.personales?.alergias) setAlergias(ult.antecedentes.personales.alergias);
+                    cargarAntecedentesEnFormulario(ult);
                 }
             }
         };
@@ -109,20 +154,12 @@ export default function HistorialConsultas() {
 
         const consultaEdicion = location.state?.consultaAEditar;
         if (consultaEdicion) {
+            cargarAntecedentesEnFormulario(consultaEdicion);
             setMotivoConsulta(consultaEdicion.motivo || '');
             setEnfermedadActual(consultaEdicion.enfermedadActual || '');
             setSignosVitales({ ...signosVitalesIniciales, ...(consultaEdicion.examenFisico?.vitales || {}) });
             setExamenSegmentario({ ...examenSegmentarioInicial, ...(consultaEdicion.examenFisico?.segmentario || {}) });
             setEvolucionClinica(consultaEdicion.examenFisico?.evolucion || '');
-
-            const vacunacion = consultaEdicion.antecedentes?.vacunacion;
-            if (typeof vacunacion === 'string') {
-                setEstadoVacunacion(vacunacion);
-                setVacunasFaltantes({});
-            } else if (vacunacion) {
-                setEstadoVacunacion(vacunacion.estado || '');
-                setVacunasFaltantes(vacunacion.vacunas || {});
-            }
 
             if (consultaEdicion.diagnostico?.principal) setDiagnosticoPrincipal(consultaEdicion.diagnostico.principal);
             if (consultaEdicion.diagnostico?.secundarios) setDiagnosticosSecundarios(consultaEdicion.diagnostico.secundarios);
@@ -169,7 +206,7 @@ export default function HistorialConsultas() {
             const consultaCompleta = {
                 id: location.state?.consultaAEditar?.id || uuidv4(),
                 fecha: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                hora: new Date().toTimeString().slice(0, 8),
                 motivo: motivoConsulta,
                 enfermedadActual,
                 antecedentes: {

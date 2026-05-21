@@ -18,6 +18,7 @@ public class PacienteMapper {
         PacienteResponseDTO dto = new PacienteResponseDTO();
 
         dto.setIdPaciente(entity.getIdPaciente());
+        dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
         dto.setCedula(entity.getCedula());
         dto.setPrimerNombre(entity.getPrimerNombre());
         dto.setSegundoNombre(entity.getSegundoNombre());
@@ -75,6 +76,7 @@ public class PacienteMapper {
             entity.setIdPaciente(dto.getIdPaciente());
         }
 
+        entity.setNumeroHistoriaClinica(dto.getNumeroHistoriaClinica());
         entity.setCedula(dto.getCedula());
         entity.setPrimerNombre(dto.getPrimerNombre());
         entity.setSegundoNombre(dto.getSegundoNombre());

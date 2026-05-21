@@ -31,7 +31,11 @@ public class Consulta {
     @lombok.ToString.Exclude
     private java.util.Set<EstudioLaboratorio> estudios = new java.util.HashSet<>();
 
-    @Column(name = "id_historia_clinica")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_historia_clinica")
+    private HistoriaClinica historiaClinica;
+
+    @Column(name = "id_historia_clinica", insertable = false, updatable = false)
     private Integer idHistoriaClinica;
 
     @Column(name = "fecha_atencion")

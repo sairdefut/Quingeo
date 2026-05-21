@@ -50,7 +50,7 @@ public class ConsultaService {
 
         // Crear consulta con mapper (ahora incluye planes y estudios con cascade)
         Consulta consulta = ConsultaMapper.toEntity(dto, paciente, planMapper, estudioMapper);
-        consulta.setIdHistoriaClinica(historia.getIdHistoriaClinica().intValue());
+        consulta.setHistoriaClinica(historia);
         if (dto.getUsuario() != null)
             consulta.setUsuarioMedico(dto.getUsuario());
 
@@ -72,17 +72,29 @@ public class ConsultaService {
     public List<ConsultaDTO> listarPorPaciente(Integer idPaciente) {
         return consultaRepository.findByIdPacienteWithDetails(idPaciente)
                 .stream()
-                .map(c -> ConsultaMapper.toDto(c, planMapper, estudioMapper))
+                .map(this::mapConsultaCompleta)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<ConsultaDTO> listarTodas() {
         return consultaRepository.findAll().stream().map(c -> {
-            ConsultaDTO dto = ConsultaMapper.toDto(c);
+            ConsultaDTO dto = mapConsultaCompleta(c);
             dto.setUsuario(c.getUsuarioMedico());
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    private ConsultaDTO mapConsultaCompleta(Consulta consulta) {
+        ConsultaDTO dto = ConsultaMapper.toDto(consulta, planMapper, estudioMapper);
+        if (consulta.getDatosCompletosJson() != null && !consulta.getDatosCompletosJson().isBlank()) {
+            try {
+                dto.setJsonCompleto(objectMapper.readValue(consulta.getDatosCompletosJson(), java.util.Map.class));
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("No se pudo leer el detalle completo de la consulta", e);
+            }
+        }
+        return dto;
     }
 
     // D-3: Calcular edad en meses

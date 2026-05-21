@@ -116,6 +116,7 @@ public class PacienteController {
         PacienteResponseDTO dto = new PacienteResponseDTO();
         
         dto.setIdPaciente(entity.getIdPaciente());
+        dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
         dto.setCedula(entity.getCedula());
         dto.setTipoIdentificacion(entity.getTipoIdentificacion());
         dto.setPrimerNombre(entity.getPrimerNombre());

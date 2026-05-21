@@ -4,7 +4,7 @@
 import { db, dbHelpers } from '../db/db';
 import { mapConsultaFrontendToBackend, mapConsultaBackendToFrontend } from './consultaMapper';
 import type { Paciente } from '../models/Paciente';
-import { API_BASE_URL, handleUnauthorized } from './authSession';
+import { API_BASE_URL } from './authSession';
 
 export interface SyncStatus {
     lastSync: number | null;
@@ -73,7 +73,6 @@ class SyncService {
             });
             if (response.status === 403) {
                 this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
-                handleUnauthorized();
                 return;
             }
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -205,7 +204,6 @@ class SyncService {
 
                             if (response.status === 403) {
                                 this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
-                                handleUnauthorized();
                                 return;
                             }
 
@@ -228,7 +226,10 @@ class SyncService {
                         if (Array.isArray(mappings)) {
                             for (const m of mappings) {
                                 if (m.entityType === 'paciente' && m.uuidOffline) {
-                                    await db.pacientes.update(m.uuidOffline, { idPaciente: m.newId });
+                                    await db.pacientes.update(m.uuidOffline, {
+                                        idPaciente: m.newId,
+                                        numeroHistoriaClinica: m.numeroHistoriaClinica
+                                    });
                                 }
                             }
                         }

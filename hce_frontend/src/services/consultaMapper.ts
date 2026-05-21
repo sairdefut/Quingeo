@@ -4,6 +4,7 @@
 export interface ConsultaBackend {
     idConsulta: number;
     idPaciente: number;
+    idHistoriaClinica?: number;
     fecha: string;
     hora: string;
     motivo: string;
@@ -122,6 +123,7 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
         referenciaHospital,
         motivoReferencia,
         usuario: consulta.usuario,
+        idHistoriaClinica: consulta.idHistoriaClinica,
         sincronizado: true
     };
 }
@@ -133,10 +135,7 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
         fechaISO = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     }
 
-    let horaISO = consulta.hora;
-    if (horaISO && horaISO.length === 5) {
-        horaISO = `${horaISO}:00`;
-    }
+    const horaISO = normalizarHoraBackend(consulta.hora);
 
     const diagnosticoPrincipal = consulta.diagnostico?.principal || {};
     const tipoDiagnostico = diagnosticoPrincipal.tipo === 'Definitivo' ? 'DEFINITIVO' : 'PRESUNTIVO';
@@ -211,4 +210,35 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
                 }]
                 : [])
     };
+}
+
+function normalizarHoraBackend(hora?: string): string {
+    if (!hora) {
+        return new Date().toTimeString().slice(0, 8);
+    }
+
+    const limpia = hora.trim().toLowerCase().replace(/\s+/g, ' ');
+    const formato24Horas = limpia.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (formato24Horas) {
+        return [
+            formato24Horas[1].padStart(2, '0'),
+            formato24Horas[2],
+            formato24Horas[3] || '00'
+        ].join(':');
+    }
+
+    const formato12Horas = limpia.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?$/);
+    if (formato12Horas) {
+        let horas = Number(formato12Horas[1]);
+        const minutos = formato12Horas[2];
+        const segundos = formato12Horas[3] || '00';
+        const periodo = formato12Horas[4];
+
+        if (periodo === 'p' && horas < 12) horas += 12;
+        if (periodo === 'a' && horas === 12) horas = 0;
+
+        return `${String(horas).padStart(2, '0')}:${minutos}:${segundos}`;
+    }
+
+    return new Date().toTimeString().slice(0, 8);
 }

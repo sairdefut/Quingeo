@@ -10,6 +10,7 @@ import java.util.List;
 public class PacienteRequestDTO {
     // No suele llevar ID si es para crear, pero si usas el mismo para update, déjalo
     private Integer idPaciente;
+    private String numeroHistoriaClinica;
 
     private String apellidoPaterno;
     private String apellidoMaterno;

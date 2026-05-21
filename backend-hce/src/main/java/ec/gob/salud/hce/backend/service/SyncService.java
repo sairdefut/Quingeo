@@ -259,7 +259,8 @@ public class SyncService {
                             mappings.add(new ec.gob.salud.hce.backend.dto.IdMappingDTO(
                                     nuevoPaciente.getUuidOffline(),
                                     nuevoPaciente.getIdPaciente(),
-                                    "paciente"));
+                                    "paciente",
+                                    nuevoPaciente.getNumeroHistoriaClinica()));
                             System.out.println("DEBUG: Mapeo creado UUID: " + nuevoPaciente.getUuidOffline()
                                     + " -> ID: " + nuevoPaciente.getIdPaciente());
                         }
@@ -272,7 +273,8 @@ public class SyncService {
                             mappings.add(new ec.gob.salud.hce.backend.dto.IdMappingDTO(
                                     dto.getUuidOffline(),
                                     existente.getIdPaciente(),
-                                    "paciente"));
+                                    "paciente",
+                                    existente.getNumeroHistoriaClinica()));
                         }
                         System.out.println(
                                 "Paciente con cédula " + dto.getCedula() + " ya existe. Devolviendo ID existente: "

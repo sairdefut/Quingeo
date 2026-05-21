@@ -24,6 +24,9 @@ public class Paciente {
     @Column(name = "id_paciente")
     private Integer idPaciente;
 
+    @Column(name = "numero_historia_clinica", unique = true, length = 14)
+    private String numeroHistoriaClinica;
+
     // --- DATOS PERSONALES ---
     @Column(name = "cedula", nullable = false, length = 20)
     private String cedula;

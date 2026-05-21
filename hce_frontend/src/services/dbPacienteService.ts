@@ -2,9 +2,11 @@ import { db, dbHelpers } from '../db/db';
 import type { CatalogoItem } from '../db/db';
 import type { Paciente } from '../models/Paciente';
 import { API_BASE_URL, handleUnauthorized } from './authSession';
+import { mapConsultaFrontendToBackend } from './consultaMapper';
 
 type PacienteBackendPayload = {
     idPaciente?: number;
+    numeroHistoriaClinica?: string;
     apellidoPaterno: string;
     apellidoMaterno: string;
     primerNombre: string;
@@ -93,6 +95,7 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
 
     return {
         idPaciente: paciente.idPaciente,
+        numeroHistoriaClinica: paciente.numeroHistoriaClinica,
         apellidoPaterno: apellidos.first,
         apellidoMaterno: apellidos.second,
         primerNombre: nombres.first,
@@ -126,7 +129,7 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
     };
 }
 
-async function postPacienteToBackend(paciente: Paciente): Promise<number | undefined> {
+async function postPacienteToBackend(paciente: Paciente): Promise<{ newId?: number; numeroHistoriaClinica?: string } | undefined> {
     const pacienteParaBackend = await mapPacienteFrontendToBackend(paciente);
     const response = await fetch(`${API_BASE_URL}/sync/up`, {
         method: 'POST',
@@ -155,7 +158,36 @@ async function postPacienteToBackend(paciente: Paciente): Promise<number | undef
     if (!Array.isArray(mappings)) return undefined;
 
     const mapping = mappings.find((item: any) => item.uuidOffline === paciente.uuidOffline);
-    return mapping?.newId;
+    return mapping
+        ? { newId: mapping.newId, numeroHistoriaClinica: mapping.numeroHistoriaClinica }
+        : undefined;
+}
+
+async function postConsultaToBackend(consulta: any, idPaciente: number): Promise<boolean> {
+    const consultaParaBackend = mapConsultaFrontendToBackend(consulta, idPaciente);
+    const response = await fetch(`${API_BASE_URL}/sync/up`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            entity: 'consulta',
+            type: 'CREATE',
+            data: consultaParaBackend
+        })
+    });
+
+    if (response.status === 403) {
+        throw new Error('Su sesion expiro. La consulta quedo guardada localmente y pendiente de sincronizacion.');
+    }
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error al guardar consulta en servidor (${response.status}): ${errorText || response.statusText}`);
+    }
+
+    return true;
 }
 
 export async function obtenerPacientes(): Promise<Paciente[]> {
@@ -180,9 +212,12 @@ export async function registrarPaciente(paciente: Paciente): Promise<Paciente> {
 
     if (navigator.onLine) {
         try {
-            const newId = await postPacienteToBackend(pacienteParaGuardar);
-            if (newId) {
-                pacienteParaGuardar.idPaciente = newId;
+            const mapping = await postPacienteToBackend(pacienteParaGuardar);
+            if (mapping?.newId) {
+                pacienteParaGuardar.idPaciente = mapping.newId;
+            }
+            if (mapping?.numeroHistoriaClinica) {
+                pacienteParaGuardar.numeroHistoriaClinica = mapping.numeroHistoriaClinica;
             }
             await dbHelpers.savePaciente(pacienteParaGuardar);
             return pacienteParaGuardar;
@@ -213,6 +248,24 @@ export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promi
         antecedentes: nuevaConsulta.antecedentes,
         historiaClinica
     });
+
+    if (navigator.onLine && paciente.idPaciente) {
+        try {
+            await postConsultaToBackend(nuevaConsulta, paciente.idPaciente);
+            return true;
+        } catch (error) {
+            console.error('[dbPacienteService] Error registrando consulta online. Se guarda pendiente para sync:', error);
+            await dbHelpers.addToSyncQueue({
+                entity: 'consulta',
+                type: 'CREATE',
+                data: {
+                    cedula,
+                    consulta: nuevaConsulta
+                }
+            });
+            throw error;
+        }
+    }
 
     await dbHelpers.addToSyncQueue({
         entity: 'consulta',

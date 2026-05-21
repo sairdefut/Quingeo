@@ -27,7 +27,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         // 2. Convertimos tu campo 'cargo' (ej: "medico") en una Autoridad (ej: "ROLE_MEDICO")
         // Spring Security espera que los roles empiecen con "ROLE_"
-        String nombreRol = "ROLE_" + usuario.getCargo().toUpperCase();
+        String cargo = usuario.getCargo();
+        String nombreRol = "ROLE_" + (cargo == null || cargo.isBlank() ? "MEDICO" : cargo.trim().toUpperCase());
         GrantedAuthority authority = new SimpleGrantedAuthority(nombreRol);
 
         // 3. Devolvemos el objeto User oficial de Spring Security

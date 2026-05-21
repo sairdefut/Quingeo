@@ -10,6 +10,7 @@ import java.util.Map;
 public class ConsultaDTO {
     private Long idConsulta;
     private Integer idPaciente;
+    private Integer idHistoriaClinica;
     
     private LocalDate fecha;
     private LocalTime hora;

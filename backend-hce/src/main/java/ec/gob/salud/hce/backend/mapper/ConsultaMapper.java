@@ -83,6 +83,11 @@ public class ConsultaMapper {
         ConsultaDTO dto = new ConsultaDTO();
         dto.setIdConsulta(entity.getIdConsulta());
         dto.setIdPaciente(entity.getPaciente() != null ? entity.getPaciente().getIdPaciente() : null);
+        if (entity.getHistoriaClinica() != null && entity.getHistoriaClinica().getIdHistoriaClinica() != null) {
+            dto.setIdHistoriaClinica(entity.getHistoriaClinica().getIdHistoriaClinica().intValue());
+        } else {
+            dto.setIdHistoriaClinica(entity.getIdHistoriaClinica());
+        }
 
         dto.setFecha(entity.getFechaConsulta());
         dto.setHora(entity.getHoraConsulta());

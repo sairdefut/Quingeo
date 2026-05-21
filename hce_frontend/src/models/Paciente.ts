@@ -3,6 +3,7 @@ export interface Paciente {
   id: string;                 // UUID o igual a la cédula
   uuidOffline?: string;       // ID para sincronización (Primary Key)
   idPaciente?: number;        // ID generado por el backend (opcional offline)
+  numeroHistoriaClinica?: string;
   cedula: string;
   nombres: string;
   apellidos: string;

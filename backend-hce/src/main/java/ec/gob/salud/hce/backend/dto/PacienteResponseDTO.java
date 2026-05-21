@@ -10,6 +10,7 @@ import java.util.List;
 @Setter
 public class PacienteResponseDTO {
     private Integer idPaciente;
+    private String numeroHistoriaClinica;
     
     private String apellidoPaterno;
     private String apellidoMaterno;
