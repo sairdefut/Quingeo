@@ -18,4 +18,4 @@ public class AntecedenteInmunizacionDTO {
     private String syncStatus;
     private LocalDateTime lastModified;
     private String origin;
-}
+} 

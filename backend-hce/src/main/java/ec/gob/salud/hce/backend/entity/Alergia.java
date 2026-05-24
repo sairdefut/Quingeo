@@ -22,9 +22,6 @@ public class Alergia {
     @Column(length = 50)
     private String estado;
 
-    @Column(length = 50) // El diagrama no especifica long., pero tu código anterior usaba 50
-    private String observaciones;
-
     // --- RELACIÓN INVERSA (Opcional pero recomendada por el diagrama) ---
     // Una alergia puede estar en muchos registros de pacientes
     @OneToMany(mappedBy = "alergia", fetch = FetchType.LAZY)

@@ -76,11 +76,6 @@ public class PacienteController {
             if (pacienteUnificado.getSexo() == null) pacienteUnificado.setSexo(duplicado.getSexo());
             if (pacienteUnificado.getFechaNacimiento() == null) pacienteUnificado.setFechaNacimiento(duplicado.getFechaNacimiento());
             
-            // FUSIONAR IDs DE ANTECEDENTES (Importante para que no salga bloqueado)
-            if (pacienteUnificado.getIdAntecedentesPerinatales() == null) pacienteUnificado.setIdAntecedentesPerinatales(duplicado.getIdAntecedentesPerinatales());
-            if (pacienteUnificado.getIdAntecedentesInmunizaciones() == null) pacienteUnificado.setIdAntecedentesInmunizaciones(duplicado.getIdAntecedentesInmunizaciones());
-            if (pacienteUnificado.getIdAntecedentesFamiliares() == null) pacienteUnificado.setIdAntecedentesFamiliares(duplicado.getIdAntecedentesFamiliares());
-            if (pacienteUnificado.getIdAntecedentesDesarrollo() == null) pacienteUnificado.setIdAntecedentesDesarrollo(duplicado.getIdAntecedentesDesarrollo());
         }
 
         // 4. Devolvemos el paciente unificado como si fuera uno solo

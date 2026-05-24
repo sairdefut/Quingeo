@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 import java.util.Date;
 
+
+//TODO Esta entidad no esta en el driagrama
 @Getter
 @Setter
 @Entity

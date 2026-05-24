@@ -12,11 +12,7 @@ public class Tutor {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_tutor")
-    private Integer idTutor; // O idPersonal, si prefieres mantener coherencia
-
-    // --- CORRECCIÓN 1: NOMBRES SEPARADOS ---
-    // Reemplazamos 'nombreCompletoTutor' por los 4 campos individuales
-    // para que coincida con lo que envía el Frontend y el Servicio.
+    private Integer idTutor; // O idPersonal, si prefieres mantene
     
     @Column(name = "primer_nombre")
     private String primerNombre;

@@ -33,7 +33,6 @@ public class AlergiaController {
             .map(alergia -> {
                 alergia.setTipoAlergia(detalles.getTipoAlergia());
                 alergia.setEstado(detalles.getEstado());
-                alergia.setObservaciones(detalles.getObservaciones());
                 alergia.setSyncStatus(detalles.getSyncStatus());
                 return ResponseEntity.ok(repository.save(alergia));
             })

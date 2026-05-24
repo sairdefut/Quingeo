@@ -118,9 +118,10 @@ public class AuthController {
                 actividad.put("accion", "CONSULTA REGISTRADA"); 
                 
                 // Validación del paciente para evitar el error 500 si los datos son nulos
-                if (c.getPaciente() != null) {
+                if (c.getHistoriaClinica() != null && c.getHistoriaClinica().getPaciente() != null) {
                     // Se asume que Paciente tiene getNombres() y getApellidos() basados en errores previos
-                    String nombrePac = c.getPaciente().getPrimerNombre() + " " + c.getPaciente().getApellidoPaterno();
+                    String nombrePac = c.getHistoriaClinica().getPaciente().getPrimerNombre() + " "
+                            + c.getHistoriaClinica().getPaciente().getApellidoPaterno();
                     actividad.put("pacienteNombre", nombrePac);
                 } else {
                     actividad.put("pacienteNombre", "Paciente no identificado");

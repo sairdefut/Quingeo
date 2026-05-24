@@ -11,13 +11,13 @@ import java.time.LocalDateTime;
 @Setter
 public class CardioPulmonar {
 
+    @Column(name = "id_examen_fisico_segmentario")
+    private Integer idExamenFisicoSegmentario;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cardio_pulmonar")
     private Integer idCardioPulmonar;
-
-    @Column(name = "id_examen_fisico_segmentario")
-    private Integer idExamenFisicoSegmentario;
 
     @Column(name = "ruido_cardiaco", length = 100)
     private String ruidoCardiaco;

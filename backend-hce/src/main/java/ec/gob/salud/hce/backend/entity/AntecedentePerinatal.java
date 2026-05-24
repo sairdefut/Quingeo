@@ -16,28 +16,24 @@ public class AntecedentePerinatal {
     @Column(name = "id_antecedente_perinatal")
     private Integer idAntecedentePerinatal;
 
-    // --- RELACIÓN 1: PACIENTE (Necesaria para tu Repositorio findByPaciente...) ---
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente")
-    private Paciente paciente;
-
     // --- RELACIÓN 2: HISTORIA CLÍNICA (La que no queríamos quitar) ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_historia_clinica")
     private HistoriaClinica historiaClinica;
 
+    // TODO ESTO NO ESTA EN EL DIAGRAMA
     // --- DATOS MÉDICOS (Que faltaban en tu versión anterior) ---
-    @Column(name = "embarazo_planificado")
-    private Boolean embarazoPlanificado;
+    // @Column(name = "embarazo_planificado")
+    // private Boolean embarazoPlanificado;
 
-    @Column(name = "controles_prenatales")
-    private Integer controlesPrenatales;
+    // @Column(name = "controles_prenatales")
+    //private Integer controlesPrenatales;
 
-    @Column(length = 255)
-    private String antecedentes;
+    //Column(length = 255)
+    //private String antecedentes;
 
-    @Column(name = "otros_antecedentes", columnDefinition = "TEXT")
-    private String otrosAntecedentes;
+    //@Column(name = "otros_antecedentes", columnDefinition = "TEXT")
+    //private String otrosAntecedentes;
 
     // --- AUDITORÍA ---
     @Column(length = 50)

@@ -16,15 +16,9 @@ public class SignoVital {
     @Column(name = "id_signo_vital")
     private Integer idSignoVital;
 
-    // --- RELACIÓN: Un signo vital pertenece a un Examen Físico ---
-    // Reemplazamos "Integer idExamenFisico" por la entidad real.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_examen_fisico")
-    private ExamenFisico examenFisico;
-
     // NOTA: Al no poner @Column con scale, se soluciona el error "scale has no meaning..."
     private Double peso;
-    
+
     @Column(name = "talla_longitud") // A veces es bueno explicitar el nombre si usa guion bajo
     private Double tallaLongitud;
     
@@ -56,6 +50,12 @@ public class SignoVital {
 
     @Column(length = 50)
     private String observacion;
+
+    // --- RELACIÓN: Un signo vital pertenece a un Examen Físico ---
+    // Reemplazamos "Integer idExamenFisico" por la entidad real.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_examen_fisico")
+    private ExamenFisico examenFisico;
 
     // Auditoría
     @Column(name = "uuid_offline", length = 36)

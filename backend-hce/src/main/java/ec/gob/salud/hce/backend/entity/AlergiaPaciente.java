@@ -17,6 +17,13 @@ public class AlergiaPaciente {
     @Column(name = "id_alergia_paciente")
     private Integer idAlergiaPaciente;
 
+    // --- CAMPOS ESPECÍFICOS DEL DIAGRAMA ---
+    @Column(length = 255) // Reaccion suele ser texto
+    private String reaccion;
+
+    @Column(columnDefinition = "TEXT")
+    private String observaciones;
+
     // --- UNIÓN 1: Línea hacia "pacientes" ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_paciente", nullable = false)
@@ -26,13 +33,6 @@ public class AlergiaPaciente {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_alergia", nullable = false)
     private Alergia alergia;
-
-    // --- CAMPOS ESPECÍFICOS DEL DIAGRAMA ---
-    @Column(length = 255) // Reaccion suele ser texto
-    private String reaccion;
-
-    @Column(columnDefinition = "TEXT")
-    private String observaciones;
 
     @Column(name = "fecha_creacion")
     private LocalDate fechaCreacion;

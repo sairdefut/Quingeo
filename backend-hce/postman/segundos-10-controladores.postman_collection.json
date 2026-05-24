@@ -1,0 +1,445 @@
+{
+  "info": {
+    "_postman_id": "0b1c38a1-0e8b-4e84-a1b2-9a0f8fd00020",
+    "name": "HCE Backend - Segundos 10 controladores",
+    "description": "Coleccion para probar los controladores 11 al 20 en orden alfabetico: CabezaCuello, CardioPulmonar, Catalogo, CirugiaPrevia, ComplicacionPerinatal, Consulta, DatoGestacional, DesarrolloPsicomotor, DiagnosticoPlanManejo y Enfermedad. Ejecuta el login de la primera coleccion antes de usar endpoints protegidos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "username", "value": "admin" },
+    { "key": "idPaciente", "value": "1" },
+    { "key": "idHistoriaClinica", "value": "1" },
+    { "key": "idExamenFisicoSegmentario", "value": "1" },
+    { "key": "idAntecedentePerinatal", "value": "1" },
+    { "key": "idAntecedentePatologicoPersonal", "value": "1" },
+    { "key": "idDatoGestacional", "value": "1" },
+    { "key": "idEnfermedad", "value": "1" },
+    { "key": "idCabezaCuello", "value": "1" },
+    { "key": "idCardioPulmonar", "value": "1" },
+    { "key": "idCirugiaPrevia", "value": "1" },
+    { "key": "idComplicacionPerinatal", "value": "1" },
+    { "key": "idConsulta", "value": "1" },
+    { "key": "idDesarrolloPsicomotor", "value": "1" },
+    { "key": "idDiagnosticoPlanManejo", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "CabezaCuelloController",
+      "item": [
+        {
+          "name": "GET /api/cabezas-cuellos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cabezas-cuellos", "host": ["{{baseUrl}}"], "path": ["api", "cabezas-cuellos"] }
+          }
+        },
+        {
+          "name": "POST /api/cabezas-cuellos",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idExamenFisicoSegmentario\": {{idExamenFisicoSegmentario}},\n  \"fontaneloAnterior\": \"Normotensa\",\n  \"adenopatia\": \"No palpable\",\n  \"otros\": \"Sin hallazgos relevantes\",\n  \"uuidOffline\": \"cabeza-cuello-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\",\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cabezas-cuellos", "host": ["{{baseUrl}}"], "path": ["api", "cabezas-cuellos"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idCabezaCuello) pm.collectionVariables.set('idCabezaCuello', json.idCabezaCuello);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CardioPulmonarController",
+      "item": [
+        {
+          "name": "GET /api/cardio-pulmonares",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cardio-pulmonares", "host": ["{{baseUrl}}"], "path": ["api", "cardio-pulmonares"] }
+          }
+        },
+        {
+          "name": "POST /api/cardio-pulmonares",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idExamenFisicoSegmentario\": {{idExamenFisicoSegmentario}},\n  \"ruidoCardiaco\": \"Ritmico\",\n  \"murmulloVesicular\": \"Conservado bilateral\",\n  \"soplos\": \"No\",\n  \"crepitante\": \"No\",\n  \"otros\": \"Sin signos de dificultad respiratoria\",\n  \"uuidOffline\": \"cardio-pulmonar-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\",\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cardio-pulmonares", "host": ["{{baseUrl}}"], "path": ["api", "cardio-pulmonares"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idCardioPulmonar) pm.collectionVariables.set('idCardioPulmonar', json.idCardioPulmonar);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CatalogoController",
+      "item": [
+        {
+          "name": "GET /api/catalogos/etnias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/catalogos/etnias", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "etnias"] }
+          }
+        },
+        {
+          "name": "GET /api/catalogos/glasgow/{valor}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/catalogos/glasgow/15", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "glasgow", "15"] }
+          }
+        },
+        {
+          "name": "GET /api/catalogos/glasgow/opciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/catalogos/glasgow/opciones", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "glasgow", "opciones"] }
+          }
+        },
+        {
+          "name": "GET /api/catalogos/cie10/buscar?q=diabetes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalogos/cie10/buscar?q=diabetes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "catalogos", "cie10", "buscar"],
+              "query": [{ "key": "q", "value": "diabetes" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CirugiaPreviaController",
+      "item": [
+        {
+          "name": "GET /api/cirugias-previas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cirugias-previas", "host": ["{{baseUrl}}"], "path": ["api", "cirugias-previas"] }
+          }
+        },
+        {
+          "name": "GET /api/cirugias-previas/paciente/{idPaciente}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/cirugias-previas/paciente/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "cirugias-previas", "paciente", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "POST /api/cirugias-previas",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPaciente\": {{idPaciente}},\n  \"tipo\": \"Apendicectomia\",\n  \"fecha\": \"2026-05-23\",\n  \"idAntecedentePatologicoPersonal\": {{idAntecedentePatologicoPersonal}},\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1,\n  \"uuidOffline\": \"cirugia-previa-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cirugias-previas", "host": ["{{baseUrl}}"], "path": ["api", "cirugias-previas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idCirugiaPrevia) pm.collectionVariables.set('idCirugiaPrevia', json.idCirugiaPrevia);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ComplicacionPerinatalController",
+      "item": [
+        {
+          "name": "GET /api/complicaciones-perinatales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/complicaciones-perinatales", "host": ["{{baseUrl}}"], "path": ["api", "complicaciones-perinatales"] }
+          }
+        },
+        {
+          "name": "POST /api/complicaciones-perinatales",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Sin complicaciones perinatales relevantes\",\n  \"fecha\": \"2026-05-23\",\n  \"idDatoGestacional\": {{idDatoGestacional}},\n  \"idEnfermedad\": {{idEnfermedad}},\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1,\n  \"uuidOffline\": \"complicacion-perinatal-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/complicaciones-perinatales", "host": ["{{baseUrl}}"], "path": ["api", "complicaciones-perinatales"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idComplicacionPerinatal) pm.collectionVariables.set('idComplicacionPerinatal', json.idComplicacionPerinatal);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ConsultaController",
+      "item": [
+        {
+          "name": "GET /api/consultas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/consultas", "host": ["{{baseUrl}}"], "path": ["api", "consultas"] }
+          }
+        },
+        {
+          "name": "GET /api/consultas/paciente/{idPaciente}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/consultas/paciente/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "consultas", "paciente", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "POST /api/consultas",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPaciente\": {{idPaciente}},\n  \"idHistoriaClinica\": {{idHistoriaClinica}},\n  \"fecha\": \"2026-05-23\",\n  \"hora\": \"10:30:00\",\n  \"motivo\": \"Control general\",\n  \"enfermedadActual\": \"Paciente acude para control de rutina\",\n  \"peso\": 18.5,\n  \"talla\": 1.08,\n  \"temperatura\": 36.7,\n  \"fc\": 92,\n  \"fr\": 22,\n  \"spo2\": 98,\n  \"perimetroCefalico\": 50.0,\n  \"diagnosticoTexto\": \"Control de salud sin hallazgos patologicos\",\n  \"tipoDiagnostico\": \"PRESUNTIVO\",\n  \"jsonCompleto\": {\n    \"origen\": \"POSTMAN\",\n    \"nota\": \"Payload ligero de prueba\"\n  },\n  \"usuario\": \"{{username}}\",\n  \"listaPlan\": [],\n  \"listaEstudios\": [],\n  \"referenciaHospital\": false,\n  \"motivoReferencia\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/consultas", "host": ["{{baseUrl}}"], "path": ["api", "consultas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idConsulta) pm.collectionVariables.set('idConsulta', json.idConsulta);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DatoGestacionalController",
+      "item": [
+        {
+          "name": "GET /api/datos-gestacionales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/datos-gestacionales", "host": ["{{baseUrl}}"], "path": ["api", "datos-gestacionales"] }
+          }
+        },
+        {
+          "name": "POST /api/datos-gestacionales",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoGestacion\": \"Unico vivo\",\n  \"edadGestacional\": \"39 semanas\",\n  \"viaParto\": \"Vaginal\",\n  \"pesoNacer\": 3200.0,\n  \"tallaNacer\": 50.0,\n  \"apgarMinuto\": 8,\n  \"apgarCincoMinutos\": 9,\n  \"complicacionesPerinatales\": \"Ninguna\",\n  \"idAntecedentePerinatal\": {{idAntecedentePerinatal}},\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1,\n  \"uuidOffline\": \"dato-gestacional-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/datos-gestacionales", "host": ["{{baseUrl}}"], "path": ["api", "datos-gestacionales"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idDatoGestacional) pm.collectionVariables.set('idDatoGestacional', json.idDatoGestacional);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DesarrolloPsicomotorController",
+      "item": [
+        {
+          "name": "GET /api/desarrollo-psicomotor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/desarrollo-psicomotor", "host": ["{{baseUrl}}"], "path": ["api", "desarrollo-psicomotor"] }
+          }
+        },
+        {
+          "name": "GET /api/desarrollo-psicomotor/historia/{idHistoria}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/desarrollo-psicomotor/historia/{{idHistoriaClinica}}", "host": ["{{baseUrl}}"], "path": ["api", "desarrollo-psicomotor", "historia", "{{idHistoriaClinica}}"] }
+          }
+        },
+        {
+          "name": "POST /api/desarrollo-psicomotor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observacion\": \"Desarrollo acorde a la edad\",\n  \"idHistoriaClinica\": {{idHistoriaClinica}},\n  \"fechaEvaluacion\": \"2026-05-23\",\n  \"usuario\": \"{{username}}\",\n  \"uuidOffline\": \"desarrollo-psicomotor-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/desarrollo-psicomotor", "host": ["{{baseUrl}}"], "path": ["api", "desarrollo-psicomotor"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idDesarrolloPsicomotor) pm.collectionVariables.set('idDesarrolloPsicomotor', json.idDesarrolloPsicomotor);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DiagnosticoPlanManejoController",
+      "item": [
+        {
+          "name": "GET /api/diagnosticos-planes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/diagnosticos-planes", "host": ["{{baseUrl}}"], "path": ["api", "diagnosticos-planes"] }
+          }
+        },
+        {
+          "name": "POST /api/diagnosticos-planes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observacion\": \"Plan de manejo generado desde Postman\",\n  \"fecha\": \"2026-05-23T10:30:00.000+00:00\",\n  \"idHistoriaClinica\": {{idHistoriaClinica}},\n  \"uuidOffline\": \"diagnostico-plan-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/diagnosticos-planes", "host": ["{{baseUrl}}"], "path": ["api", "diagnosticos-planes"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idDiagnosticoPlanManejo) pm.collectionVariables.set('idDiagnosticoPlanManejo', json.idDiagnosticoPlanManejo);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EnfermedadController",
+      "item": [
+        {
+          "name": "GET /api/enfermedades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/enfermedades", "host": ["{{baseUrl}}"], "path": ["api", "enfermedades"] }
+          }
+        },
+        {
+          "name": "POST /api/enfermedades",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"Z00.0\",\n  \"nombre\": \"Examen medico general de prueba\",\n  \"estado\": \"ACTIVO\",\n  \"usuario\": \"{{username}}\",\n  \"uuidOffline\": \"enfermedad-postman-001\",\n  \"syncStatus\": \"PENDING\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/enfermedades", "host": ["{{baseUrl}}"], "path": ["api", "enfermedades"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idEnfermedad) pm.collectionVariables.set('idEnfermedad', json.idEnfermedad);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

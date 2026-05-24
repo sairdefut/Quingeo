@@ -1,0 +1,345 @@
+{
+  "info": {
+    "_postman_id": "0b1c38a1-0e8b-4e84-a1b2-9a0f8fd00040",
+    "name": "HCE Backend - Ultimos 9 controladores",
+    "description": "Coleccion para probar los controladores restantes en orden alfabetico: Paciente, PacienteTutor, PielFanera, PlanTerapeutico, Reporte, SignoVital, Sync, Tutor y Ubicacion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "username", "value": "admin" },
+    { "key": "cedulaPaciente", "value": "0102030405" },
+    { "key": "idPaciente", "value": "1" },
+    { "key": "idTutor", "value": "1" },
+    { "key": "idPacienteTutor", "value": "1" },
+    { "key": "idExamenFisico", "value": "1" },
+    { "key": "idExamenFisicoSegmentario", "value": "1" },
+    { "key": "idConsulta", "value": "1" },
+    { "key": "idPielFanera", "value": "1" },
+    { "key": "idPlanTerapeutico", "value": "1" },
+    { "key": "idSignoVital", "value": "1" },
+    { "key": "idGrupoEtnico", "value": "1" },
+    { "key": "idParroquia", "value": "1" },
+    { "key": "idCanton", "value": "1" },
+    { "key": "idProvincia", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "PacienteController",
+      "item": [
+        {
+          "name": "GET /api/pacientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pacientes", "host": ["{{baseUrl}}"], "path": ["api", "pacientes"] }
+          }
+        },
+        {
+          "name": "GET /api/pacientes/{valor}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pacientes/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "pacientes", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "GET /api/pacientes/buscar?q=ana",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pacientes/buscar?q=ana",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pacientes", "buscar"],
+              "query": [{ "key": "q", "value": "ana" }]
+            }
+          }
+        },
+        {
+          "name": "POST /api/pacientes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numeroHistoriaClinica\": \"HC-POSTMAN-001\",\n  \"apellidoPaterno\": \"Perez\",\n  \"apellidoMaterno\": \"Lopez\",\n  \"primerNombre\": \"Ana\",\n  \"segundoNombre\": \"Maria\",\n  \"cedula\": \"{{cedulaPaciente}}\",\n  \"tipoIdentificacion\": \"CEDULA\",\n  \"tipoSangre\": \"O+\",\n  \"anioEscolar\": \"Segundo\",\n  \"fechaNacimiento\": \"2018-05-23\",\n  \"sexo\": \"F\",\n  \"idGrupoEtnico\": {{idGrupoEtnico}},\n  \"idParroquia\": {{idParroquia}},\n  \"idPrqCanton\": {{idCanton}},\n  \"idPrqCntProvincia\": {{idProvincia}},\n  \"usuario\": \"{{username}}\",\n  \"uuidOffline\": \"paciente-postman-001\",\n  \"origin\": \"POSTMAN\",\n  \"idPersonal\": 1,\n  \"antecedentesFamiliares\": [],\n  \"tutor\": {\n    \"primerNombre\": \"Carlos\",\n    \"segundoNombre\": \"Andres\",\n    \"primerApellido\": \"Perez\",\n    \"segundoApellido\": \"Lopez\",\n    \"telefono\": \"0999999999\",\n    \"direccion\": \"Quingeo\",\n    \"nivelEducativo\": \"Secundaria\",\n    \"idParroquia\": {{idParroquia}},\n    \"idPrqCanton\": {{idCanton}},\n    \"idPrqCntProvincia\": {{idProvincia}}\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/pacientes", "host": ["{{baseUrl}}"], "path": ["api", "pacientes"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idPaciente) pm.collectionVariables.set('idPaciente', json.idPaciente);",
+                  "  if (json.cedula) pm.collectionVariables.set('cedulaPaciente', json.cedula);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PacienteTutorController",
+      "item": [
+        {
+          "name": "GET /api/pacientes_tutores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pacientes_tutores", "host": ["{{baseUrl}}"], "path": ["api", "pacientes_tutores"] }
+          }
+        },
+        {
+          "name": "POST /api/pacientes_tutores",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paciente\": {\n    \"idPaciente\": {{idPaciente}}\n  },\n  \"tutor\": {\n    \"idTutor\": {{idTutor}}\n  },\n  \"parentesco\": \"Padre\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/pacientes_tutores", "host": ["{{baseUrl}}"], "path": ["api", "pacientes_tutores"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PielFaneraController",
+      "item": [
+        {
+          "name": "GET /api/pieles-faneras",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/pieles-faneras", "host": ["{{baseUrl}}"], "path": ["api", "pieles-faneras"] }
+          }
+        },
+        {
+          "name": "POST /api/pieles-faneras",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idExamenFisicoSegmentario\": {{idExamenFisicoSegmentario}},\n  \"icterisia\": 0,\n  \"psianosis\": 0,\n  \"rash\": 0,\n  \"otros\": \"Piel integra, sin lesiones\",\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1,\n  \"uuidOffline\": \"piel-fanera-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/pieles-faneras", "host": ["{{baseUrl}}"], "path": ["api", "pieles-faneras"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idPielFanera) pm.collectionVariables.set('idPielFanera', json.idPielFanera);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PlanTerapeuticoController",
+      "item": [
+        {
+          "name": "GET /api/planes-terapeuticos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/planes-terapeuticos", "host": ["{{baseUrl}}"], "path": ["api", "planes-terapeuticos"] }
+          }
+        },
+        {
+          "name": "POST /api/planes-terapeuticos",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medicamento\": \"Paracetamol\",\n  \"dosis\": \"10 mg/kg\",\n  \"frecuencia\": \"Cada 8 horas\",\n  \"duracion\": \"3 dias\",\n  \"indicaciones\": \"Administrar si presenta fiebre\",\n  \"idConsulta\": {{idConsulta}}\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/planes-terapeuticos", "host": ["{{baseUrl}}"], "path": ["api", "planes-terapeuticos"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('idPlanTerapeutico', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ReporteController",
+      "item": [
+        {
+          "name": "GET /api/reportes/historia/{cedula}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/reportes/historia/{{cedulaPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "reportes", "historia", "{{cedulaPaciente}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "SignoVitalController",
+      "item": [
+        {
+          "name": "GET /api/signos-vitales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/signos-vitales", "host": ["{{baseUrl}}"], "path": ["api", "signos-vitales"] }
+          }
+        },
+        {
+          "name": "POST /api/signos-vitales",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"peso\": 18.5,\n  \"tallaLongitud\": 108.0,\n  \"perimetroCefalico\": 50.0,\n  \"temperatura\": 36.7,\n  \"frecuenciaCardiaca\": 92,\n  \"frecuenciaRespiratoria\": 22,\n  \"presionArterialSistolica\": 95,\n  \"presionArterialDiastolica\": 60,\n  \"saturacionOxigeno\": 98,\n  \"observacion\": \"Signos vitales dentro de parametros esperados\",\n  \"idExamenFisico\": {{idExamenFisico}},\n  \"uuidOffline\": \"signo-vital-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/signos-vitales", "host": ["{{baseUrl}}"], "path": ["api", "signos-vitales"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idSignoVital) pm.collectionVariables.set('idSignoVital', json.idSignoVital);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SyncController",
+      "item": [
+        {
+          "name": "GET /api/sync/down",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/sync/down", "host": ["{{baseUrl}}"], "path": ["api", "sync", "down"] }
+          }
+        },
+        {
+          "name": "POST /api/sync/up",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CREATE\",\n  \"entity\": \"paciente\",\n  \"data\": {\n    \"uuidOffline\": \"sync-paciente-postman-001\",\n    \"primerNombre\": \"Sync\",\n    \"apellidoPaterno\": \"Postman\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/sync/up", "host": ["{{baseUrl}}"], "path": ["api", "sync", "up"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TutorController",
+      "item": [
+        {
+          "name": "GET /api/tutores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/tutores", "host": ["{{baseUrl}}"], "path": ["api", "tutores"] }
+          }
+        },
+        {
+          "name": "POST /api/tutores",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primerNombre\": \"Carlos\",\n  \"segundoNombre\": \"Andres\",\n  \"primerApellido\": \"Perez\",\n  \"segundoApellido\": \"Lopez\",\n  \"telefono\": \"0999999999\",\n  \"direccion\": \"Quingeo\",\n  \"nivelEducativo\": \"Secundaria\",\n  \"idParroquia\": {{idParroquia}},\n  \"idPrqCanton\": {{idCanton}},\n  \"idPrqCntProvincia\": {{idProvincia}},\n  \"uuidOffline\": \"tutor-postman-001\",\n  \"origin\": \"POSTMAN\",\n  \"syncStatus\": \"PENDING\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/tutores", "host": ["{{baseUrl}}"], "path": ["api", "tutores"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idTutor) pm.collectionVariables.set('idTutor', json.idTutor);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "UbicacionController",
+      "item": [
+        {
+          "name": "GET /api/ubicaciones/provincias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/ubicaciones/provincias", "host": ["{{baseUrl}}"], "path": ["api", "ubicaciones", "provincias"] }
+          }
+        },
+        {
+          "name": "GET /api/ubicaciones/provincias/{id}/cantones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/ubicaciones/provincias/{{idProvincia}}/cantones", "host": ["{{baseUrl}}"], "path": ["api", "ubicaciones", "provincias", "{{idProvincia}}", "cantones"] }
+          }
+        },
+        {
+          "name": "GET /api/ubicaciones/provincias/{provinciaId}/cantones/{cantonId}/parroquias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/ubicaciones/provincias/{{idProvincia}}/cantones/{{idCanton}}/parroquias", "host": ["{{baseUrl}}"], "path": ["api", "ubicaciones", "provincias", "{{idProvincia}}", "cantones", "{{idCanton}}", "parroquias"] }
+          }
+        },
+        {
+          "name": "GET /api/ubicaciones/provincias/{provinciaId}/cantones/{cantonId}/parroquias/{parroquiaId}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/ubicaciones/provincias/{{idProvincia}}/cantones/{{idCanton}}/parroquias/{{idParroquia}}", "host": ["{{baseUrl}}"], "path": ["api", "ubicaciones", "provincias", "{{idProvincia}}", "cantones", "{{idCanton}}", "parroquias", "{{idParroquia}}"] }
+          }
+        }
+      ]
+    }
+  ]
+}

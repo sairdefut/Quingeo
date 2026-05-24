@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 public class ExamenFisicoDTO {
     private Integer idPaciente;
     private Integer idExamenFisico;
+    private Integer idConsulta;
     private Integer idSignoVital;
     private Integer idExamenFisicoSegmentario;
     private Integer idHistoriaClinica;

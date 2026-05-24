@@ -22,7 +22,6 @@ public class ConsultaMapper {
         Consulta entity = new Consulta();
         // El idConsulta NO se setea (es AutoIncrement)
 
-        entity.setPaciente(paciente);
         entity.setFechaConsulta(dto.getFecha());
         entity.setHoraConsulta(dto.getHora());
         entity.setMotivoConsulta(dto.getMotivo());
@@ -82,7 +81,9 @@ public class ConsultaMapper {
 
         ConsultaDTO dto = new ConsultaDTO();
         dto.setIdConsulta(entity.getIdConsulta());
-        dto.setIdPaciente(entity.getPaciente() != null ? entity.getPaciente().getIdPaciente() : null);
+        if (entity.getHistoriaClinica() != null && entity.getHistoriaClinica().getPaciente() != null) {
+            dto.setIdPaciente(entity.getHistoriaClinica().getPaciente().getIdPaciente());
+        }
         if (entity.getHistoriaClinica() != null && entity.getHistoriaClinica().getIdHistoriaClinica() != null) {
             dto.setIdHistoriaClinica(entity.getHistoriaClinica().getIdHistoriaClinica().intValue());
         } else {

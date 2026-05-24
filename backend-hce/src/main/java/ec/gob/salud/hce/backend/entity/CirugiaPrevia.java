@@ -15,12 +15,6 @@ public class CirugiaPrevia {
     @Column(name = "id_cirugia_previa")
     private Integer idCirugiaPrevia;
 
-    // --- NUEVA RELACIÓN ---
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente")
-    private Paciente paciente;
-    // ---------------------
-
     @Column(length = 200)
     private String tipo;
 
@@ -28,6 +22,10 @@ public class CirugiaPrevia {
 
     @Column(name = "id_antecedente_patologico_personal")
     private Integer idAntecedentePatologicoPersonal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_paciente")
+    private Paciente paciente;
 
     // ... resto de campos (usuario, idPersonal, auditoría) igual ...
     @Column(length = 50)

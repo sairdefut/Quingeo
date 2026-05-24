@@ -17,21 +17,17 @@ public class DesarrolloPsicomotor {
     @Column(name = "id_desarrollo_psicomotor")
     private Integer idDesarrolloPsicomotor;
 
-    // RELACIÓN: Muchos desarrollos pertenecen a un Paciente
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente", nullable = false)
-    private Paciente paciente;
+
+    @Column(name = "fecha_evaluacion")
+    private LocalDate fechaEvaluacion;
+
+    @Column(length = 100)
+    private String observacion;
 
     // RELACIÓN: Un desarrollo pertenece a una Historia Clínica
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_historia_clinica") 
     private HistoriaClinica historiaClinica;
-
-    @Column(length = 100)
-    private String observacion;
-
-    @Column(name = "fecha_evaluacion")
-    private LocalDate fechaEvaluacion;
 
     // ... Resto de tus campos de auditoría (usuario, uuid, etc) ...
     @Column(length = 50) private String usuario;

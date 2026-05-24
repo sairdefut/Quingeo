@@ -1,9 +1,12 @@
 package ec.gob.salud.hce.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "historias_clinicas")
@@ -16,8 +19,15 @@ public class HistoriaClinica {
     private Long idHistoriaClinica;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente")
+    @JoinColumn(name = "id_paciente", nullable = false)
+    @JsonIgnore
+    @lombok.ToString.Exclude
     private Paciente paciente;
+
+    @OneToMany(mappedBy = "historiaClinica", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    @lombok.ToString.Exclude
+    private List<Consulta> consultas = new ArrayList<>();
 
     @Column(name = "fecha_creacion")
     private LocalDate fechaCreacion;

@@ -16,18 +16,15 @@ public class ExamenFisico {
     @Column(name = "id_examen_fisico")
     private Integer idExamenFisico;
 
-    @Column(name = "id_historia_clinica")
-    private Integer idHistoriaClinica;
+    //TODO PONER LA RELACION CON LA CONSULTA
+    @Column(name = "id_consulta", nullable = false)
+    private Integer idConsulta;
 
-    // --- RELACIÓN CON PACIENTE (Obligatoria para que el mappedBy funcione) ---
-    @ManyToOne
-    @JoinColumn(name = "id_paciente", nullable = false)
-    private Paciente paciente;
-
+    //TODO No esta en el diagrama
     // --- RELACIONES EXISTENTES ---
-    @OneToOne
-    @JoinColumn(name = "id_signo_vital", referencedColumnName = "id_signo_vital")
-    private SignoVital signoVital;
+    //@OneToOne
+    //@JoinColumn(name = "id_signo_vital", referencedColumnName = "id_signo_vital")
+    //private SignoVital signoVital;
     
     @OneToOne
     @JoinColumn(name = "id_examen_fisico_segmentario", referencedColumnName = "id_examen_fisico_segmentario")

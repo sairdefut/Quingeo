@@ -6,6 +6,8 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "consultas")
@@ -17,41 +19,30 @@ public class Consulta {
     @Column(name = "id_consulta")
     private Long idConsulta;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente")
-    @JsonBackReference
-    private Paciente paciente;
-
-    // Relaciones con entidades hijas
-    @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @lombok.ToString.Exclude
-    private java.util.Set<PlanTerapeutico> planes = new java.util.HashSet<>();
-
-    @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @lombok.ToString.Exclude
-    private java.util.Set<EstudioLaboratorio> estudios = new java.util.HashSet<>();
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_historia_clinica")
-    private HistoriaClinica historiaClinica;
-
-    @Column(name = "id_historia_clinica", insertable = false, updatable = false)
-    private Integer idHistoriaClinica;
-
-    @Column(name = "fecha_atencion")
-    private LocalDate fechaConsulta;
-
-    @Column(name = "hora_consulta")
-    private LocalTime horaConsulta;
-
     @Column(name = "motivo_consulta")
     private String motivoConsulta;
 
     @Column(name = "enfermedad_actual", columnDefinition = "TEXT")
     private String enfermedadActual;
 
+    @Column(name = "fecha_atencion")
+    private LocalDate fechaConsulta;
+
+    @Column(name = "fecha_proxima_consulta")
+    private LocalDate fechaProximaConsulta;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_historia_clinica", nullable = false)
+    @lombok.ToString.Exclude
+    private HistoriaClinica historiaClinica;
+
+    @Column(name = "hora_consulta")
+    private LocalTime horaConsulta;
+
     private Double peso;
+
     private Double talla;
+
     private Double temperatura;
 
     @Column(name = "frecuencia_cardiaca")
@@ -74,6 +65,33 @@ public class Consulta {
     @Column(name = "usuario_medico")
     private String usuarioMedico;
 
+    @Column(name = "usuario")
+    private String usuario;
+
+    @Column(name = "id_personal")
+    private Integer idPersonal;
+
+    @Column(name = "uuid_offline")
+    private String uuidOffline;
+
+    @Column(name = "sync_status")
+    private String syncStatus;
+
+    @Column(name = "last_modified")
+    private LocalDateTime lastModified;
+
+    @Column(name = "origin")
+    private String origin;
+
+    @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @lombok.ToString.Exclude
+    private Set<PlanTerapeutico> planes = new HashSet<>();
+
+    @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @lombok.ToString.Exclude
+    private Set<EstudioLaboratorio> estudios = new HashSet<>();
+
+    //AGREGADO POR NUEVO REQUERIMIENTOS
     // D-5: Referencia médica
     @Column(name = "referencia_hospital")
     private Boolean referenciaHospital;
@@ -84,8 +102,30 @@ public class Consulta {
     @Column(name = "fecha_creacion")
     private LocalDateTime fechaCreacion;
 
+    public Integer getIdHistoriaClinica() {
+        if (historiaClinica == null || historiaClinica.getIdHistoriaClinica() == null) {
+            return null;
+        }
+        return historiaClinica.getIdHistoriaClinica().intValue();
+    }
+
     @PrePersist
     protected void onCreate() {
         this.fechaCreacion = LocalDateTime.now();
+        this.lastModified = LocalDateTime.now();
+        if (this.uuidOffline == null) {
+            this.uuidOffline = java.util.UUID.randomUUID().toString();
+        }
+        if (this.syncStatus == null) {
+            this.syncStatus = "PENDING";
+        }
+        if (this.origin == null) {
+            this.origin = "WEB";
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.lastModified = LocalDateTime.now();
     }
 }

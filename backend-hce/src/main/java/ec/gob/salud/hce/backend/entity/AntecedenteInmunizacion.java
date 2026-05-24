@@ -17,15 +17,6 @@ public class AntecedenteInmunizacion {
     @Column(name = "id_antecedente_inmunizacion")
     private Integer idAntecedenteInmunizacion;
 
-    // --- CORRECCIÓN CLAVE: RELACIÓN OBJETO, NO SOLO INTEGER ---
-    // Esto es lo que busca tu repositorio "findByHistoriaClinica..."
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_historia_clinica")
-    private HistoriaClinica historiaClinica;
-
-    @Column(name = "id_antecedente_perinatal")
-    private Integer idAntecedentePerinatal;
-
     @Column(name = "estado_vacunacion", length = 150)
     private String estadoVacunacion;
 
@@ -34,6 +25,15 @@ public class AntecedenteInmunizacion {
 
     @Column(name = "descripcion", length = 150)
     private String descripcion;
+
+    // --- CORRECCIÓN CLAVE: RELACIÓN OBJETO, NO SOLO INTEGER ---
+    // Esto es lo que busca tu repositorio "findByHistoriaClinica..."
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_historia_clinica")
+    private HistoriaClinica historiaClinica;
+
+    @Column(name = "id_antecedente_perinatal")
+    private Integer idAntecedentePerinatal;
 
     // Auditoría
     @Column(length = 50)

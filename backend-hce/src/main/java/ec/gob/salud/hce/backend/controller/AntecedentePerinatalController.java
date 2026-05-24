@@ -26,7 +26,7 @@ public class AntecedentePerinatalController {
     // (Aprovechamos el método que ya tienes en el repositorio)
     @GetMapping("/paciente/{idPaciente}")
     public List<AntecedentePerinatalDTO> getByPaciente(@PathVariable Integer idPaciente) {
-        return AntecedentePerinatalMapper.toDtoList(repository.findByPaciente_IdPaciente(idPaciente));
+        return AntecedentePerinatalMapper.toDtoList(repository.findByHistoriaClinica_Paciente_IdPaciente(idPaciente));
     }
 
     @PostMapping

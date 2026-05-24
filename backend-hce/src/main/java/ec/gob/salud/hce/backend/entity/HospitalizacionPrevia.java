@@ -17,11 +17,6 @@ public class HospitalizacionPrevia {
     @Column(name = "id_hospitalizacion_previa")
     private Integer idHospitalizacionPrevia;
 
-    // --- NUEVO: RELACIÓN DIRECTA CON PACIENTE ---
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_paciente")
-    private Paciente paciente;
-
     @Column(name = "causa")
     private String causa;
 
@@ -32,6 +27,10 @@ public class HospitalizacionPrevia {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_antecedente_patologico_personal")
     private AntecedentePatologicoPersonal antecedentePatologicoPersonal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_paciente")
+    private Paciente paciente;
 
     // Auditoría
     @Column(name = "usuario")

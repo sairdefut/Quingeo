@@ -1,0 +1,501 @@
+{
+  "info": {
+    "_postman_id": "0b1c38a1-0e8b-4e84-a1b2-9a0f8fd00010",
+    "name": "HCE Backend - Primeros 10 controladores",
+    "description": "Coleccion para probar los primeros 10 controladores en orden alfabetico. Ejecuta Auth / Login primero para que Postman guarde la cookie HCE_AUTH_TOKEN. Ajusta las variables de IDs si tu base de datos tiene otros registros.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "username", "value": "amora" },
+    { "key": "password", "value": "cambia_esta_clave_inicial" },
+    { "key": "idAbdomen", "value": "1" },
+    { "key": "idAdminUsuario", "value": "1" },
+    { "key": "idAlergia", "value": "1" },
+    { "key": "idAlergiaPaciente", "value": "1" },
+    { "key": "idAlimentacion", "value": "1" },
+    { "key": "idAntecedenteFamiliar", "value": "1" },
+    { "key": "idAntecedenteInmunizacion", "value": "1" },
+    { "key": "idAntecedentePatologicoPersonal", "value": "1" },
+    { "key": "idAntecedentePerinatal", "value": "1" },
+    { "key": "idPaciente", "value": "1" },
+    { "key": "idHistoriaClinica", "value": "1" },
+    { "key": "idExamenFisicoSegmentario", "value": "1" },
+    { "key": "idDesarrolloPsicomotor", "value": "1" },
+    { "key": "idEnfermedad", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "AuthController",
+      "item": [
+        {
+          "name": "POST /api/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 o 401', function () {",
+                  "  pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Login exitoso', function () {",
+                  "    pm.expect(pm.response.json().success).to.eql(true);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          }
+        },
+        {
+          "name": "GET /api/auth/historial",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/historial", "host": ["{{baseUrl}}"], "path": ["api", "auth", "historial"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AbdomenController",
+      "item": [
+        {
+          "name": "GET /api/abdomenes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/abdomenes", "host": ["{{baseUrl}}"], "path": ["api", "abdomenes"] }
+          }
+        },
+        {
+          "name": "POST /api/abdomenes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idExamenFisicoSegmentario\": {{idExamenFisicoSegmentario}},\n  \"blando\": true,\n  \"depresible\": true,\n  \"dolorPalpacion\": false,\n  \"hepatomegalia\": false,\n  \"esplenomegalia\": false,\n  \"otros\": \"Sin hallazgos relevantes\",\n  \"uuidOffline\": \"abdomen-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\",\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/abdomenes", "host": ["{{baseUrl}}"], "path": ["api", "abdomenes"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAbdomen) pm.collectionVariables.set('idAbdomen', json.idAbdomen);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AdminController",
+      "item": [
+        {
+          "name": "GET /api/admin/test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/test", "host": ["{{baseUrl}}"], "path": ["api", "admin", "test"] }
+          }
+        },
+        {
+          "name": "GET /api/admin/usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/usuarios", "host": ["{{baseUrl}}"], "path": ["api", "admin", "usuarios"] }
+          }
+        },
+        {
+          "name": "POST /api/admin/usuarios",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"postman_user_001\",\n  \"password\": \"Postman123*\",\n  \"nombres\": \"Usuario\",\n  \"apellidos\": \"Postman\",\n  \"cargo\": \"MEDICO\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/usuarios", "host": ["{{baseUrl}}"], "path": ["api", "admin", "usuarios"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AlergiaController",
+      "item": [
+        {
+          "name": "GET /api/alergias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/alergias", "host": ["{{baseUrl}}"], "path": ["api", "alergias"] }
+          }
+        },
+        {
+          "name": "POST /api/alergias",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoAlergia\": \"Penicilina\",\n  \"estado\": \"ACTIVO\",\n  \"uuidOffline\": \"alergia-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\",\n  \"usuario\": \"{{username}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/alergias", "host": ["{{baseUrl}}"], "path": ["api", "alergias"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAlergia) pm.collectionVariables.set('idAlergia', json.idAlergia);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /api/alergias/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoAlergia\": \"Penicilina actualizada\",\n  \"estado\": \"ACTIVO\",\n  \"syncStatus\": \"UPDATED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/alergias/{{idAlergia}}", "host": ["{{baseUrl}}"], "path": ["api", "alergias", "{{idAlergia}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AlergiaPacienteController",
+      "item": [
+        {
+          "name": "GET /api/alergias-paciente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/alergias-paciente", "host": ["{{baseUrl}}"], "path": ["api", "alergias-paciente"] }
+          }
+        },
+        {
+          "name": "GET /api/alergias-paciente/paciente/{idPaciente}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/alergias-paciente/paciente/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "alergias-paciente", "paciente", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "POST /api/alergias-paciente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reaccion\": \"Urticaria\",\n  \"observaciones\": \"Prueba creada desde Postman\",\n  \"idPaciente\": {{idPaciente}},\n  \"idAlergia\": {{idAlergia}},\n  \"idAntecedentePatologicoPersonal\": {{idAntecedentePatologicoPersonal}},\n  \"fechaCreacion\": \"2026-05-23\",\n  \"uuidOffline\": \"alergia-paciente-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/alergias-paciente", "host": ["{{baseUrl}}"], "path": ["api", "alergias-paciente"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAlergiaPaciente) pm.collectionVariables.set('idAlergiaPaciente', json.idAlergiaPaciente);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AlimentacionController",
+      "item": [
+        {
+          "name": "GET /api/alimentacion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/alimentacion", "host": ["{{baseUrl}}"], "path": ["api", "alimentacion"] }
+          }
+        },
+        {
+          "name": "GET /api/alimentacion/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/alimentacion/{{idAlimentacion}}", "host": ["{{baseUrl}}"], "path": ["api", "alimentacion", "{{idAlimentacion}}"] }
+          }
+        },
+        {
+          "name": "POST /api/alimentacion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Alimentacion variada acorde a la edad\",\n  \"tipoLactancia\": \"Materna exclusiva\",\n  \"edadLactancia\": \"6 meses\",\n  \"tipo\": \"Complementaria\",\n  \"edadAblactacion\": \"6 meses\",\n  \"idDesarrolloPsicomotor\": {{idDesarrolloPsicomotor}},\n  \"uuidOffline\": \"alimentacion-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/alimentacion", "host": ["{{baseUrl}}"], "path": ["api", "alimentacion"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAlimentacion) pm.collectionVariables.set('idAlimentacion', json.idAlimentacion);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /api/alimentacion/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Alimentacion actualizada desde Postman\",\n  \"tipoLactancia\": \"Mixta\",\n  \"edadLactancia\": \"8 meses\",\n  \"tipo\": \"Complementaria\",\n  \"edadAblactacion\": \"6 meses\",\n  \"idDesarrolloPsicomotor\": {{idDesarrolloPsicomotor}},\n  \"syncStatus\": \"UPDATED\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/alimentacion/{{idAlimentacion}}", "host": ["{{baseUrl}}"], "path": ["api", "alimentacion", "{{idAlimentacion}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AntecedenteFamiliarController",
+      "item": [
+        {
+          "name": "GET /api/antecedentes-familiares",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-familiares", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-familiares"] }
+          }
+        },
+        {
+          "name": "GET /api/antecedentes-familiares/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-familiares/{{idAntecedenteFamiliar}}", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-familiares", "{{idAntecedenteFamiliar}}"] }
+          }
+        },
+        {
+          "name": "POST /api/antecedentes-familiares",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enfermedadHereditaria\": \"Diabetes mellitus\",\n  \"descripcion\": \"Antecedente familiar creado desde Postman\",\n  \"fecha\": \"2026-05-23\",\n  \"idEnfermedad\": {{idEnfermedad}},\n  \"idAntecedentePerinatal\": {{idAntecedentePerinatal}},\n  \"uuidOffline\": \"antecedente-familiar-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-familiares", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-familiares"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAntecedenteFamiliar) pm.collectionVariables.set('idAntecedenteFamiliar', json.idAntecedenteFamiliar);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /api/antecedentes-familiares/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enfermedadHereditaria\": \"Hipertension arterial\",\n  \"descripcion\": \"Antecedente familiar actualizado desde Postman\",\n  \"fecha\": \"2026-05-23\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-familiares/{{idAntecedenteFamiliar}}", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-familiares", "{{idAntecedenteFamiliar}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AntecedenteInmunizacionController",
+      "item": [
+        {
+          "name": "GET /api/antecedentes-inmunizacion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-inmunizacion", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-inmunizacion"] }
+          }
+        },
+        {
+          "name": "GET /api/antecedentes-inmunizacion/paciente/{idPaciente}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-inmunizacion/paciente/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-inmunizacion", "paciente", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "POST /api/antecedentes-inmunizacion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estadoVacunacion\": \"Completo\",\n  \"fechaVacunacion\": \"2026-05-23\",\n  \"descripcion\": \"Esquema revisado desde Postman\",\n  \"idHistoriaClinica\": {{idHistoriaClinica}},\n  \"idAntecedentePerinatal\": {{idAntecedentePerinatal}},\n  \"usuario\": \"{{username}}\",\n  \"idPersonal\": 1,\n  \"uuidOffline\": \"antecedente-inmunizacion-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-inmunizacion", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-inmunizacion"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAntecedenteInmunizacion) pm.collectionVariables.set('idAntecedenteInmunizacion', json.idAntecedenteInmunizacion);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AntecedentePatologicoPersonalController",
+      "item": [
+        {
+          "name": "GET /api/antecedentes-patologicos-personales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-patologicos-personales", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-patologicos-personales"] }
+          }
+        },
+        {
+          "name": "POST /api/antecedentes-patologicos-personales",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idAntecedentePerinatal\": {{idAntecedentePerinatal}},\n  \"observaciones\": \"Antecedente patologico personal creado desde Postman\",\n  \"usuario\": \"{{username}}\",\n  \"uuidOffline\": \"antecedente-patologico-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-patologicos-personales", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-patologicos-personales"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAntecedentePatologicoPersonal) pm.collectionVariables.set('idAntecedentePatologicoPersonal', json.idAntecedentePatologicoPersonal);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AntecedentePerinatalController",
+      "item": [
+        {
+          "name": "GET /api/antecedentes-perinatales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-perinatales", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-perinatales"] }
+          }
+        },
+        {
+          "name": "GET /api/antecedentes-perinatales/paciente/{idPaciente}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-perinatales/paciente/{{idPaciente}}", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-perinatales", "paciente", "{{idPaciente}}"] }
+          }
+        },
+        {
+          "name": "POST /api/antecedentes-perinatales",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPaciente\": {{idPaciente}},\n  \"idHistoriaClinica\": {{idHistoriaClinica}},\n  \"embarazoPlanificado\": true,\n  \"controlesPrenatales\": 6,\n  \"antecedentes\": \"Sin antecedentes perinatales de importancia\",\n  \"otrosAntecedentes\": \"Registro de prueba Postman\",\n  \"usuario\": \"{{username}}\",\n  \"uuidOffline\": \"antecedente-perinatal-postman-001\",\n  \"syncStatus\": \"PENDING\",\n  \"origin\": \"POSTMAN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/antecedentes-perinatales", "host": ["{{baseUrl}}"], "path": ["api", "antecedentes-perinatales"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idAntecedentePerinatal) pm.collectionVariables.set('idAntecedentePerinatal', json.idAntecedentePerinatal);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

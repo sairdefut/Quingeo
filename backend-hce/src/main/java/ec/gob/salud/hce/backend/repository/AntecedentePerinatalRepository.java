@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AntecedentePerinatalRepository extends JpaRepository<AntecedentePerinatal, Integer> {
-    List<AntecedentePerinatal> findByPaciente_IdPaciente(Integer idPaciente);
+    List<AntecedentePerinatal> findByHistoriaClinica_Paciente_IdPaciente(Integer idPaciente);
 }

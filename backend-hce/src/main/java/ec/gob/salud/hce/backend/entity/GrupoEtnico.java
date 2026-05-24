@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.util.Date;
+
 @Getter
 @Setter
 @Entity
@@ -18,8 +21,28 @@ public class GrupoEtnico {
 
     @Column(name = "descripcion")
     private String descripcion;
-    
-    // ¡YA NO PONEMOS NADA MÁS! 
-    // Porque tu tabla en la imagen solo tiene datos útiles en estas columnas.
-    // Aunque la tabla tenga columnas como 'fecha' o 'uuid', si están vacías o dan error, mejor ignorarlas en Java por ahora.
+
+    @Column(name = "fecha_registro")
+    private LocalDate fechaRegistro;
+
+     // Auditoría
+    @Column(name = "uuid_offline", length = 36)
+    private String uuidOffline;
+
+    @Column(name = "sync_status", length = 20)
+    private String syncStatus;
+
+    @Column(name = "last_modified")
+    private Date lastModified;
+
+    @Column(length = 20)
+    private String origin;
+
+    @PrePersist
+    protected void onCreate() {
+        this.lastModified = new Date();
+        if (this.uuidOffline == null)            this.uuidOffline = java.util.UUID.randomUUID().toString();
+        if (this.syncStatus == null)            this.syncStatus = "PENDING";
+        if (this.origin == null)            this.origin = "WEB";
+    }
 }

@@ -7,30 +7,22 @@ import java.util.stream.Collectors;
 
 public class ExamenFisicoMapper {
 
-    private ExamenFisicoMapper() { }
+    private ExamenFisicoMapper() {
+    }
 
     public static ExamenFisicoDTO toDto(ExamenFisico entity) {
-        if (entity == null) return null;
+        if (entity == null) {
+            return null;
+        }
 
         ExamenFisicoDTO dto = new ExamenFisicoDTO();
         dto.setIdExamenFisico(entity.getIdExamenFisico());
-        dto.setIdHistoriaClinica(entity.getIdHistoriaClinica());
+        dto.setIdConsulta(entity.getIdConsulta());
 
-        // --- NUEVA LÍNEA: Mapeo del ID del Paciente ---
-        if (entity.getPaciente() != null) {
-            dto.setIdPaciente(entity.getPaciente().getIdPaciente());
-        }
-
-        // Lógica de Unión: Extraemos IDs de los objetos relacionados
-        if (entity.getSignoVital() != null) {
-            dto.setIdSignoVital(entity.getSignoVital().getIdSignoVital());
-        }
-        
         if (entity.getExamenFisicoSegmentario() != null) {
             dto.setIdExamenFisicoSegmentario(entity.getExamenFisicoSegmentario().getIdExamenFisicoSegmentario());
         }
 
-        // Campos de sincronización
         dto.setUuidOffline(entity.getUuidOffline());
         dto.setSyncStatus(entity.getSyncStatus());
         dto.setLastModified(entity.getLastModified());
@@ -40,9 +32,11 @@ public class ExamenFisicoMapper {
     }
 
     public static List<ExamenFisicoDTO> toDtoList(List<ExamenFisico> entities) {
-        if (entities == null) return null;
+        if (entities == null) {
+            return java.util.Collections.emptyList();
+        }
         return entities.stream()
-                       .map(ExamenFisicoMapper::toDto)
-                       .collect(Collectors.toList());
+                .map(ExamenFisicoMapper::toDto)
+                .collect(Collectors.toList());
     }
 }

@@ -38,6 +38,7 @@ public class ExamenFisicoSegmentario {
     private String evolucionClinica;
 
     // --- UNIÓN ---
+    //TODO Falta crear la relacion con examen fisico, revisar si es OneToOne o OneToMany
     @Column(name = "id_examen_fisico")
     private Integer idExamenFisico;
 

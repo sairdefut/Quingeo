@@ -11,13 +11,13 @@ import java.time.LocalDateTime;
 @Setter
 public class CabezaCuello {
 
+    @Column(name = "id_examen_fisico_segmentario")
+    private Integer idExamenFisicoSegmentario;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cabeza_cuelloint")
     private Integer idCabezaCuello;
-
-    @Column(name = "id_examen_fisico_segmentario")
-    private Integer idExamenFisicoSegmentario;
 
     @Column(name = "frontanelo_anterior", length = 100)
     private String fontaneloAnterior;

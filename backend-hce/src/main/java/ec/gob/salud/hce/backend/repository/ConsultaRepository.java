@@ -9,13 +9,13 @@ import java.util.List;
 
 public interface ConsultaRepository extends JpaRepository<Consulta, Long> {
 
-    List<Consulta> findByPaciente_IdPaciente(Integer idPaciente);
+    List<Consulta> findByHistoriaClinica_Paciente_IdPaciente(Integer idPaciente);
 
-    List<Consulta> findByPaciente_IdPacienteOrderByFechaConsultaDesc(Integer idPaciente);
+    List<Consulta> findByHistoriaClinica_Paciente_IdPacienteOrderByFechaConsultaDesc(Integer idPaciente);
 
     // Cargar consultas con planes y estudios para sync down/listados completos
     @EntityGraph(attributePaths = { "planes", "estudios" })
-    @Query("SELECT c FROM Consulta c WHERE c.paciente.idPaciente = :idPaciente ORDER BY c.fechaConsulta DESC")
+    @Query("SELECT c FROM Consulta c WHERE c.historiaClinica.paciente.idPaciente = :idPaciente ORDER BY c.fechaConsulta DESC")
     List<Consulta> findByIdPacienteWithDetails(@Param("idPaciente") Integer idPaciente);
 
     @EntityGraph(attributePaths = { "planes", "estudios" })
