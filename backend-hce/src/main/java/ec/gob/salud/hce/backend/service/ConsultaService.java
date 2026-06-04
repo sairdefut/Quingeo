@@ -28,6 +28,7 @@ public class ConsultaService {
     private final ec.gob.salud.hce.backend.mapper.PlanTerapeuticoMapper planMapper;
     private final ec.gob.salud.hce.backend.mapper.EstudioLaboratorioMapper estudioMapper;
     private final ObjectMapper objectMapper;
+    private final ActividadClinicaService actividadClinicaService;
     private static final int HISTORIA_GRUPO_INICIAL = 1;
     private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
@@ -63,6 +64,12 @@ public class ConsultaService {
 
         // UN SOLO SAVE - cascade automático guarda planes y estudios
         Consulta consultaGuardada = consultaRepository.save(consulta);
+        actividadClinicaService.registrar(
+                "Creacion de consulta",
+                paciente,
+                dto.getUsuario(),
+                "Consulta creada con motivo: " + safeText(dto.getMotivo())
+        );
 
         return ConsultaMapper.toDto(consultaGuardada, planMapper, estudioMapper);
     }
@@ -85,6 +92,12 @@ public class ConsultaService {
 
         actualizarCamposConsulta(consulta, dto);
         Consulta consultaGuardada = consultaRepository.save(consulta);
+        actividadClinicaService.registrar(
+                "Edicion de consulta",
+                paciente,
+                dto.getUsuario(),
+                "Consulta editada ID " + idConsulta
+        );
         return mapConsultaCompleta(consultaGuardada);
     }
 
@@ -227,5 +240,12 @@ public class ConsultaService {
         if (fechaNacimiento == null) return 0;
         return Period.between(fechaNacimiento, LocalDate.now()).getYears() * 12 
                + Period.between(fechaNacimiento, LocalDate.now()).getMonths();
+    }
+
+    private String safeText(String value) {
+        if (value == null || value.isBlank()) {
+            return "No registrado";
+        }
+        return value.length() > 180 ? value.substring(0, 180) : value;
     }
 }

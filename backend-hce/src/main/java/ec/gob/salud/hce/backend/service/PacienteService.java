@@ -27,6 +27,9 @@ public class PacienteService {
     @Autowired
     private PacienteTutorRepository pacienteTutorRepository;
 
+    @Autowired
+    private ActividadClinicaService actividadClinicaService;
+
     private static final int HISTORIA_GRUPO_INICIAL = 1;
     private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
@@ -96,6 +99,13 @@ public class PacienteService {
 
             pacienteTutorRepository.save(relacion);
         }
+
+        actividadClinicaService.registrar(
+                "Registro de paciente",
+                paciente,
+                dto.getUsuario(),
+                "Paciente registrado desde el sistema HCE"
+        );
 
         return paciente;
     }
