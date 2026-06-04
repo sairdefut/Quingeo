@@ -20,6 +20,8 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
 
     private final HistoriaClinicaRepository historiaRepository;
     private final PacienteRepository pacienteRepository;
+    private static final int HISTORIA_GRUPO_INICIAL = 1;
+    private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
     @Override
     public HistoriaClinica obtenerOcrearHistoria(Integer idPaciente, String usuario) {
@@ -27,6 +29,10 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
             .orElseGet(() -> {
                 return pacienteRepository.findById(idPaciente).map(paciente -> {
                     HistoriaClinica nueva = new HistoriaClinica();
+                    nueva.setNumeroHistoriaClinica(
+                            paciente.getNumeroHistoriaClinica() != null && !paciente.getNumeroHistoriaClinica().isBlank()
+                                    ? paciente.getNumeroHistoriaClinica()
+                                    : generarSiguienteNumeroHistoriaClinica());
                     nueva.setPaciente(paciente);
                     nueva.setUsuario(usuario);
                     return historiaRepository.save(nueva);
@@ -66,5 +72,43 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
         return historiaRepository.findById(id)
                 .map(HistoriaClinicaMapper::toDto)
                 .orElse(null);
+    }
+
+    private String generarSiguienteNumeroHistoriaClinica() {
+        return historiaRepository.findTopByNumeroHistoriaClinicaIsNotNullOrderByNumeroHistoriaClinicaDesc()
+                .map(HistoriaClinica::getNumeroHistoriaClinica)
+                .map(this::incrementarNumeroHistoriaClinica)
+                .orElse("HC-001-001-001");
+    }
+
+    private String incrementarNumeroHistoriaClinica(String numeroActual) {
+        int[] grupos = parsearGruposHistoriaClinica(numeroActual);
+
+        grupos[2]++;
+        if (grupos[2] > HISTORIA_GRUPO_MAXIMO) {
+            grupos[2] = HISTORIA_GRUPO_INICIAL;
+            grupos[1]++;
+        }
+        if (grupos[1] > HISTORIA_GRUPO_MAXIMO) {
+            grupos[1] = HISTORIA_GRUPO_INICIAL;
+            grupos[0]++;
+        }
+        if (grupos[0] > HISTORIA_GRUPO_MAXIMO) {
+            throw new IllegalStateException("Se alcanzo el limite de numeros de historia clinica");
+        }
+
+        return String.format("HC-%03d-%03d-%03d", grupos[0], grupos[1], grupos[2]);
+    }
+
+    private int[] parsearGruposHistoriaClinica(String numeroHistoriaClinica) {
+        if (numeroHistoriaClinica == null || !numeroHistoriaClinica.matches("^HC-\\d{3}-\\d{3}-\\d{3}$")) {
+            return new int[] { HISTORIA_GRUPO_INICIAL, HISTORIA_GRUPO_INICIAL, 0 };
+        }
+
+        return new int[] {
+                Integer.parseInt(numeroHistoriaClinica.substring(3, 6)),
+                Integer.parseInt(numeroHistoriaClinica.substring(7, 10)),
+                Integer.parseInt(numeroHistoriaClinica.substring(11, 14))
+        };
     }
 }

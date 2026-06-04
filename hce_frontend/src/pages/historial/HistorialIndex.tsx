@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obtenerPacientes } from '../../services/dbPacienteService';
+import { obtenerPacientes, obtenerTodasConsultas } from '../../services/dbPacienteService';
 
 export default function HistorialIndex() {
     const navigate = useNavigate();
     const [pacientes, setPacientes] = useState<any[]>([]);
+    const [consultasPorPaciente, setConsultasPorPaciente] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState("");
 
@@ -14,6 +15,19 @@ export default function HistorialIndex() {
             try {
                 const lista = await obtenerPacientes();
                 setPacientes(Array.isArray(lista) ? lista : []);
+                try {
+                    const consultas = await obtenerTodasConsultas();
+                    const conteos = consultas.reduce<Record<number, number>>((acc, consulta) => {
+                        const idPaciente = Number(consulta.idPaciente);
+                        if (!idPaciente) return acc;
+                        acc[idPaciente] = (acc[idPaciente] || 0) + 1;
+                        return acc;
+                    }, {});
+                    setConsultasPorPaciente(conteos);
+                } catch (errorConsultas) {
+                    console.error("Error cargando conteo de consultas:", errorConsultas);
+                    setConsultasPorPaciente({});
+                }
             } catch (error) {
                 console.error("Error cargando pacientes:", error);
             } finally {
@@ -50,7 +64,11 @@ export default function HistorialIndex() {
             </div>
 
             <div className="row g-3">
-                {filtrados.length > 0 ? filtrados.map(p => (
+                {filtrados.length > 0 ? filtrados.map(p => {
+                    const totalConsultas = consultasPorPaciente[Number(p.idPaciente)] || 0;
+                    const textoConsultas = totalConsultas === 1 ? 'Consulta registrada' : 'Consultas registradas';
+
+                    return (
                     <div key={p.cedula} className="col-md-6 col-lg-4">
                         <div className="card shadow-sm border-0 h-100 hover-shadow" style={{ transition: '0.3s' }}>
                             <div className="card-body d-flex align-items-center">
@@ -61,7 +79,7 @@ export default function HistorialIndex() {
                                     <h6 className="fw-bold mb-0 text-dark">{p.apellidos || 'Sin apellido'} {p.nombres || 'Sin nombre'}</h6>
                                     <small className="text-muted d-block">C.I: {p.cedula}</small>
                                     <small className="text-success fw-bold" style={{ fontSize: '0.8rem' }}>
-                                        {p.historiaClinica?.length || 0} Consultas registradas
+                                        {totalConsultas} {textoConsultas}
                                     </small>
                                 </div>
                                 <button className="btn btn-outline-primary btn-sm ms-2" onClick={() => navigate(`/historial-completo/${p.cedula}`)}>
@@ -70,7 +88,8 @@ export default function HistorialIndex() {
                             </div>
                         </div>
                     </div>
-                )) : (
+                    );
+                }) : (
                     <div className="col-12 text-center py-5 text-muted">
                         <i className="bi bi-search display-4 mb-3 d-block opacity-50"></i>
                         No se encontraron pacientes.

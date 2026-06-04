@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
-import { obtenerPacientes } from "../../services/dbPacienteService";
+import { obtenerConsultasPorPacienteId, obtenerPacientes } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
 
 export default function ConsultaPacientes() {
@@ -10,6 +10,8 @@ export default function ConsultaPacientes() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [pacienteConsultas, setPacienteConsultas] = useState<any | null>(null);
+  const [consultasPaciente, setConsultasPaciente] = useState<any[]>([]);
+  const [cargandoConsultas, setCargandoConsultas] = useState(false);
 
   useEffect(() => {
     const cargarPacientes = async () => {
@@ -30,6 +32,22 @@ export default function ConsultaPacientes() {
   const getAvatar = (sexo: string) => {
     const isMale = sexo?.toLowerCase() === 'masculino' || sexo?.toLowerCase() === 'm';
     return isMale ? "bi-person-standing" : "bi-person-standing-dress";
+  };
+
+  const abrirHistorial = async (paciente: any) => {
+    setPacienteConsultas(paciente);
+    setConsultasPaciente([]);
+    if (!paciente.idPaciente) return;
+
+    setCargandoConsultas(true);
+    try {
+      const consultas = await obtenerConsultasPorPacienteId(paciente.idPaciente);
+      setConsultasPaciente(consultas);
+    } catch (error) {
+      console.error("Error cargando consultas del paciente:", error);
+    } finally {
+      setCargandoConsultas(false);
+    }
   };
 
   return (
@@ -80,7 +98,6 @@ export default function ConsultaPacientes() {
                   <th className="py-3 text-muted small text-uppercase fw-bold" style={{ width: '150px' }}>Cédula</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Paciente</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Fecha Nacimiento</th>
-                  <th className="py-3 text-muted small text-uppercase fw-bold">Estado Sync</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold text-end px-4">Acciones</th>
                 </tr>
               </thead>
@@ -110,17 +127,6 @@ export default function ConsultaPacientes() {
                         </div>
                       </td>
                       <td className="text-muted">{p.fechaNacimiento}</td>
-                      <td>
-                        {p.idPaciente ? (
-                          <span className="text-success small d-flex align-items-center">
-                            <i className="bi bi-cloud-check-fill me-1"></i> Sincronizado
-                          </span>
-                        ) : (
-                          <span className="text-warning small d-flex align-items-center">
-                            <i className="bi bi-cloud-arrow-up-fill me-1"></i> Pendiente
-                          </span>
-                        )}
-                      </td>
                       <td className="text-end px-4">
                         <div className="btn-group shadow-sm rounded-3">
                           <button 
@@ -140,7 +146,7 @@ export default function ConsultaPacientes() {
                           <button 
                             className="btn btn-white btn-sm px-3 py-2" 
                             title="Historial de Consultas"
-                            onClick={() => setPacienteConsultas(p)}
+                            onClick={() => abrirHistorial(p)}
                           >
                             <i className="bi bi-clock-history text-success"></i>
                           </button>
@@ -150,7 +156,7 @@ export default function ConsultaPacientes() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-5 text-center">
+                    <td colSpan={5} className="py-5 text-center">
                       <div className="py-4">
                         <i className="bi bi-search text-muted display-1 opacity-25"></i>
                         <h5 className="mt-3 text-muted">No se encontraron pacientes</h5>
@@ -178,8 +184,13 @@ export default function ConsultaPacientes() {
                 <button type="button" className="btn-close" onClick={() => setPacienteConsultas(null)}></button>
               </div>
               <div className="modal-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                {pacienteConsultas.historiaClinica?.length > 0 ? (
-                  pacienteConsultas.historiaClinica.slice().reverse().map((c: any, i: number) => (
+                {cargandoConsultas ? (
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status"></div>
+                    <p className="mt-2 text-muted">Cargando consultas...</p>
+                  </div>
+                ) : consultasPaciente.length > 0 ? (
+                  consultasPaciente.slice().reverse().map((c: any, i: number) => (
                     <div key={i} className="card mb-3 border shadow-none rounded-3 hover-shadow transition-all">
                       <div className="card-body p-3">
                         <div className="d-flex justify-content-between align-items-start mb-2">
@@ -189,7 +200,11 @@ export default function ConsultaPacientes() {
                           </div>
                           <button 
                             className="btn btn-light btn-sm rounded-pill px-3" 
-                            onClick={() => navigate(`/historial/${pacienteConsultas.cedula}`, { state: { consultaAEditar: c } })}
+                            title="Editar Consulta"
+                            onClick={() => {
+                              setPacienteConsultas(null);
+                              navigate(`/historial/${pacienteConsultas.cedula}`, { state: { consultaAEditar: c } });
+                            }}
                           >
                             <i className="bi bi-pencil me-1"></i> Editar
                           </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { buscarPacientePorCedula } from "../../services/dbPacienteService";
+import { buscarPacientePorCedula, obtenerConsultasPorPacienteId } from "../../services/dbPacienteService";
 
 export default function VerHistorialCompleto() {
     const { cedula } = useParams();
@@ -14,7 +14,12 @@ export default function VerHistorialCompleto() {
             setLoading(true);
             try {
                 const encontrado = await buscarPacientePorCedula(cedula);
-                if (encontrado) setPaciente(encontrado);
+                if (encontrado?.idPaciente) {
+                    const consultas = await obtenerConsultasPorPacienteId(encontrado.idPaciente);
+                    setPaciente({ ...encontrado, historiaClinica: consultas });
+                } else if (encontrado) {
+                    setPaciente(encontrado);
+                }
             } catch (error) {
                 console.error("Error cargando datos:", error);
             } finally {

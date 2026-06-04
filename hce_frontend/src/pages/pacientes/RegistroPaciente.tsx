@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
-import { useToast } from "../../contexts/ToastContext";
-import { dbHelpers, db } from "../../db/db";
-import { syncService } from "../../services/syncService";
+import { useNavigate } from "react-router-dom";
+import {
+  obtenerCantones,
+  obtenerEtnias,
+  obtenerNivelesEducativos,
+  obtenerParentescos,
+  obtenerParroquias,
+  obtenerProvincias,
+  obtenerSexos,
+  obtenerTiposSangre
+} from "../../services/catalogService";
 
 export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
-  const { showSuccessToast, showWarningToast } = useToast();
+  const navigate = useNavigate();
 
   // MODIFICACIÓN 1: El nombre se inicializa vacío y se carga del login
   const [nombreDoctor, setNombreDoctor] = useState("Cargando...");
@@ -137,6 +145,8 @@ export default function RegistroPaciente() {
   const [provincias, setProvincias] = useState<any[]>([]);
   const [cantonesList, setCantonesList] = useState<any[]>([]);
   const [parroquiasList, setParroquiasList] = useState<any[]>([]);
+  const [cantonesResList, setCantonesResList] = useState<any[]>([]);
+  const [parroquiasResList, setParroquiasResList] = useState<any[]>([]);
   const [etnias, setEtnias] = useState<any[]>([]);
   const [sexos, setSexos] = useState<any[]>([]);
   const [tiposSangreList, setTiposSangreList] = useState<any[]>([]);
@@ -146,31 +156,67 @@ export default function RegistroPaciente() {
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
-        let catalogos = await db.catalogos.toArray();
+        const [provinciasApi, etniasApi] = await Promise.all([
+          obtenerProvincias(),
+          obtenerEtnias()
+        ]);
 
-        const parroquiasActuales = catalogos.filter(c => c.tipo === 'parroquia').length;
-        const cantonesActuales = catalogos.filter(c => c.tipo === 'canton').length;
-        const provinciasActuales = catalogos.filter(c => c.tipo === 'provincia').length;
-
-        if (navigator.onLine && (catalogos.length === 0 || provinciasActuales < 24 || cantonesActuales < 200 || parroquiasActuales < 1000)) {
-          await syncService.syncDown();
-          catalogos = await db.catalogos.toArray();
-        }
-
-        setProvincias(catalogos.filter(c => c.tipo === 'provincia'));
-        setCantonesList(catalogos.filter(c => c.tipo === 'canton'));
-        setParroquiasList(catalogos.filter(c => c.tipo === 'parroquia'));
-        setEtnias(catalogos.filter(c => c.tipo === 'etnia'));
-        setSexos(catalogos.filter(c => c.tipo === 'sexo'));
-        setTiposSangreList(catalogos.filter(c => c.tipo === 'tipoSangre'));
-        setParentescosList(catalogos.filter(c => c.tipo === 'parentesco'));
-        setNivelesEducativosList(catalogos.filter(c => c.tipo === 'nivelEducativo'));
+        setProvincias(provinciasApi);
+        setEtnias(etniasApi);
+        setSexos(obtenerSexos());
+        setTiposSangreList(obtenerTiposSangre());
+        setParentescosList(obtenerParentescos());
+        setNivelesEducativosList(obtenerNivelesEducativos());
       } catch (err) {
         console.error("Error cargando catálogos", err);
       }
     };
     cargarCatalogos();
   }, []);
+
+  useEffect(() => {
+    const provinciaSeleccionada = provincias.find(p => p.nombre === provincia);
+    setCantonesList([]);
+    setParroquiasList([]);
+    if (!provinciaSeleccionada) return;
+
+    obtenerCantones(provinciaSeleccionada.codigo)
+      .then(setCantonesList)
+      .catch(error => console.error("Error cargando cantones", error));
+  }, [provincia, provincias]);
+
+  useEffect(() => {
+    const provinciaSeleccionada = provincias.find(p => p.nombre === provincia);
+    const cantonSeleccionado = cantonesList.find(c => c.nombre === canton);
+    setParroquiasList([]);
+    if (!provinciaSeleccionada || !cantonSeleccionado) return;
+
+    obtenerParroquias(provinciaSeleccionada.codigo, cantonSeleccionado.codigo)
+      .then(setParroquiasList)
+      .catch(error => console.error("Error cargando parroquias", error));
+  }, [canton, cantonesList, provincia, provincias]);
+
+  useEffect(() => {
+    const provinciaSeleccionada = provincias.find(p => p.nombre === provinciaRes);
+    setCantonesResList([]);
+    setParroquiasResList([]);
+    if (!provinciaSeleccionada) return;
+
+    obtenerCantones(provinciaSeleccionada.codigo)
+      .then(setCantonesResList)
+      .catch(error => console.error("Error cargando cantones del responsable", error));
+  }, [provinciaRes, provincias]);
+
+  useEffect(() => {
+    const provinciaSeleccionada = provincias.find(p => p.nombre === provinciaRes);
+    const cantonSeleccionado = cantonesResList.find(c => c.nombre === cantonRes);
+    setParroquiasResList([]);
+    if (!provinciaSeleccionada || !cantonSeleccionado) return;
+
+    obtenerParroquias(provinciaSeleccionada.codigo, cantonSeleccionado.codigo)
+      .then(setParroquiasResList)
+      .catch(error => console.error("Error cargando parroquias del responsable", error));
+  }, [cantonRes, cantonesResList, provinciaRes, provincias]);
 
   // VALIDACIÓN
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -233,6 +279,13 @@ export default function RegistroPaciente() {
     const nombresResponsable = `${primerNombreRes.trim()} ${segundoNombreRes.trim()}`.trim();
     const apellidosResponsable = `${primerApellidoRes.trim()} ${segundoApellidoRes.trim()}`.trim();
     const nombreCompletoResponsable = `${nombresResponsable} ${apellidosResponsable}`.trim();
+    const provinciaSeleccionada = provincias.find(p => p.nombre === provincia);
+    const cantonSeleccionado = cantonesList.find(c => c.nombre === canton);
+    const parroquiaSeleccionada = parroquiasList.find(p => p.nombre === parroquia);
+    const etniaSeleccionada = etnias.find(e => e.nombre === grupoEtnico);
+    const provinciaResSeleccionada = provincias.find(p => p.nombre === provinciaRes);
+    const cantonResSeleccionado = cantonesResList.find(c => c.nombre === cantonRes);
+    const parroquiaResSeleccionada = parroquiasResList.find(p => p.nombre === parroquiaRes);
 
     const paciente = {
       id: nuevoId,
@@ -240,25 +293,25 @@ export default function RegistroPaciente() {
       fechaCreacion, fechaNacimiento,
       edad: edad ? `${edad.años} años, ${edad.meses} meses` : '',
       sexo, grupoEtnico, provincia, canton, parroquia, tipoSangre,
+      idGrupoEtnico: etniaSeleccionada?.codigo ? Number(etniaSeleccionada.codigo) : undefined,
+      idPrqCntProvincia: provinciaSeleccionada?.codigo ? Number(provinciaSeleccionada.codigo) : undefined,
+      idPrqCanton: cantonSeleccionado?.codigo ? Number(cantonSeleccionado.codigo) : undefined,
+      idParroquia: parroquiaSeleccionada?.codigo ? Number(parroquiaSeleccionada.codigo) : undefined,
       anioEscolar: (edad && edad.años < 25) ? anioEscolar : null,
       filiacion: {
         nombreResponsable: nombreCompletoResponsable,
         parentesco, telefonoContacto, nivelEducativoResponsable,
-        domicilioActual, provincia: provinciaRes, canton: cantonRes, parroquia: parroquiaRes
+        domicilioActual, provincia: provinciaRes, canton: cantonRes, parroquia: parroquiaRes,
+        idPrqCntProvincia: provinciaResSeleccionada?.codigo ? Number(provinciaResSeleccionada.codigo) : undefined,
+        idPrqCanton: cantonResSeleccionado?.codigo ? Number(cantonResSeleccionado.codigo) : undefined,
+        idParroquia: parroquiaResSeleccionada?.codigo ? Number(parroquiaResSeleccionada.codigo) : undefined
       },
       historiaClinica: []
     };
     try {
       await registrarPaciente(paciente as any);
-
-      // Mostrar notificación con contador de pacientes pendientes
-      const pendingItems = await dbHelpers.getPendingSyncItems();
-      if (!navigator.onLine) {
-        showWarningToast(`✅ Paciente guardado offline - ${pendingItems.length} paciente(s) pendiente(s) de sincronizar`);
-      } else {
-        showSuccessToast('✅ Paciente registrado correctamente');
-      }
-
+      alert('Paciente guardado exitosamente.');
+      navigate('/pacientes/consulta');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -318,8 +371,8 @@ export default function RegistroPaciente() {
               <div className="col-md-4"><label className="form-label fw-bold small">Grupo Étnico</label><select className="form-select" value={grupoEtnico} onChange={e => setGrupoEtnico(e.target.value)}><option value="">Seleccione...</option>{etnias.length > 0 ? etnias.map(e => <option key={e.codigo} value={e.nombre}>{e.nombre}</option>) : <><option value="Mestizo">Mestizo</option><option value="Blanco">Blanco</option><option value="Indígena">Indígena</option><option value="Afroecuatoriano">Afroecuatoriano</option></>}</select></div>
               <div className="col-12 mt-4"><h6 className="text-muted border-bottom pb-2">Ubicación Geográfica del Paciente</h6></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => { setProvincia(e.target.value); setCanton(''); setParroquia('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => { setCanton(e.target.value); setParroquia('') }} disabled={!provincia}><option value="">Seleccione...</option>{cantonesList.filter(c => c.parentId?.toString() === provincias.find(p => p.nombre === provincia)?.codigo).map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquia} onChange={e => setParroquia(e.target.value)} disabled={!canton}><option value="">Seleccione...</option>{parroquiasList.filter(p => String(p.parentId) === String(cantonesList.find(c => c.nombre === canton && String(c.parentId) === String(provincias.find(pr => pr.nombre === provincia)?.codigo))?.codigo)).map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => { setCanton(e.target.value); setParroquia('') }} disabled={!provincia}><option value="">Seleccione...</option>{cantonesList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquia} onChange={e => setParroquia(e.target.value)} disabled={!canton}><option value="">Seleccione...</option>{parroquiasList.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
             </div>
           )}
           {activeTab === 'filiacion' && (
@@ -335,8 +388,8 @@ export default function RegistroPaciente() {
               <div className="col-md-4"><label className="form-label fw-bold small">Nivel Educativo</label><select className="form-select" value={nivelEducativoResponsable} onChange={e => setNivelEducativoResponsable(e.target.value)}><option value="">Seleccione...</option>{nivelesEducativosList.map(n => <option key={n.codigo} value={n.nombre}>{n.nombre}</option>)}</select></div>
               <div className="col-12 mt-3"><h6 className="text-muted border-bottom pb-2">Ubicación del Responsable</h6></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provinciaRes} onChange={e => { setProvinciaRes(e.target.value); setCantonRes(''); setParroquiaRes('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => { setCantonRes(e.target.value); setParroquiaRes('') }} disabled={!provinciaRes}><option value="">Seleccione...</option>{cantonesList.filter(c => c.parentId?.toString() === provincias.find(p => p.nombre === provinciaRes)?.codigo).map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquiaRes} onChange={e => setParroquiaRes(e.target.value)} disabled={!cantonRes}><option value="">Seleccione...</option>{parroquiasList.filter(p => String(p.parentId) === String(cantonesList.find(c => c.nombre === cantonRes && String(c.parentId) === String(provincias.find(pr => pr.nombre === provinciaRes)?.codigo))?.codigo)).map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => { setCantonRes(e.target.value); setParroquiaRes('') }} disabled={!provinciaRes}><option value="">Seleccione...</option>{cantonesResList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquiaRes} onChange={e => setParroquiaRes(e.target.value)} disabled={!cantonRes}><option value="">Seleccione...</option>{parroquiasResList.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
               <div className="col-12"><label className="form-label fw-bold small">Dirección Domiciliaria (Calle y Nro)</label><textarea className="form-control" rows={2} value={domicilioActual} onChange={e => setDomicilioActual(e.target.value)} placeholder="Ej: Calle Larga y Benigno Malo..."></textarea></div>
             </div>
           )}

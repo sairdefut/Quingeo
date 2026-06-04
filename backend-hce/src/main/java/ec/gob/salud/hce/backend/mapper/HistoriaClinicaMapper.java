@@ -16,6 +16,7 @@ public class HistoriaClinicaMapper {
 
         HistoriaClinica entity = new HistoriaClinica();
         entity.setIdHistoriaClinica(dto.getIdHistoriaClinica());
+        entity.setNumeroHistoriaClinica(dto.getNumeroHistoriaClinica());
         entity.setPaciente(paciente);
         entity.setUsuario(dto.getUsuario());
         
@@ -29,6 +30,7 @@ public class HistoriaClinicaMapper {
 
         HistoriaClinicaResponseDTO dto = new HistoriaClinicaResponseDTO();
         dto.setIdHistoriaClinica(entity.getIdHistoriaClinica());
+        dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
         
         // CORRECCIÓN AQUÍ: Convertimos Integer a Long
         if (entity.getPaciente() != null && entity.getPaciente().getIdPaciente() != null) {

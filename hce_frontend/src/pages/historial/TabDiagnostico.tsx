@@ -1,6 +1,5 @@
 import { useEffect, useState, type Dispatch, type FC, type SetStateAction } from 'react';
-import { db } from '../../db/db';
-import { API_BASE_URL, handleUnauthorized } from '../../services/authSession';
+import { buscarCie10 } from '../../services/catalogService';
 
 type EnfermedadCatalogo = {
   codigo: string;
@@ -58,38 +57,8 @@ interface Props {
   handleGuardar: () => void;
 }
 
-const buscarCie10Local = async (query: string): Promise<EnfermedadCatalogo[]> => {
-  const normalized = query.trim().toLowerCase();
-  if (normalized.length < 3) return [];
-
-  const catalogos = await db.catalogos.where('tipo').equals('enfermedad').toArray();
-  return catalogos
-    .filter((item) =>
-      (item.codigo || '').toLowerCase().includes(normalized) ||
-      item.nombre.toLowerCase().includes(normalized)
-    )
-    .slice(0, 20)
-    .map((item) => ({ codigo: item.codigo || '', nombre: item.nombre }));
-};
-
 const buscarCie10Backend = async (query: string): Promise<EnfermedadCatalogo[]> => {
-  const response = await fetch(`${API_BASE_URL}/catalogos/cie10/buscar?q=${encodeURIComponent(query)}`, {
-    credentials: 'include'
-  });
-
-  if (response.status === 403) {
-    handleUnauthorized();
-    return [];
-  }
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-  const data = await response.json();
-  if (!Array.isArray(data)) return [];
-
-  return data
-    .map((item: any) => ({ codigo: item.codigo || '', nombre: item.nombre || '' }))
-    .filter((item: EnfermedadCatalogo) => item.codigo || item.nombre);
+  return buscarCie10(query);
 };
 
 const Cie10Autocomplete: FC<Cie10AutocompleteProps> = ({ id, label, value, onChange }) => {
@@ -115,15 +84,14 @@ const Cie10Autocomplete: FC<Cie10AutocompleteProps> = ({ id, label, value, onCha
     const timer: ReturnType<typeof setTimeout> = setTimeout(async () => {
       setBuscando(true);
       try {
-        const data = navigator.onLine ? await buscarCie10Backend(texto) : await buscarCie10Local(texto);
+        const data = await buscarCie10Backend(texto);
         setResultados(data);
-        setOrigen(navigator.onLine ? 'backend' : 'local');
+        setOrigen('backend');
         setAbierto(true);
       } catch (error) {
         console.error('[CIE-10] Error consultando backend, usando catálogo local:', error);
-        const data = await buscarCie10Local(texto);
-        setResultados(data);
-        setOrigen('local');
+        setResultados([]);
+        setOrigen(null);
         setAbierto(true);
       } finally {
         setBuscando(false);

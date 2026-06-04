@@ -2,14 +2,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import type { Paciente } from '../../models/Paciente';
 
 import { AlertaAlergia } from './components/alertaAlergia';
 import { VistaIdentificacion } from './components/VistaIdentificacion';
 import { SeccionAntecedentes } from './components/SeccionAntecedentes';
 import { TabsConsultaActual } from './components/TabsConsultaActual';
 
-import { obtenerPacientes, agregarConsulta, actualizarConsultaExistente } from '../../services/dbPacienteService';
+import { actualizarConsultaExistente, agregarConsulta, buscarPacientePorCedula, obtenerConsultasPorPacienteId } from '../../services/dbPacienteService';
 import { calcularIMC, obtenerZScore, calcularEdadMeses } from './medicaCalcular';
 
 type EstadoVacuna = 'Falta' | 'Aplicada';
@@ -42,6 +41,8 @@ export default function HistorialConsultas() {
     const { cedula } = useParams<{ cedula: string }>();
     const navigate = useNavigate();
     const location = useLocation();
+    const consultaEnEdicion = location.state?.consultaAEditar;
+    const modoEdicion = Boolean(consultaEnEdicion);
 
     const [tabActiva, setTabActiva] = useState('anamnesis');
     const [pacienteActual, setPacienteActual] = useState<any>(null);
@@ -137,11 +138,11 @@ export default function HistorialConsultas() {
 
     useEffect(() => {
         const cargarPaciente = async () => {
-            const lista = await obtenerPacientes();
-            const encontrado = lista.find((p: Paciente) => String(p.cedula) === String(cedula));
+            if (!cedula) return;
+            const encontrado = await buscarPacientePorCedula(cedula);
             if (encontrado) {
-                setPacienteActual(encontrado);
-                const historia = encontrado.historiaClinica || [];
+                const historia = encontrado.idPaciente ? await obtenerConsultasPorPacienteId(encontrado.idPaciente) : [];
+                setPacienteActual({ ...encontrado, historiaClinica: historia });
                 setBloquearAntecedentes(historia.length > 0);
 
                 if (historia.length > 0) {
@@ -152,7 +153,7 @@ export default function HistorialConsultas() {
         };
         cargarPaciente();
 
-        const consultaEdicion = location.state?.consultaAEditar;
+        const consultaEdicion = consultaEnEdicion;
         if (consultaEdicion) {
             cargarAntecedentesEnFormulario(consultaEdicion);
             setMotivoConsulta(consultaEdicion.motivo || '');
@@ -172,7 +173,7 @@ export default function HistorialConsultas() {
             setReferenciaHospital(Boolean(consultaEdicion.diagnostico?.cierre?.referenciaHospital ?? consultaEdicion.referenciaHospital));
             setMotivoReferencia(consultaEdicion.diagnostico?.cierre?.motivoReferencia || consultaEdicion.motivoReferencia || '');
         }
-    }, [cedula, location.state]);
+    }, [cedula, consultaEnEdicion]);
 
     const edadM = useMemo(() => pacienteActual ? calcularEdadMeses(pacienteActual.fechaNacimiento) : 0, [pacienteActual]);
 
@@ -204,9 +205,10 @@ export default function HistorialConsultas() {
 
         try {
             const consultaCompleta = {
-                id: location.state?.consultaAEditar?.id || uuidv4(),
-                fecha: new Date().toLocaleDateString(),
-                hora: new Date().toTimeString().slice(0, 8),
+                id: consultaEnEdicion?.id || uuidv4(),
+                idConsulta: consultaEnEdicion?.idConsulta,
+                fecha: consultaEnEdicion?.fecha || new Date().toLocaleDateString(),
+                hora: consultaEnEdicion?.hora || new Date().toTimeString().slice(0, 8),
                 motivo: motivoConsulta,
                 enfermedadActual,
                 antecedentes: {
@@ -218,6 +220,7 @@ export default function HistorialConsultas() {
                     personales: { enfermedadesCronicas, hospitalizaciones, cirugias, alergias, familiares, descripcionCronicas, descripcionOtrasCronicas },
                     desarrollo: { hitos: desarrollo, alimentacion }
                 },
+                signosVitales,
                 examenFisico: { vitales: signosVitales, segmentario: examenSegmentario, evolucion: evolucionClinica, nutricion: { resIMC, zP, zT, zI } },
                 diagnostico: {
                     principal: diagnosticoPrincipal,
@@ -236,16 +239,26 @@ export default function HistorialConsultas() {
 
             console.log('[DEBUG] Guardando consulta para cédula:', cedula, consultaCompleta);
 
-            const exito = location.state?.consultaAEditar
-                ? await actualizarConsultaExistente(cedula!, consultaCompleta)
-                : await agregarConsulta(cedula!, consultaCompleta);
+            if (modoEdicion) {
+                const exito = await actualizarConsultaExistente(cedula!, consultaCompleta);
+
+                if (exito) {
+                    alert('Consulta actualizada exitosamente.');
+                    navigate('/pacientes/consulta');
+                } else {
+                    alert('Error: No se pudo actualizar la consulta. Paciente no encontrado en la API.');
+                }
+                return;
+            }
+
+            const exito = await agregarConsulta(cedula!, consultaCompleta);
 
             if (exito) {
                 alert('Consulta guardada exitosamente.');
                 navigate('/pacientes/consulta');
             } else {
                 alert('Error: No se pudo guardar la consulta. Paciente no encontrado en la base de datos local.');
-                console.error('[ERROR] agregarConsulta retornó false. Paciente con cédula', cedula, 'no encontrado en IndexedDB.');
+                console.error('[ERROR] agregarConsulta retorno false. Paciente con cedula', cedula, 'no encontrado en API.');
             }
         } catch (error: any) {
             console.error('[ERROR] Error al guardar consulta:', error);
@@ -262,7 +275,7 @@ export default function HistorialConsultas() {
                     </div>
                     <div>
                         <h5 className="m-0 fw-bold text-dark">Historia Clínica</h5>
-                        <small className="text-muted">Nueva Consulta - {pacienteActual?.nombres} {pacienteActual?.apellidos} {edadFormateada ? `(${edadFormateada})` : ''}</small>
+                        <small className="text-muted">{modoEdicion ? 'Editar Consulta' : 'Nueva Consulta'} - {pacienteActual?.nombres} {pacienteActual?.apellidos} {edadFormateada ? `(${edadFormateada})` : ''}</small>
                     </div>
                 </div>
                 <div className="d-flex gap-2 pe-2">
@@ -270,7 +283,7 @@ export default function HistorialConsultas() {
                         <i className="bi bi-x-lg me-2"></i>CANCELAR
                     </button>
                     <button className="btn btn-primary px-3 fw-bold shadow-sm btn-sm" onClick={handleGuardar} id="btn-guardar-todo">
-                        <i className="bi bi-check2-all me-2"></i>GUARDAR TODO
+                        <i className="bi bi-check2-all me-2"></i>{modoEdicion ? 'GUARDAR CAMBIOS' : 'GUARDAR TODO'}
                     </button>
                 </div>
             </div>

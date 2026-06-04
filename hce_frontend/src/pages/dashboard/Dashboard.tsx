@@ -1,8 +1,5 @@
-/// <reference types="react" />
 import { useEffect, useState } from 'react';
-
-import { db } from '../../db/db';
-import type { Paciente } from '../../models/Paciente';
+import { obtenerPacientes, obtenerTodasConsultas } from '../../services/dbPacienteService';
 
 export default function Dashboard() {
   const [nombreUsuario, setNombreUsuario] = useState('Cargando...');
@@ -14,51 +11,39 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    // 1. Cargar datos del usuario
     const storedUser = localStorage.getItem('usuarioLogueado');
     if (storedUser) {
       const userData = JSON.parse(storedUser);
-      const nombreCompleto = userData.nombres && userData.apellidos 
-        ? `${userData.nombres} ${userData.apellidos}` 
-        : (userData.nombre || "Usuario");
-      
+      const nombreCompleto = userData.nombres && userData.apellidos
+        ? `${userData.nombres} ${userData.apellidos}`
+        : (userData.nombre || 'Usuario');
+
       setNombreUsuario(nombreCompleto);
-      
-      // Inicial: Primera letra del nombre real
-      const primeraLetra = nombreCompleto.charAt(0).toUpperCase() || "U";
-      setInicial(primeraLetra);
+      setInicial(nombreCompleto.charAt(0).toUpperCase() || 'U');
     }
 
-    // 2. Cargar métricas dinámicas desde IndexedDB
     const cargarMetricas = async () => {
       try {
-        const todosPacientes = await db.pacientes.toArray();
-        const hoy = new Date().toLocaleDateString();
-
-        let countConsultasHoy = 0;
-        let countAlertas = 0;
-
-        todosPacientes.forEach((p: Paciente) => {
-          // Contar consultas de hoy
-          if (p.historiaClinica && Array.isArray(p.historiaClinica)) {
-            const hoyConsultas = p.historiaClinica.filter((c: any) => c.fecha === hoy);
-            countConsultasHoy += hoyConsultas.length;
-          }
-
-          // Contar alertas (alergias o condiciones críticas)
-          // Asumimos que si tiene alergias.tiene === true, es una alerta
-          if (p.antecedentes?.personales?.alergias?.tiene) {
-            countAlertas++;
-          }
-        });
+        const [pacientes, consultas] = await Promise.all([
+          obtenerPacientes(),
+          obtenerTodasConsultas()
+        ]);
+        const hoyIso = new Date().toISOString().slice(0, 10);
+        const hoyLocal = new Date().toLocaleDateString();
+        const consultasHoy = consultas.filter((c: any) => c.fecha === hoyIso || c.fecha === hoyLocal).length;
+        const pacientesConAlergias = new Set(
+          consultas
+            .filter((c: any) => c.antecedentes?.personales?.alergias?.tiene)
+            .map((c: any) => c.idPaciente || c.cedula || c.usuario)
+        );
 
         setStats({
-          totalPacientes: todosPacientes.length,
-          consultasHoy: countConsultasHoy,
-          alertasClinicas: countAlertas
+          totalPacientes: pacientes.length,
+          consultasHoy,
+          alertasClinicas: pacientesConAlergias.size
         });
       } catch (error) {
-        console.error("Error al cargar métricas del dashboard:", error);
+        console.error('Error al cargar metricas del dashboard:', error);
       }
     };
 
@@ -66,8 +51,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="container-fluid p-0 bg-light" style={{ minHeight: "100vh" }}>
-      {/* --- ENCABEZADO --- */}
+    <div className="container-fluid p-0 bg-light" style={{ minHeight: '100vh' }}>
       <div className="d-flex justify-content-between align-items-center px-4 py-4 bg-white shadow-sm mb-4">
         <div className="d-flex align-items-center">
           <div className="bg-soft-primary p-2 rounded-3 me-3">
@@ -75,26 +59,23 @@ export default function Dashboard() {
           </div>
           <div>
             <h4 className="text-dark fw-bold m-0">Panel de Control</h4>
-            <small className="text-muted">Resumen general de la gestión clínica</small>
+            <small className="text-muted">Resumen general de la gestion clinica</small>
           </div>
         </div>
 
-        <div className="d-flex align-items-center border rounded-pill p-1 bg-white shadow-sm" style={{ minWidth: "220px" }}>
-          <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style={{ width: "45px", height: "45px", fontWeight: "bold", fontSize: "1.2rem" }}>
+        <div className="d-flex align-items-center border rounded-pill p-1 bg-white shadow-sm" style={{ minWidth: '220px' }}>
+          <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style={{ width: '45px', height: '45px', fontWeight: 'bold', fontSize: '1.2rem' }}>
             {inicial}
           </div>
           <div className="pe-3">
-            <div className="text-muted" style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "1px" }}>Profesional</div>
-            <div className="text-dark fw-bold" style={{ fontSize: "14px" }}>{nombreUsuario}</div>
+            <div className="text-muted" style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Profesional</div>
+            <div className="text-dark fw-bold" style={{ fontSize: '14px' }}>{nombreUsuario}</div>
           </div>
         </div>
       </div>
 
-      {/* --- TARJETAS DE MÉTRICAS --- */}
       <div className="px-4">
         <div className="row g-4">
-          
-          {/* Total Pacientes */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 overflow-hidden h-100 transition-hover">
               <div className="card-body p-4">
@@ -111,7 +92,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Consultas Hoy */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 overflow-hidden h-100 transition-hover">
               <div className="card-body p-4">
@@ -128,7 +108,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Alertas */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm rounded-4 overflow-hidden h-100 transition-hover">
               <div className="card-body p-4">
@@ -136,7 +115,7 @@ export default function Dashboard() {
                   <div className="bg-soft-danger p-3 rounded-circle">
                     <i className="bi bi-exclamation-triangle-fill text-vibrant-danger fs-2"></i>
                   </div>
-                  <span className="badge bg-soft-danger text-danger rounded-pill px-3">Crítico</span>
+                  <span className="badge bg-soft-danger text-danger rounded-pill px-3">Critico</span>
                 </div>
                 <h6 className="text-muted fw-bold small text-uppercase mb-1">Pacientes con Alergias</h6>
                 <h2 className="display-5 fw-bold text-dark mb-0">{stats.alertasClinicas}</h2>
@@ -144,33 +123,31 @@ export default function Dashboard() {
               <div className="bg-danger py-1 opacity-75"></div>
             </div>
           </div>
-
         </div>
 
-        {/* --- SECCIÓN ADICIONAL: ACCESO RÁPIDO --- */}
         <div className="mt-5">
-            <h5 className="fw-bold mb-4">Acciones Frecuentes</h5>
-            <div className="row g-3">
-                <div className="col-md-6 col-lg-3">
-                    <a href="/pacientes/registro" className="text-decoration-none">
-                        <div className="card border-0 shadow-sm p-3 text-center rounded-4 bg-white h-100 card-action">
-                            <i className="bi bi-person-plus text-primary fs-3 mb-2"></i>
-                            <div className="fw-bold text-dark">Nuevo Paciente</div>
-                        </div>
-                    </a>
+          <h5 className="fw-bold mb-4">Acciones Frecuentes</h5>
+          <div className="row g-3">
+            <div className="col-md-6 col-lg-3">
+              <a href="/pacientes/registro" className="text-decoration-none">
+                <div className="card border-0 shadow-sm p-3 text-center rounded-4 bg-white h-100 card-action">
+                  <i className="bi bi-person-plus text-primary fs-3 mb-2"></i>
+                  <div className="fw-bold text-dark">Nuevo Paciente</div>
                 </div>
-                <div className="col-md-6 col-lg-3">
-                    <a href="/pacientes/consulta" className="text-decoration-none">
-                        <div className="card border-0 shadow-sm p-3 text-center rounded-4 bg-white h-100 card-action">
-                            <i className="bi bi-search text-success fs-3 mb-2"></i>
-                            <div className="fw-bold text-dark">Buscar Paciente</div>
-                        </div>
-                    </a>
-                </div>
+              </a>
             </div>
+            <div className="col-md-6 col-lg-3">
+              <a href="/pacientes/consulta" className="text-decoration-none">
+                <div className="card border-0 shadow-sm p-3 text-center rounded-4 bg-white h-100 card-action">
+                  <i className="bi bi-search text-success fs-3 mb-2"></i>
+                  <div className="fw-bold text-dark">Buscar Paciente</div>
+                </div>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-      
+
       <style>{`
         .transition-hover:hover {
             transform: translateY(-5px);

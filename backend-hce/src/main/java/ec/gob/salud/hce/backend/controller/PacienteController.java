@@ -111,7 +111,7 @@ public class PacienteController {
         PacienteResponseDTO dto = new PacienteResponseDTO();
         
         dto.setIdPaciente(entity.getIdPaciente());
-        dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
+        dto.setNumeroHistoriaClinica(resolveNumeroHistoriaClinica(entity));
         dto.setCedula(entity.getCedula());
         dto.setTipoIdentificacion(entity.getTipoIdentificacion());
         dto.setPrimerNombre(entity.getPrimerNombre());
@@ -141,5 +141,14 @@ public class PacienteController {
         dto.setTutor(null); 
 
         return dto;
+    }
+
+    private String resolveNumeroHistoriaClinica(Paciente entity) {
+        if (entity.getHistoriaClinicaRegistro() != null
+                && entity.getHistoriaClinicaRegistro().getNumeroHistoriaClinica() != null
+                && !entity.getHistoriaClinicaRegistro().getNumeroHistoriaClinica().isBlank()) {
+            return entity.getHistoriaClinicaRegistro().getNumeroHistoriaClinica();
+        }
+        return entity.getNumeroHistoriaClinica();
     }
 }

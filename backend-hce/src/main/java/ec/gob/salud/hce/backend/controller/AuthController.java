@@ -54,6 +54,7 @@ public class AuthController {
             response.put("nombres", usuarioReal.getNombres());
             response.put("apellidos", usuarioReal.getApellidos());
             response.put("cargo", usuarioReal.getCargo());
+            response.put("token", token);
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, buildAuthCookie(token, httpRequest.isSecure()).toString())

@@ -36,7 +36,6 @@ public class PacienteService {
 
         // A. GUARDAR DATOS DEL PACIENTE
         Paciente paciente = new Paciente();
-        paciente.setNumeroHistoriaClinica(generarSiguienteNumeroHistoriaClinica());
         paciente.setCedula(dto.getCedula());
         paciente.setPrimerNombre(dto.getPrimerNombre());
         paciente.setSegundoNombre(dto.getSegundoNombre());
@@ -103,7 +102,7 @@ public class PacienteService {
 
     // --- 2. LISTAR TODOS (Faltaba este método) ---
     public List<Paciente> listarTodos() {
-        return pacienteRepository.findAll();
+        return pacienteRepository.findAllWithHistoriaClinicaRegistro();
     }
 
     // --- 3. OBTENER POR ID (Faltaba este método) ---
