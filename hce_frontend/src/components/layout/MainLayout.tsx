@@ -1,7 +1,18 @@
 import { Navigate, Outlet } from "react-router-dom";
+import { useEffect } from "react";
 import Sidebar from "./Sidebar";
+import { SyncStatusIndicator } from "./SyncStatusIndicator";
+import { syncService } from "../../services/syncService";
+import { useToast } from "../../contexts/ToastContext";
 
 export default function MainLayout() {
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    syncService.setToastCallback(showToast);
+    syncService.initAutoSync();
+  }, [showToast]);
+
   if (!localStorage.getItem('usuarioLogueado')) {
     return <Navigate to="/" replace />;
   }
@@ -17,6 +28,7 @@ export default function MainLayout() {
           padding: "2rem",
         }}
       >
+        <SyncStatusIndicator />
         <Outlet />
       </main>
     </div>

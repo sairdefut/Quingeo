@@ -51,6 +51,10 @@ public class ConsultaService {
         // Crear consulta con mapper (ahora incluye planes y estudios con cascade)
         Consulta consulta = ConsultaMapper.toEntity(dto, paciente, planMapper, estudioMapper);
         consulta.setHistoriaClinica(historia);
+        if (dto.getUuidOffline() != null) {
+            consulta.setUuidOffline(dto.getUuidOffline());
+        }
+        consulta.setSyncStatus("SYNCED");
         if (dto.getUsuario() != null)
             consulta.setUsuarioMedico(dto.getUsuario());
 
@@ -91,6 +95,10 @@ public class ConsultaService {
         }
 
         actualizarCamposConsulta(consulta, dto);
+        if (dto.getUuidOffline() != null) {
+            consulta.setUuidOffline(dto.getUuidOffline());
+        }
+        consulta.setSyncStatus("SYNCED");
         Consulta consultaGuardada = consultaRepository.save(consulta);
         actividadClinicaService.registrar(
                 "Edicion de consulta",

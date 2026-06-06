@@ -2,6 +2,7 @@ package ec.gob.salud.hce.backend.dto;
 
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,9 @@ public class ConsultaDTO {
     private Long idConsulta;
     private Integer idPaciente;
     private Integer idHistoriaClinica;
+    private String uuidOffline;
+    private String syncStatus;
+    private LocalDateTime lastModified;
     
     private LocalDate fecha;
     private LocalTime hora;

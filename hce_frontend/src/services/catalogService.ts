@@ -1,4 +1,5 @@
 import { apiGet } from './apiClient';
+import { db } from '../db/db';
 
 export type SelectCatalogItem = {
     codigo: string;
@@ -36,25 +37,41 @@ function mapEtnia(item: any): SelectCatalogItem {
 }
 
 export async function obtenerProvincias(): Promise<SelectCatalogItem[]> {
-    const data = await apiGet<any[]>('/ubicaciones/provincias');
-    return Array.isArray(data) ? data.map((item) => mapUbicacion(item)) : [];
+    try {
+        const data = await apiGet<any[]>('/ubicaciones/provincias');
+        return Array.isArray(data) ? data.map((item) => mapUbicacion(item)) : [];
+    } catch {
+        return getLocalCatalog('provincia');
+    }
 }
 
 export async function obtenerCantones(idProvincia: string | number): Promise<SelectCatalogItem[]> {
     if (!idProvincia) return [];
-    const data = await apiGet<any[]>(`/ubicaciones/provincias/${idProvincia}/cantones`);
-    return Array.isArray(data) ? data.map((item) => mapUbicacion(item, String(idProvincia))) : [];
+    try {
+        const data = await apiGet<any[]>(`/ubicaciones/provincias/${idProvincia}/cantones`);
+        return Array.isArray(data) ? data.map((item) => mapUbicacion(item, String(idProvincia))) : [];
+    } catch {
+        return getLocalCatalog('canton', idProvincia);
+    }
 }
 
 export async function obtenerParroquias(idProvincia: string | number, idCanton: string | number): Promise<SelectCatalogItem[]> {
     if (!idProvincia || !idCanton) return [];
-    const data = await apiGet<any[]>(`/ubicaciones/provincias/${idProvincia}/cantones/${idCanton}/parroquias`);
-    return Array.isArray(data) ? data.map((item) => mapUbicacion(item, String(idCanton))) : [];
+    try {
+        const data = await apiGet<any[]>(`/ubicaciones/provincias/${idProvincia}/cantones/${idCanton}/parroquias`);
+        return Array.isArray(data) ? data.map((item) => mapUbicacion(item, String(idCanton))) : [];
+    } catch {
+        return getLocalCatalog('parroquia', idCanton);
+    }
 }
 
 export async function obtenerEtnias(): Promise<SelectCatalogItem[]> {
-    const data = await apiGet<any[]>('/catalogos/etnias');
-    return Array.isArray(data) ? data.map(mapEtnia).filter((item) => item.codigo && item.nombre) : [];
+    try {
+        const data = await apiGet<any[]>('/catalogos/etnias');
+        return Array.isArray(data) ? data.map(mapEtnia).filter((item) => item.codigo && item.nombre) : [];
+    } catch {
+        return getLocalCatalog('etnia');
+    }
 }
 
 export function obtenerSexos() {
@@ -74,11 +91,34 @@ export function obtenerNivelesEducativos() {
 }
 
 export async function buscarCie10(query: string): Promise<SelectCatalogItem[]> {
-    const data = await apiGet<any[]>(`/catalogos/cie10/buscar?q=${encodeURIComponent(query)}`);
-    return Array.isArray(data)
-        ? data.map((item) => ({
-            codigo: String(item.codigo || ''),
-            nombre: item.nombre || item.descripcion || ''
-        })).filter((item) => item.codigo || item.nombre)
-        : [];
+    try {
+        const data = await apiGet<any[]>(`/catalogos/cie10/buscar?q=${encodeURIComponent(query)}`);
+        return Array.isArray(data)
+            ? data.map((item) => ({
+                codigo: String(item.codigo || ''),
+                nombre: item.nombre || item.descripcion || ''
+            })).filter((item) => item.codigo || item.nombre)
+            : [];
+    } catch {
+        const normalized = query.trim().toLowerCase();
+        const items = await getLocalCatalog('enfermedad');
+        return items.filter(item =>
+            item.codigo.toLowerCase().includes(normalized) || item.nombre.toLowerCase().includes(normalized)
+        ).slice(0, 30);
+    }
+}
+
+async function getLocalCatalog(tipo: string, parentId?: string | number): Promise<SelectCatalogItem[]> {
+    let collection = db.catalogos.where('tipo').equals(tipo);
+    let rows = await collection.toArray();
+    if (parentId !== undefined && parentId !== null && String(parentId) !== '') {
+        rows = rows.filter(row => String(row.parentId ?? '') === String(parentId));
+    }
+    return rows
+        .map(row => ({
+            codigo: String(row.codigo || row.id || ''),
+            nombre: row.nombre || '',
+            parentId: row.parentId === undefined ? undefined : String(row.parentId)
+        }))
+        .filter(item => item.codigo || item.nombre);
 }

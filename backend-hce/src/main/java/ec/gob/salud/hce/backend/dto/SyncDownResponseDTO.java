@@ -2,11 +2,13 @@ package ec.gob.salud.hce.backend.dto;
 
 import lombok.Getter;
 import lombok.Setter;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
 @Setter
 public class SyncDownResponseDTO {
+    private LocalDateTime serverTime;
     private List<PacienteResponseDTO> pacientes;
     private List<AntecedenteFamiliarDTO> antecedentesFamiliares;
     private List<AlergiaPacienteDTO> alergiasPaciente; // Agrega la entidad AlergiaPacienteTO> alergias;
