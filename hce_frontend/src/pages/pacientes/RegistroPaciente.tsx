@@ -242,7 +242,10 @@ export default function RegistroPaciente() {
     else if (telefonoContacto.length !== 10) e.telefonoContacto = 'Debe tener 10 dígitos';
 
     setErrores(e);
-    return Object.keys(e).length === 0;
+    return {
+      valido: Object.keys(e).length === 0,
+      erroresActuales: e
+    };
   };
 
   const [guardando, setGuardando] = useState(false);
@@ -250,10 +253,12 @@ export default function RegistroPaciente() {
   const handleGuardarPaciente = async () => {
     if (guardando) return; // Prevenir doble clic
 
-    if (!validarFormulario()) {
+    const { valido, erroresActuales } = validarFormulario();
+
+    if (!valido) {
       // Determinar en qué pestaña están los errores
-      const tieneErroresIdentificacion = errores.cedula || errores.primerNombre || errores.primerApellido || errores.fechaNacimiento || errores.sexo || errores.provincia || errores.canton;
-      const tieneErroresFiliacion = errores.primerNombreRes || errores.primerApellidoRes || errores.parentesco || errores.telefonoContacto;
+      const tieneErroresIdentificacion = erroresActuales.cedula || erroresActuales.primerNombre || erroresActuales.primerApellido || erroresActuales.fechaNacimiento || erroresActuales.sexo || erroresActuales.provincia || erroresActuales.canton;
+      const tieneErroresFiliacion = erroresActuales.primerNombreRes || erroresActuales.primerApellidoRes || erroresActuales.parentesco || erroresActuales.telefonoContacto;
 
       if (tieneErroresIdentificacion && activeTab !== 'identificacion') {
         setActiveTab('identificacion');
@@ -261,7 +266,7 @@ export default function RegistroPaciente() {
       } else if (tieneErroresFiliacion && activeTab !== 'filiacion') {
         setActiveTab('filiacion');
         alert("Por favor complete todos los campos obligatorios en la pestaña 'Filiación y Contacto'.");
-      } else if (errores.cedula === 'Cédula inválida') {
+      } else if (erroresActuales.cedula === 'Cédula inválida') {
         alert("Error: Cédula del paciente inválida.");
       } else if (mensajeEdad) {
         alert("Error: " + mensajeEdad);

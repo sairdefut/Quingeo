@@ -7,8 +7,8 @@ export const SeccionAntecedentes = ({ bloquear, setBloquear, perinatales, person
     <div className="card mb-4 border-0 shadow-sm">
         <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 className="m-0 text-primary fw-bold text-uppercase small">Historial de Antecedentes</h6>
-            <button className={`btn btn-sm ${bloquear ? 'btn-outline-danger' : 'btn-danger shadow'}`} onClick={() => setBloquear(!bloquear)}>
-                {bloquear ? "🔓 Habilitar Edición" : "🔒 Bloquear Edición"}
+            <button className={`btn btn-sm ${bloquear ? 'btn-dark shadow-sm' : 'btn-danger shadow'}`} onClick={() => setBloquear(!bloquear)}>
+                {bloquear ? '🔓 Habilitar Edición' : '🔒 Bloquear Edición'}
             </button>
         </div>
         <div className="card-body p-0">

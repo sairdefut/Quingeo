@@ -28,13 +28,13 @@ const signosVitalesIniciales = {
 };
 
 const examenSegmentarioInicial = {
-    aspecto: { Consciente: true, Alerta: true, Activo: true, Decaído: false },
-    piel: { Ictericia: false, Cianosis: false, Rash: false, Normal: true },
-    cabeza: { 'Fontanela Anterior': true, 'Fontanela Posterior': false, Adenopatías: false, Normal: true, Otros: false },
+    aspecto: { Consciente: false, Alerta: false, Activo: false, Decaído: false },
+    piel: { Ictericia: false, Cianosis: false, Rash: false, Normal: false },
+    cabeza: { 'Fontanela Anterior': false, 'Fontanela Posterior': false, Adenopatías: false, Normal: false, Otros: false },
     cabezaOtros: '',
-    cardio: { 'Ruidos cardiacos': true, 'Murmullo vesicular': true, Soplos: false },
-    abdomen: { Blando: true, Depresible: true, Hepatomegalia: false },
-    neuro: { Reflejos: true, Tono: true }
+    cardio: { 'Ruidos cardiacos': false, 'Murmullo vesicular': false, Soplos: false, Crepitantes: false },
+    abdomen: { Blando: false, Depresible: false, Hepatomegalia: false, Esplenomegalia: false },
+    neuro: { Reflejos: false, Tono: false }
 };
 
 export default function HistorialConsultas() {
@@ -57,7 +57,7 @@ export default function HistorialConsultas() {
     const [pesoNacimiento, setPesoNacimiento] = useState<number | ''>('');
     const [tallaNacimiento, setTallaNacimiento] = useState<number | ''>('');
     const [apgar, setApgar] = useState({ apariencia: 0, pulso: 0, reflejos: 0, tonoMuscular: 0, respiracion: 0 });
-    const [checksComplicaciones, setChecksComplicaciones] = useState({ sdr: false, ictericia: false, sepsis: false, ninguna: true });
+    const [checksComplicaciones, setChecksComplicaciones] = useState({ sdr: false, ictericia: false, sepsis: false, ninguna: false });
     const [descripcionComplicaciones, setDescripcionComplicaciones] = useState('');
 
     const [enfermedadesCronicas, setEnfermedadesCronicas] = useState({ Asma: false, Diabetes: false, Cardiopatías: false, Epilepsia: false, Otros: false });

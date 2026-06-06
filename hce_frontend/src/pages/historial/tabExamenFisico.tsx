@@ -1,4 +1,4 @@
-import type { Dispatch, FC, SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type FC, type SetStateAction } from 'react';
 import { calcularEdadMeses } from './medicaCalcular';
 
 interface Props {
@@ -14,6 +14,34 @@ interface Props {
   setEvolucionClinica: (val: string) => void;
   paciente: any;
 }
+
+const ExpandableTextarea = ({ value, onChange, placeholder, className = 'form-control', baseHeight = '86px' }: any) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('height', `${Math.max(el.scrollHeight + 2, parseInt(baseHeight, 10) || 86)}px`, 'important');
+  }, [value, baseHeight]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      placeholder={placeholder}
+      value={value || ''}
+      onChange={onChange}
+      style={{
+        resize: 'vertical',
+        overflowY: 'hidden',
+        minHeight: baseHeight,
+        boxSizing: 'border-box',
+        transition: 'none'
+      }}
+    />
+  );
+};
 
 const calcularAspectoGlasgow = (puntaje: number): string => {
   if (puntaje >= 13) return 'Sobrealerta';
@@ -254,7 +282,7 @@ export const TabExamenFisico: FC<Props> = ({
 
       <div className="col-12 mt-3">
         <label className="small fw-bold">Evolución Clínica / Hallazgos Adicionales</label>
-        <textarea className="form-control" rows={3} value={evolucionClinica} onChange={e => setEvolucionClinica(e.target.value)} placeholder="Describa el resumen del curso de la enfermedad..." />
+        <ExpandableTextarea className="form-control" value={evolucionClinica} onChange={(e: any) => setEvolucionClinica(e.target.value)} placeholder="Describa el resumen del curso de la enfermedad..." />
       </div>
     </div>
   );
