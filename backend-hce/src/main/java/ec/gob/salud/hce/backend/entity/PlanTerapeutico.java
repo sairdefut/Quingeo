@@ -26,5 +26,6 @@ public class PlanTerapeutico {
     @ManyToOne
     @JoinColumn(name = "id_consulta")
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private Consulta consulta;
 }

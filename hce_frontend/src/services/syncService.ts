@@ -13,6 +13,7 @@ export interface SyncStatus {
     online: boolean;
     conflicts: number;
     failedChanges: number;
+    lastError?: string;
 }
 
 type ToastCallback = (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -71,6 +72,9 @@ class SyncService {
         const pendingItems = await dbHelpers.getPendingSyncItems();
         const conflicts = await db.conflicts.filter(conflict => !conflict.resolvedAt).count();
         const failedChanges = pendingItems.filter(item => item.status === 'failed').length;
+        const failedItems = pendingItems
+            .filter(item => item.lastError)
+            .sort((a, b) => (b.localUpdatedAt || b.timestamp) - (a.localUpdatedAt || a.timestamp));
         const online = await this.isSyncAvailable();
 
         return {
@@ -79,7 +83,8 @@ class SyncService {
             pendingChanges: pendingItems.length,
             online,
             conflicts,
-            failedChanges
+            failedChanges,
+            lastError: failedItems[0]?.lastError
         };
     }
 
@@ -210,60 +215,26 @@ class SyncService {
         if (!(await this.isSyncAvailable(true))) return;
         const pendingItems = await dbHelpers.getPendingSyncItems();
         if (pendingItems.length === 0) return;
+        let prepared: Array<{ item: SyncQueueItem; payload: any }> = [];
 
         try {
             this.syncInProgress = true;
             await this.notifyListeners();
 
-            const prepared = await this.prepareBatchItems(pendingItems);
+            prepared = await this.prepareBatchItems(pendingItems);
             if (prepared.length === 0) return;
 
-            let response: Response | null = null;
-            for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
-                try {
-                    response = await fetch(`${API_BASE_URL}/sync/up`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            ...this.authHeaders(),
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            deviceId: await this.getDeviceId(),
-                            userId: this.getCurrentUserId(),
-                            items: prepared.map(({ item, payload }) => ({
-                                clientMutationId: item.clientMutationId,
-                                entity: item.entity,
-                                operation: item.operation || item.type,
-                                type: item.type,
-                                uuidOffline: item.uuidOffline,
-                                baseLastModified: item.baseLastModified,
-                                payload,
-                                data: payload
-                            }))
-                        })
-                    });
+            const result = await this.uploadPreparedItems(prepared, options);
+            if (!result) return;
 
-                    if (response.status === 401 || response.status === 403) {
-                        if (!options.background) {
-                            this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
-                        }
-                        return;
-                    }
-                    if (response.ok) break;
-                    throw new Error(`HTTP ${response.status}`);
-                } catch (error) {
-                    if (attempt === this.retryDelaysMs.length) throw error;
-                    await this.wait(this.retryDelaysMs[attempt]);
-                }
-            }
-
-            const result = await this.readSyncResponse(response);
             await this.applySyncResult(prepared.map(p => p.item), result);
             await dbHelpers.clearSyncedItems();
+            prepared = [];
+            await this.syncReadyPendingConsultas(options);
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
         } catch (error) {
             console.error('[SyncService] Error sync up:', error);
+            await this.markPreparedItemsFailed(prepared, String(error));
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
             if (!options.background) {
                 this.showToast('No se pudo completar la sincronizacion pendiente', 'error');
@@ -274,13 +245,106 @@ class SyncService {
         }
     }
 
+    private async uploadPreparedItems(
+        prepared: Array<{ item: SyncQueueItem; payload: any }>,
+        options: SyncOptions
+    ): Promise<SyncBatchResponse | null> {
+        let response: Response | null = null;
+        for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
+            try {
+                response = await fetch(`${API_BASE_URL}/sync/up`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        ...this.authHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deviceId: await this.getDeviceId(),
+                        userId: this.getCurrentUserId(),
+                        items: prepared.map(({ item, payload }) => ({
+                            clientMutationId: item.clientMutationId,
+                            entity: item.entity,
+                            operation: item.operation || item.type,
+                            type: item.type,
+                            uuidOffline: item.uuidOffline,
+                            baseLastModified: item.baseLastModified,
+                            payload,
+                            data: payload
+                        }))
+                    })
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    await this.resetPreparedItems(prepared, 'Sesion expirada. Inicie sesion nuevamente.');
+                    if (!options.background) {
+                        this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                    }
+                    return null;
+                }
+                if (response.ok) break;
+                throw new Error(`HTTP ${response.status}`);
+            } catch (error) {
+                if (attempt === this.retryDelaysMs.length) throw error;
+                await this.wait(this.retryDelaysMs[attempt]);
+            }
+        }
+
+        return this.readSyncResponse(response);
+    }
+
+    private async syncReadyPendingConsultas(options: SyncOptions): Promise<void> {
+        const pendingConsultas = (await dbHelpers.getPendingSyncItems())
+            .filter(item => item.entity === 'consulta' && (item.status === 'pending' || item.status === 'failed'));
+        if (pendingConsultas.length === 0) return;
+
+        const prepared = await this.prepareBatchItems(pendingConsultas);
+        if (prepared.length === 0) return;
+
+        try {
+            const result = await this.uploadPreparedItems(prepared, options);
+            if (!result) return;
+            await this.applySyncResult(prepared.map(p => p.item), result);
+            await dbHelpers.clearSyncedItems();
+        } catch (error) {
+            await this.markPreparedItemsFailed(prepared, String(error));
+            throw error;
+        }
+    }
+
+    private async resetPreparedItems(
+        prepared: Array<{ item: SyncQueueItem; payload: any }>,
+        error: string
+    ): Promise<void> {
+        await Promise.all(prepared.map(({ item }) => item.id
+            ? db.syncQueue.update(item.id, {
+                status: 'pending',
+                synced: 0,
+                lastError: error,
+                localUpdatedAt: Date.now()
+            })
+            : Promise.resolve()
+        ));
+    }
+
+    private async markPreparedItemsFailed(
+        prepared: Array<{ item: SyncQueueItem; payload: any }>,
+        error: string
+    ): Promise<void> {
+        await Promise.all(prepared.map(({ item }) => dbHelpers.markAsFailed(item, error)));
+    }
+
     private async prepareBatchItems(items: SyncQueueItem[]) {
         const prepared: Array<{ item: SyncQueueItem; payload: any }> = [];
 
         for (const item of items) {
             const payload = item.payload || item.data;
             if (item.id) {
-                await db.syncQueue.update(item.id, { status: 'syncing' });
+                await db.syncQueue.update(item.id, {
+                    status: 'syncing',
+                    localUpdatedAt: Date.now(),
+                    lastError: undefined
+                });
             }
 
             if (item.entity === 'consulta') {
@@ -330,6 +394,15 @@ class SyncService {
                     lastModified: mapping.serverLastModified,
                     syncStatus: 'synced'
                 });
+                await db.consultas
+                    .where('pacienteUuidOffline')
+                    .equals(mapping.uuidOffline)
+                    .modify(consulta => {
+                        consulta.idPaciente = serverId;
+                        if (consulta.data) {
+                            consulta.data.idPaciente = serverId;
+                        }
+                    });
             }
             if (mapping.entityType === 'consulta' && mapping.uuidOffline && serverId) {
                 await db.consultas.update(mapping.uuidOffline, {

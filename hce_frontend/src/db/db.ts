@@ -171,6 +171,13 @@ export const dbHelpers = {
     },
 
     async getPendingSyncItems(): Promise<SyncQueueItem[]> {
+        const staleSyncingBefore = Date.now() - 2 * 60 * 1000;
+        await db.syncQueue
+            .where('status')
+            .equals('syncing')
+            .filter(item => (item.localUpdatedAt || item.timestamp || 0) < staleSyncingBefore)
+            .modify({ status: 'pending', lastError: 'Sincronizacion interrumpida; pendiente de reintento' });
+
         return db.syncQueue
             .where('status')
             .anyOf('pending', 'failed')

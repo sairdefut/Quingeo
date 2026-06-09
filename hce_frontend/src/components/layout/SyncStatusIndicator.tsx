@@ -8,7 +8,8 @@ const initialStatus: SyncStatus = {
     pendingChanges: 0,
     online: false,
     conflicts: 0,
-    failedChanges: 0
+    failedChanges: 0,
+    lastError: undefined
 };
 
 export function SyncStatusIndicator() {
@@ -43,6 +44,16 @@ export function SyncStatusIndicator() {
                 </span>
             )}
 
+            {status.failedChanges > 0 && (
+                <span
+                    className="badge text-bg-danger d-inline-flex align-items-center gap-1"
+                    title={status.lastError || 'Hay cambios que no se pudieron sincronizar'}
+                >
+                    <AlertTriangle size={14} />
+                    {status.failedChanges} fallido{status.failedChanges === 1 ? '' : 's'}
+                </span>
+            )}
+
             <small className="text-muted">
                 {status.lastSync ? `Ultima sync: ${new Date(status.lastSync).toLocaleString()}` : 'Sin sync previa'}
             </small>
@@ -52,7 +63,7 @@ export function SyncStatusIndicator() {
                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
                 disabled={!status.online || status.syncing}
                 onClick={() => syncService.sync().catch(console.error)}
-                title="Sincronizar cambios pendientes"
+                title={status.lastError ? `Reintentar sincronizacion: ${status.lastError}` : 'Sincronizar cambios pendientes'}
             >
                 <RefreshCw size={14} className={status.syncing ? 'sync-spin' : ''} />
                 {status.syncing ? 'Sincronizando' : 'Sincronizar'}

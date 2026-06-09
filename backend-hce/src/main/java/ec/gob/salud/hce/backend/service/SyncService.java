@@ -367,8 +367,35 @@ public class SyncService {
                 item.effectivePayload(),
                 ec.gob.salud.hce.backend.dto.ConsultaDTO.class);
 
+        if (dto == null) {
+            response.getRejected().add(new SyncRejectedDTO(
+                    item.getClientMutationId(),
+                    item.getUuidOffline(),
+                    item.getEntity(),
+                    "Payload de consulta requerido"));
+            return;
+        }
+
         if (dto.getUuidOffline() == null) {
             dto.setUuidOffline(item.getUuidOffline());
+        }
+
+        if (dto.getIdPaciente() == null) {
+            response.getRejected().add(new SyncRejectedDTO(
+                    item.getClientMutationId(),
+                    dto.getUuidOffline(),
+                    "consulta",
+                    "La consulta no tiene idPaciente. Sincronice primero el paciente asociado."));
+            return;
+        }
+
+        if (!pacienteRepository.existsById(dto.getIdPaciente())) {
+            response.getRejected().add(new SyncRejectedDTO(
+                    item.getClientMutationId(),
+                    dto.getUuidOffline(),
+                    "consulta",
+                    "No existe el paciente asociado a la consulta: " + dto.getIdPaciente()));
+            return;
         }
 
         java.util.Optional<ec.gob.salud.hce.backend.entity.Consulta> porUuid = dto.getUuidOffline() == null

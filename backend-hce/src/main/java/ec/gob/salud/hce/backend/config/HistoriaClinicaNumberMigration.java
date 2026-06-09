@@ -17,11 +17,19 @@ public class HistoriaClinicaNumberMigration implements CommandLineRunner {
     public void run(String... args) {
         jdbcTemplate.update("""
                 UPDATE historias_clinicas hc
-                JOIN pacientes p ON p.id_paciente = hc.id_paciente
-                SET hc.numero_historia_clinica = p.numero_historia_clinica
+                SET hc.numero_historia_clinica = (
+                    SELECT p.numero_historia_clinica
+                    FROM pacientes p
+                    WHERE p.id_paciente = hc.id_paciente
+                )
                 WHERE (hc.numero_historia_clinica IS NULL OR hc.numero_historia_clinica = '')
-                  AND p.numero_historia_clinica IS NOT NULL
-                  AND p.numero_historia_clinica <> ''
+                  AND EXISTS (
+                    SELECT 1
+                    FROM pacientes p
+                    WHERE p.id_paciente = hc.id_paciente
+                      AND p.numero_historia_clinica IS NOT NULL
+                      AND p.numero_historia_clinica <> ''
+                  )
                 """);
     }
 }

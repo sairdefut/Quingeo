@@ -34,6 +34,7 @@ public class Consulta {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_historia_clinica", nullable = false)
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private HistoriaClinica historiaClinica;
 
     @Column(name = "hora_consulta")
@@ -85,10 +86,12 @@ public class Consulta {
 
     @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private Set<PlanTerapeutico> planes = new HashSet<>();
 
     @OneToMany(mappedBy = "consulta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private Set<EstudioLaboratorio> estudios = new HashSet<>();
 
     //AGREGADO POR NUEVO REQUERIMIENTOS

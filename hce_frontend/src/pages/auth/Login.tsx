@@ -37,7 +37,9 @@ export default function Login() {
 
       const data = await response.json();
 
-      // Guardamos solo los datos de perfil; el JWT queda en cookie HttpOnly
+      if (data.token) {
+        localStorage.setItem('hceAuthToken', data.token);
+      }
       localStorage.setItem('usuarioLogueado', JSON.stringify(data));
 
       // PASO 2: Sincronización automática de datos
