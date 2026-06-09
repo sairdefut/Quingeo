@@ -1,4 +1,4 @@
-import type { Dispatch, FC, SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type FC, type SetStateAction } from 'react';
 import { calcularEdadMeses } from './medicaCalcular';
 
 interface Props {
@@ -14,6 +14,42 @@ interface Props {
   setEvolucionClinica: (val: string) => void;
   paciente: any;
 }
+
+const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className = 'form-control', baseHeight = '86px' }: any) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    if (isFocused) {
+      el.style.setProperty('height', '0px', 'important');
+      el.style.setProperty('height', `${el.scrollHeight + 2}px`, 'important');
+    } else {
+      el.style.setProperty('height', baseHeight, 'important');
+    }
+  }, [value, isFocused, baseHeight]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      placeholder={placeholder}
+      value={value || ''}
+      disabled={disabled}
+      onChange={onChange}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      style={{
+        resize: 'vertical',
+        overflowY: isFocused ? 'hidden' : 'auto',
+        minHeight: baseHeight,
+        boxSizing: 'border-box',
+        transition: 'none'
+      }}
+    />
+  );
+};
 
 const calcularAspectoGlasgow = (puntaje: number): string => {
   if (puntaje >= 13) return 'Sobrealerta';
@@ -254,7 +290,7 @@ export const TabExamenFisico: FC<Props> = ({
 
       <div className="col-12 mt-3">
         <label className="small fw-bold">Evolución Clínica / Hallazgos Adicionales</label>
-        <textarea className="form-control" rows={3} value={evolucionClinica} onChange={e => setEvolucionClinica(e.target.value)} placeholder="Describa el resumen del curso de la enfermedad..." />
+        <ExpandableTextarea className="form-control" value={evolucionClinica} onChange={(e: any) => setEvolucionClinica(e.target.value)} placeholder="Describa el resumen del curso de la enfermedad..." />
       </div>
     </div>
   );

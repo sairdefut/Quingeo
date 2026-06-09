@@ -27,9 +27,6 @@ public class PacienteService {
     @Autowired
     private PacienteTutorRepository pacienteTutorRepository;
 
-    @Autowired
-    private ActividadClinicaService actividadClinicaService;
-
     private static final int HISTORIA_GRUPO_INICIAL = 1;
     private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
@@ -39,6 +36,7 @@ public class PacienteService {
 
         // A. GUARDAR DATOS DEL PACIENTE
         Paciente paciente = new Paciente();
+        paciente.setNumeroHistoriaClinica(generarSiguienteNumeroHistoriaClinica());
         paciente.setCedula(dto.getCedula());
         paciente.setPrimerNombre(dto.getPrimerNombre());
         paciente.setSegundoNombre(dto.getSegundoNombre());
@@ -100,19 +98,12 @@ public class PacienteService {
             pacienteTutorRepository.save(relacion);
         }
 
-        actividadClinicaService.registrar(
-                "Registro de paciente",
-                paciente,
-                dto.getUsuario(),
-                "Paciente registrado desde el sistema HCE"
-        );
-
         return paciente;
     }
 
     // --- 2. LISTAR TODOS (Faltaba este método) ---
     public List<Paciente> listarTodos() {
-        return pacienteRepository.findAllWithHistoriaClinicaRegistro();
+        return pacienteRepository.findAll();
     }
 
     // --- 3. OBTENER POR ID (Faltaba este método) ---

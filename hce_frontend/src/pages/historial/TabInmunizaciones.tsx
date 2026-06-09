@@ -23,7 +23,17 @@ export const TabInmunizaciones = ({
     vacunasFaltantes,
     setVacunasFaltantes
 }: any) => {
+    const estadoSeleccionado = (vacuna: string) => (vacunasFaltantes || {})[vacuna] || '';
+
     const actualizarVacuna = (vacuna: string, estado: EstadoVacuna) => {
+        const estadoActual = estadoSeleccionado(vacuna);
+        if (estadoActual === estado) {
+            const actualizado = { ...(vacunasFaltantes || {}) };
+            delete actualizado[vacuna];
+            setVacunasFaltantes(actualizado);
+            return;
+        }
+
         setVacunasFaltantes({
             ...(vacunasFaltantes || {}),
             [vacuna]: estado
@@ -46,28 +56,44 @@ export const TabInmunizaciones = ({
                     <div className="small fw-bold text-secondary mb-2">Vacunas del esquema MSP Ecuador</div>
                     <div className="row g-2">
                         {VACUNAS_MSP.map((vacuna) => {
-                            const vacunaId = vacuna.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
                             return (
                                 <div className="col-12 col-md-6 col-xl-4" key={vacuna}>
                                     <div className="bg-white border rounded p-2 h-100">
                                         <div className="small fw-bold mb-2">{vacuna}</div>
-                                        <div className="btn-group btn-group-sm w-100" role="group" aria-label={`Estado ${vacuna}`}>
-                                            {(['Falta', 'Aplicada'] as EstadoVacuna[]).map((estado) => (
-                                                <input
-                                                    key={estado}
-                                                    type="radio"
-                                                    className="btn-check"
-                                                    name={`vacuna-${vacunaId}`}
-                                                    id={`vacuna-${vacunaId}-${estado}`}
-                                                    disabled={isAntBlocked}
-                                                    checked={(vacunasFaltantes || {})[vacuna] === estado}
-                                                    onChange={() => actualizarVacuna(vacuna, estado)}
-                                                />
-                                            ))}
-                                            <label className="btn btn-outline-danger" htmlFor={`vacuna-${vacunaId}-Falta`}>Falta</label>
-                                            <label className="btn btn-outline-success" htmlFor={`vacuna-${vacunaId}-Aplicada`}>Aplicada</label>
+                                        <div className="d-flex gap-2">
+                                            <button
+                                                type="button"
+                                                className={`btn btn-sm flex-fill ${estadoSeleccionado(vacuna) === 'Falta' ? 'btn-danger' : 'btn-outline-danger'}`}
+                                                disabled={isAntBlocked}
+                                                onClick={() => actualizarVacuna(vacuna, 'Falta')}
+                                                aria-pressed={estadoSeleccionado(vacuna) === 'Falta'}
+                                            >
+                                                Falta
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`btn btn-sm flex-fill ${estadoSeleccionado(vacuna) === 'Aplicada' ? 'btn-success' : 'btn-outline-success'}`}
+                                                disabled={isAntBlocked}
+                                                onClick={() => actualizarVacuna(vacuna, 'Aplicada')}
+                                                aria-pressed={estadoSeleccionado(vacuna) === 'Aplicada'}
+                                            >
+                                                Aplicada
+                                            </button>
                                         </div>
+                                        {estadoSeleccionado(vacuna) && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-link btn-sm text-decoration-none p-0 mt-2"
+                                                disabled={isAntBlocked}
+                                                onClick={() => {
+                                                    const actualizado = { ...(vacunasFaltantes || {}) };
+                                                    delete actualizado[vacuna];
+                                                    setVacunasFaltantes(actualizado);
+                                                }}
+                                            >
+                                                Limpiar selección
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

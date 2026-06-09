@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 public class HistoriaClinicaResponseDTO {
 
     private Long idHistoriaClinica;
-    private String numeroHistoriaClinica;
     private Long idPaciente;
     private Integer idDiagnosticoPlanManejo;
     private LocalDateTime fechaCreacion;

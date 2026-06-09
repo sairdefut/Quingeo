@@ -30,11 +30,6 @@ public class ConsultaController {
         }
     }
 
-    @PutMapping("/{idConsulta}")
-    public ResponseEntity<ConsultaDTO> actualizar(@PathVariable Long idConsulta, @RequestBody ConsultaDTO dto) {
-        return ResponseEntity.ok(consultaService.actualizarConsultaCompleta(idConsulta, dto));
-    }
-
     @GetMapping("/paciente/{idPaciente}")
     public ResponseEntity<List<ConsultaDTO>> listarPorPaciente(@PathVariable Integer idPaciente) {
         return ResponseEntity.ok(consultaService.listarPorPaciente(idPaciente));

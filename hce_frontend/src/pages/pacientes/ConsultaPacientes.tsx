@@ -1,17 +1,34 @@
 /// <reference types="react" />
-import React, { useEffect, useState } from "react";
-
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { obtenerConsultasPorPacienteId, obtenerPacientes } from "../../services/dbPacienteService";
+import { obtenerPacientes } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
+import { useReactToPrint } from "react-to-print";
+import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE";
 
 export default function ConsultaPacientes() {
   const navigate = useNavigate();
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [pacienteConsultas, setPacienteConsultas] = useState<any | null>(null);
-  const [consultasPaciente, setConsultasPaciente] = useState<any[]>([]);
-  const [cargandoConsultas, setCargandoConsultas] = useState(false);
+
+  // --- LÓGICA DE IMPRESIÓN DIRECTA ---
+  const [pacienteAImprimir, setPacienteAImprimir] = useState<any | null>(null);
+  const componentRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: 'HCE_Pediatrica_Reporte',
+  });
+
+  const triggerPrint = (paciente: any) => {
+    setPacienteAImprimir(paciente);
+    // Le damos un pequeño tiempo (500ms) para que React renderice los datos del paciente en el componente oculto
+    setTimeout(() => {
+      handlePrint();
+    }, 500);
+  };
+  // -----------------------------------
 
   useEffect(() => {
     const cargarPacientes = async () => {
@@ -34,20 +51,10 @@ export default function ConsultaPacientes() {
     return isMale ? "bi-person-standing" : "bi-person-standing-dress";
   };
 
-  const abrirHistorial = async (paciente: any) => {
-    setPacienteConsultas(paciente);
-    setConsultasPaciente([]);
-    if (!paciente.idPaciente) return;
-
-    setCargandoConsultas(true);
-    try {
-      const consultas = await obtenerConsultasPorPacienteId(paciente.idPaciente);
-      setConsultasPaciente(consultas);
-    } catch (error) {
-      console.error("Error cargando consultas del paciente:", error);
-    } finally {
-      setCargandoConsultas(false);
-    }
+  // Función para garantizar que siempre se muestre un número secuencial en la tabla
+  const obtenerNumHistoria = (p: any) => {
+    const id = p.id_historia_clinica || p.idHistoriaClinica || p.numeroHistoriaClinica || p.id_paciente || p.idPaciente || p.id;
+    return id ? String(id).padStart(5, '0') : '00000';
   };
 
   return (
@@ -98,6 +105,7 @@ export default function ConsultaPacientes() {
                   <th className="py-3 text-muted small text-uppercase fw-bold" style={{ width: '150px' }}>Cédula</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Paciente</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold">Fecha Nacimiento</th>
+                  <th className="py-3 text-muted small text-uppercase fw-bold">Estado Sync</th>
                   <th className="py-3 text-muted small text-uppercase fw-bold text-end px-4">Acciones</th>
                 </tr>
               </thead>
@@ -106,10 +114,10 @@ export default function ConsultaPacientes() {
                   pacientesFiltrados.map((p: Paciente) => (
                     <tr key={p.cedula} className="border-bottom transition-hover">
                       <td className="px-4">
-                        <span className="badge bg-light text-dark border fw-bold px-2 py-1">
-                          {p.numeroHistoriaClinica || 'Pendiente'}
-                        </span>
-                      </td>
+                      <span className="badge bg-light text-dark border fw-bold px-2 py-1">
+                        {obtenerNumHistoria(p)}
+                      </span>
+                        </td>
                       <td>
                         <span className="badge bg-light text-dark border fw-bold px-2 py-1">
                           {p.cedula}
@@ -127,6 +135,17 @@ export default function ConsultaPacientes() {
                         </div>
                       </td>
                       <td className="text-muted">{p.fechaNacimiento}</td>
+                      <td>
+                        {p.idPaciente ? (
+                          <span className="text-success small d-flex align-items-center">
+                            <i className="bi bi-cloud-check-fill me-1"></i> Sincronizado
+                          </span>
+                        ) : (
+                          <span className="text-warning small d-flex align-items-center">
+                            <i className="bi bi-cloud-arrow-up-fill me-1"></i> Pendiente
+                          </span>
+                        )}
+                      </td>
                       <td className="text-end px-4">
                         <div className="btn-group shadow-sm rounded-3">
                           <button 
@@ -136,6 +155,7 @@ export default function ConsultaPacientes() {
                           >
                             <i className="bi bi-plus-circle-fill text-primary"></i>
                           </button>
+                          
                           <button 
                             className="btn btn-white btn-sm border-end px-3 py-2" 
                             title="Ver Reporte Completo"
@@ -143,10 +163,20 @@ export default function ConsultaPacientes() {
                           >
                             <i className="bi bi-file-earmark-medical-fill text-info"></i>
                           </button>
+
+                          {/* NUEVO BOTÓN PARA IMPRIMIR DIRECTAMENTE */}
+                          <button 
+                            className="btn btn-white btn-sm border-end px-3 py-2" 
+                            title="Imprimir Reporte"
+                            onClick={() => triggerPrint(p)}
+                          >
+                            <i className="bi bi-printer-fill text-dark"></i>
+                          </button>
+
                           <button 
                             className="btn btn-white btn-sm px-3 py-2" 
                             title="Historial de Consultas"
-                            onClick={() => abrirHistorial(p)}
+                            onClick={() => setPacienteConsultas(p)}
                           >
                             <i className="bi bi-clock-history text-success"></i>
                           </button>
@@ -156,7 +186,7 @@ export default function ConsultaPacientes() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-5 text-center">
+                    <td colSpan={6} className="py-5 text-center">
                       <div className="py-4">
                         <i className="bi bi-search text-muted display-1 opacity-25"></i>
                         <h5 className="mt-3 text-muted">No se encontraron pacientes</h5>
@@ -174,7 +204,7 @@ export default function ConsultaPacientes() {
         </div>
       </div>
 
-      {/* MODAL DE CONSULTAS - REDISEÑADO */}
+      {/* MODAL DE CONSULTAS */}
       {pacienteConsultas && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 1050 }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -184,13 +214,8 @@ export default function ConsultaPacientes() {
                 <button type="button" className="btn-close" onClick={() => setPacienteConsultas(null)}></button>
               </div>
               <div className="modal-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                {cargandoConsultas ? (
-                  <div className="text-center py-5">
-                    <div className="spinner-border text-primary" role="status"></div>
-                    <p className="mt-2 text-muted">Cargando consultas...</p>
-                  </div>
-                ) : consultasPaciente.length > 0 ? (
-                  consultasPaciente.slice().reverse().map((c: any, i: number) => (
+                {pacienteConsultas.historiaClinica?.length > 0 ? (
+                  pacienteConsultas.historiaClinica.slice().reverse().map((c: any, i: number) => (
                     <div key={i} className="card mb-3 border shadow-none rounded-3 hover-shadow transition-all">
                       <div className="card-body p-3">
                         <div className="d-flex justify-content-between align-items-start mb-2">
@@ -200,11 +225,7 @@ export default function ConsultaPacientes() {
                           </div>
                           <button 
                             className="btn btn-light btn-sm rounded-pill px-3" 
-                            title="Editar Consulta"
-                            onClick={() => {
-                              setPacienteConsultas(null);
-                              navigate(`/historial/${pacienteConsultas.cedula}`, { state: { consultaAEditar: c } });
-                            }}
+                            onClick={() => navigate(`/historial/${pacienteConsultas.cedula}`, { state: { consultaAEditar: c } })}
                           >
                             <i className="bi bi-pencil me-1"></i> Editar
                           </button>
@@ -227,6 +248,13 @@ export default function ConsultaPacientes() {
           </div>
         </div>
       )}
+
+      {/* COMPONENTE OCULTO PARA LA IMPRESIÓN */}
+      <div style={{ display: 'none' }}>
+        {pacienteAImprimir && (
+          <ReporteCompletoHCE ref={componentRef} paciente={pacienteAImprimir} />
+        )}
+      </div>
 
       <style>{`
         .transition-hover:hover {

@@ -1,5 +1,34 @@
 import React from 'react';
 
+const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className = 'form-control', baseHeight = '62px' }: any) => {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.setProperty('height', '0px', 'important');
+    el.style.setProperty('height', `${Math.max(el.scrollHeight + 2, parseInt(baseHeight, 10) || 62)}px`, 'important');
+  }, [value, baseHeight]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      placeholder={placeholder}
+      value={value || ''}
+      disabled={disabled}
+      onChange={onChange}
+      style={{
+        resize: 'vertical',
+        overflowY: 'hidden',
+        minHeight: baseHeight,
+        boxSizing: 'border-box',
+        transition: 'none'
+      }}
+    />
+  );
+};
+
 type ApgarType = {
   apariencia: number;
   pulso: number;
@@ -216,9 +245,9 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
             </div>
           ))}
         </div>
-        <textarea className="form-control" disabled={isAntBlocked || checksComplicaciones.ninguna} rows={2}
+        <ExpandableTextarea className="form-control" disabled={isAntBlocked || checksComplicaciones.ninguna}
           placeholder="Descripción opcional..." value={descripcionComplicaciones}
-          onChange={e => setDescripcionComplicaciones(e.target.value)} />
+          onChange={(e: any) => setDescripcionComplicaciones(e.target.value)} />
       </div>
     </div>
   );

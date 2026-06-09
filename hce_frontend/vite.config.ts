@@ -1,17 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { ProxyOptions } from 'vite'
+
+const apiProxy: ProxyOptions = {
+  target: process.env.VITE_API_TARGET || 'http://localhost:8080',
+  changeOrigin: true,
+  secure: false,
+  configure: (proxy) => {
+    proxy.on('proxyReq', (proxyReq) => {
+      proxyReq.setHeader('Origin', 'http://localhost')
+    })
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
   server: {
     proxy: {
-      '/api': {
-        target: process.env.VITE_API_TARGET || 'http://localhost:8081',
-        changeOrigin: true,
-        secure: false
-      }
+      '/api': apiProxy
     }
   },
   plugins: [
