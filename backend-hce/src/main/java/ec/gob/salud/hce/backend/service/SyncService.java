@@ -1,6 +1,13 @@
 package ec.gob.salud.hce.backend.service;
 
+import ec.gob.salud.hce.backend.dto.IdMappingDTO;
+import ec.gob.salud.hce.backend.dto.SyncAcceptedDTO;
+import ec.gob.salud.hce.backend.dto.SyncBatchRequestDTO;
+import ec.gob.salud.hce.backend.dto.SyncBatchResponseDTO;
+import ec.gob.salud.hce.backend.dto.SyncConflictDTO;
 import ec.gob.salud.hce.backend.dto.SyncDownResponseDTO;
+import ec.gob.salud.hce.backend.dto.SyncItemDTO;
+import ec.gob.salud.hce.backend.dto.SyncRejectedDTO;
 import ec.gob.salud.hce.backend.mapper.PacienteMapper;
 import ec.gob.salud.hce.backend.mapper.AntecedenteFamiliarMapper;
 import ec.gob.salud.hce.backend.repository.PacienteRepository;
@@ -10,12 +17,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class SyncService {
@@ -70,9 +81,15 @@ public class SyncService {
 
     @Transactional(readOnly = true)
     public SyncDownResponseDTO obtenerDatosParaDescargaInicial() {
+        return obtenerDatosParaDescargaInicial(null);
+    }
+
+    @Transactional(readOnly = true)
+    public SyncDownResponseDTO obtenerDatosParaDescargaInicial(Long since) {
         System.out.println("DEBUG: Iniciando obtenerDatosParaDescargaInicial");
         try {
             SyncDownResponseDTO response = new SyncDownResponseDTO();
+            response.setServerTime(LocalDateTime.now());
 
             // Cargar Pacientes con sus tutores y deduplicar por cédula
             System.out.println("DEBUG: Cargando Pacientes...");
@@ -227,6 +244,7 @@ public class SyncService {
             response.setCatalogos(catalogos);
             System.out.println("DEBUG: Catálogos cargados: " + catalogos.size());
 
+            aplicarFiltroIncremental(response, since);
             return response;
         } catch (Exception e) {
             System.err.println("CRITICAL ERROR in obtenerDatosParaDescargaInicial: " + e.getMessage());
@@ -236,78 +254,206 @@ public class SyncService {
     }
 
     @Transactional
-    public List<ec.gob.salud.hce.backend.dto.IdMappingDTO> procesarSubida(
-            ec.gob.salud.hce.backend.dto.SyncUpRequestDTO request) {
-        List<ec.gob.salud.hce.backend.dto.IdMappingDTO> mappings = new java.util.ArrayList<>();
-        try {
-            if ("paciente".equalsIgnoreCase(request.getEntity())) {
-                if ("CREATE".equalsIgnoreCase(request.getType())) {
-                    // Convertir el Map 'data' a PacienteRequestDTO
-                    ec.gob.salud.hce.backend.dto.PacienteRequestDTO dto = objectMapper.convertValue(request.getData(),
-                            ec.gob.salud.hce.backend.dto.PacienteRequestDTO.class);
+    public SyncBatchResponseDTO procesarSubida(SyncBatchRequestDTO request) {
+        SyncBatchResponseDTO response = new SyncBatchResponseDTO();
+        List<SyncItemDTO> items = normalizarItems(request);
 
-                    // VERIFICAR SI YA EXISTE UN PACIENTE CON ESA CÉDULA
-                    java.util.List<ec.gob.salud.hce.backend.entity.Paciente> existentes = pacienteRepository
-                            .findByCedula(dto.getCedula());
-
-                    if (existentes.isEmpty()) {
-                        // Solo crear si no existe
-                        ec.gob.salud.hce.backend.entity.Paciente nuevoPaciente = pacienteService.crearPaciente(dto);
-
-                        // Agregar mapeo a la lista de respuesta
-                        if (nuevoPaciente != null && nuevoPaciente.getUuidOffline() != null) {
-                            mappings.add(new ec.gob.salud.hce.backend.dto.IdMappingDTO(
-                                    nuevoPaciente.getUuidOffline(),
-                                    nuevoPaciente.getIdPaciente(),
-                                    "paciente",
-                                    nuevoPaciente.getNumeroHistoriaClinica()));
-                            System.out.println("DEBUG: Mapeo creado UUID: " + nuevoPaciente.getUuidOffline()
-                                    + " -> ID: " + nuevoPaciente.getIdPaciente());
-                        }
-
-                    } else {
-                        // Paciente ya existe, devolver el mapeo del existente para que el frontend se
-                        // actualice
-                        ec.gob.salud.hce.backend.entity.Paciente existente = existentes.get(0);
-                        if (dto.getUuidOffline() != null) {
-                            mappings.add(new ec.gob.salud.hce.backend.dto.IdMappingDTO(
-                                    dto.getUuidOffline(),
-                                    existente.getIdPaciente(),
-                                    "paciente",
-                                    existente.getNumeroHistoriaClinica()));
-                        }
-                        System.out.println(
-                                "Paciente con cédula " + dto.getCedula() + " ya existe. Devolviendo ID existente: "
-                                        + existente.getIdPaciente());
-                    }
-                }
-            } else if ("consulta".equalsIgnoreCase(request.getEntity())) {
-                if ("CREATE".equalsIgnoreCase(request.getType())) {
-                    System.out.println("DEBUG: Procesando sincronización de CONSULTA...");
-                    // Convertir el Map 'data' a ConsultaDTO
-                    ec.gob.salud.hce.backend.dto.ConsultaDTO dto = objectMapper.convertValue(request.getData(),
-                            ec.gob.salud.hce.backend.dto.ConsultaDTO.class);
-
-                    // Guardar usando el servicio existente
-                    ec.gob.salud.hce.backend.dto.ConsultaDTO guardado = consultaService.guardarConsultaCompleta(dto);
-
-                    if (guardado != null) {
-                        System.out.println("DEBUG: Consulta sincronizada exitosamente. ID: " + guardado.getIdConsulta());
-                        // Si el frontend envía un UUID temporal, podríamos mapearlo aquí
-                        // mappings.add(new IdMappingDTO(...));
-                    }
-                }
+        for (SyncItemDTO item : items) {
+            try {
+                procesarItemSubida(item, response);
+            } catch (Exception e) {
+                response.getRejected().add(new SyncRejectedDTO(
+                        item.getClientMutationId(),
+                        item.getUuidOffline(),
+                        item.getEntity(),
+                        e.getMessage()));
             }
-            return mappings;
-        } catch (Exception e) {
-            System.err.println("❌ ERROR en procesarSubida:");
-            System.err.println("Entity: " + request.getEntity());
-            System.err.println("Type: " + request.getType());
-            System.err.println("Data: " + request.getData());
-            System.err.println("Exception: " + e.getClass().getName());
-            System.err.println("Message: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Error al procesar sincronización: " + e.getMessage(), e);
+        }
+
+        response.setServerTime(LocalDateTime.now());
+        return response;
+    }
+
+    private List<SyncItemDTO> normalizarItems(SyncBatchRequestDTO request) {
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            return request.getItems();
+        }
+
+        SyncItemDTO legacy = new SyncItemDTO();
+        legacy.setClientMutationId(request.getClientMutationId());
+        legacy.setEntity(request.getEntity());
+        legacy.setOperation(request.getOperation());
+        legacy.setType(request.getType());
+        legacy.setUuidOffline(request.getUuidOffline());
+        legacy.setPayload(request.getPayload());
+        legacy.setData(request.getData());
+        return List.of(legacy);
+    }
+
+    private void procesarItemSubida(SyncItemDTO item, SyncBatchResponseDTO response) {
+        if (item.getEntity() == null) {
+            throw new IllegalArgumentException("Entidad de sincronizacion requerida");
+        }
+
+        if ("paciente".equalsIgnoreCase(item.getEntity())) {
+            procesarPaciente(item, response);
+            return;
+        }
+
+        if ("consulta".equalsIgnoreCase(item.getEntity())) {
+            procesarConsulta(item, response);
+            return;
+        }
+
+        response.getRejected().add(new SyncRejectedDTO(
+                item.getClientMutationId(),
+                item.getUuidOffline(),
+                item.getEntity(),
+                "Entidad no soportada para sincronizacion"));
+    }
+
+    private void procesarPaciente(SyncItemDTO item, SyncBatchResponseDTO response) {
+        ec.gob.salud.hce.backend.dto.PacienteRequestDTO dto = objectMapper.convertValue(
+                item.effectivePayload(),
+                ec.gob.salud.hce.backend.dto.PacienteRequestDTO.class);
+
+        if (dto.getUuidOffline() == null) {
+            dto.setUuidOffline(item.getUuidOffline());
+        }
+
+        java.util.Optional<ec.gob.salud.hce.backend.entity.Paciente> porUuid = dto.getUuidOffline() == null
+                ? java.util.Optional.empty()
+                : pacienteRepository.findByUuidOffline(dto.getUuidOffline());
+
+        if (porUuid.isPresent()) {
+            ec.gob.salud.hce.backend.entity.Paciente existente = porUuid.get();
+            if (hayConflicto(item.getBaseLastModified(), existente.getLastModified())) {
+                response.getConflicts().add(new SyncConflictDTO(
+                        item.getClientMutationId(),
+                        dto.getUuidOffline(),
+                        "paciente",
+                        "El paciente fue modificado en el servidor antes de sincronizar",
+                        item.effectivePayload(),
+                        pacienteMapper.toDTO(existente)));
+                return;
+            }
+
+            if ("UPDATE".equalsIgnoreCase(item.effectiveOperation())) {
+                actualizarPacienteExistente(existente, dto);
+                existente = pacienteRepository.save(existente);
+            }
+            agregarMapping(response, item, dto.getUuidOffline(), existente.getIdPaciente(), "paciente",
+                    existente.getNumeroHistoriaClinica(), existente.getLastModified());
+            return;
+        }
+
+        java.util.List<ec.gob.salud.hce.backend.entity.Paciente> existentesPorCedula = pacienteRepository
+                .findByCedula(dto.getCedula());
+
+        if (!existentesPorCedula.isEmpty()) {
+            ec.gob.salud.hce.backend.entity.Paciente existente = existentesPorCedula.get(0);
+            agregarMapping(response, item, dto.getUuidOffline(), existente.getIdPaciente(), "paciente",
+                    existente.getNumeroHistoriaClinica(), existente.getLastModified());
+            return;
+        }
+
+        ec.gob.salud.hce.backend.entity.Paciente nuevoPaciente = pacienteService.crearPaciente(dto);
+        agregarMapping(response, item, nuevoPaciente.getUuidOffline(), nuevoPaciente.getIdPaciente(), "paciente",
+                nuevoPaciente.getNumeroHistoriaClinica(), nuevoPaciente.getLastModified());
+    }
+
+    private void procesarConsulta(SyncItemDTO item, SyncBatchResponseDTO response) {
+        ec.gob.salud.hce.backend.dto.ConsultaDTO dto = objectMapper.convertValue(
+                item.effectivePayload(),
+                ec.gob.salud.hce.backend.dto.ConsultaDTO.class);
+
+        if (dto.getUuidOffline() == null) {
+            dto.setUuidOffline(item.getUuidOffline());
+        }
+
+        java.util.Optional<ec.gob.salud.hce.backend.entity.Consulta> porUuid = dto.getUuidOffline() == null
+                ? java.util.Optional.empty()
+                : consultaRepository.findByUuidOffline(dto.getUuidOffline());
+
+        if (porUuid.isPresent()) {
+            ec.gob.salud.hce.backend.entity.Consulta existente = porUuid.get();
+            if (hayConflicto(item.getBaseLastModified(), existente.getLastModified())) {
+                response.getConflicts().add(new SyncConflictDTO(
+                        item.getClientMutationId(),
+                        dto.getUuidOffline(),
+                        "consulta",
+                        "La consulta fue modificada en el servidor antes de sincronizar",
+                        item.effectivePayload(),
+                        ec.gob.salud.hce.backend.mapper.ConsultaMapper.toDto(existente, planMapper, estudioMapper)));
+                return;
+            }
+
+            ec.gob.salud.hce.backend.dto.ConsultaDTO guardado = consultaService.actualizarConsultaCompleta(
+                    existente.getIdConsulta(),
+                    dto);
+            agregarMapping(response, item, dto.getUuidOffline(), guardado.getIdConsulta().intValue(), "consulta",
+                    null, guardado.getLastModified());
+            return;
+        }
+
+        ec.gob.salud.hce.backend.dto.ConsultaDTO guardado = consultaService.guardarConsultaCompleta(dto);
+        agregarMapping(response, item, dto.getUuidOffline(), guardado.getIdConsulta().intValue(), "consulta",
+                null, guardado.getLastModified());
+    }
+
+    private void actualizarPacienteExistente(ec.gob.salud.hce.backend.entity.Paciente paciente,
+            ec.gob.salud.hce.backend.dto.PacienteRequestDTO dto) {
+        paciente.setPrimerNombre(dto.getPrimerNombre());
+        paciente.setSegundoNombre(dto.getSegundoNombre());
+        paciente.setApellidoPaterno(dto.getApellidoPaterno());
+        paciente.setApellidoMaterno(dto.getApellidoMaterno());
+        paciente.setFechaNacimiento(dto.getFechaNacimiento());
+        paciente.setSexo(dto.getSexo());
+        paciente.setTipoSangre(dto.getTipoSangre());
+        paciente.setTipoIdentificacion(dto.getTipoIdentificacion());
+        paciente.setAnioEscolar(dto.getAnioEscolar());
+        paciente.setIdGrupoEtnico(dto.getIdGrupoEtnico());
+        paciente.setIdParroquia(dto.getIdParroquia());
+        paciente.setIdPrqCanton(dto.getIdPrqCanton());
+        paciente.setIdPrqCntProvincia(dto.getIdPrqCntProvincia());
+        paciente.setUsuario(dto.getUsuario());
+        paciente.setOrigin(dto.getOrigin());
+        paciente.setSyncStatus("SYNCED");
+    }
+
+    private void agregarMapping(SyncBatchResponseDTO response, SyncItemDTO item, String uuidOffline, Integer serverId,
+            String entityType, String numeroHistoriaClinica, LocalDateTime serverLastModified) {
+        response.getAccepted().add(new SyncAcceptedDTO(item.getClientMutationId(), uuidOffline, entityType));
+        IdMappingDTO mapping = new IdMappingDTO(uuidOffline, serverId, entityType, numeroHistoriaClinica);
+        mapping.setClientMutationId(item.getClientMutationId());
+        mapping.setServerId(serverId);
+        mapping.setServerLastModified(serverLastModified);
+        response.getMappings().add(mapping);
+    }
+
+    private boolean hayConflicto(LocalDateTime baseLastModified, LocalDateTime serverLastModified) {
+        return baseLastModified != null
+                && serverLastModified != null
+                && serverLastModified.isAfter(baseLastModified);
+    }
+
+    private void aplicarFiltroIncremental(SyncDownResponseDTO response, Long since) {
+        if (since == null || since <= 0) {
+            return;
+        }
+
+        LocalDateTime sinceDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(since), ZoneId.systemDefault());
+
+        if (response.getPacientes() != null) {
+            response.setPacientes(response.getPacientes().stream()
+                    .filter(p -> p.getLastModified() == null || p.getLastModified().isAfter(sinceDate))
+                    .collect(Collectors.toList()));
+        }
+
+        if (response.getConsultas() != null) {
+            response.setConsultas(response.getConsultas().stream()
+                    .filter(c -> c.getLastModified() == null || c.getLastModified().isAfter(sinceDate))
+                    .collect(Collectors.toList()));
         }
     }
 

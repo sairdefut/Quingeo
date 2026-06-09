@@ -18,15 +18,20 @@ public class HistoriaClinica {
     @Column(name = "id_historia_clinica")
     private Long idHistoriaClinica;
 
+    @Column(name = "numero_historia_clinica", length = 14, unique = true)
+    private String numeroHistoriaClinica;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_paciente", nullable = false)
     @JsonIgnore
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private Paciente paciente;
 
     @OneToMany(mappedBy = "historiaClinica", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
     private List<Consulta> consultas = new ArrayList<>();
 
     @Column(name = "fecha_creacion")

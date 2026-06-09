@@ -1,26 +1,37 @@
 // src/db/db.ts
-// IndexedDB Database Schema for HCE Offline-First
+// IndexedDB schema for the HCE offline-first data layer.
 
 import Dexie, { type Table } from 'dexie';
 import type { Paciente } from '../models/Paciente';
 
-// Definición de tipos para las tablas adicionales
+export type SyncEntity = 'paciente' | 'consulta' | 'antecedente';
+export type SyncOperation = 'CREATE' | 'UPDATE' | 'DELETE';
+export type SyncItemStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict';
+
 export interface SyncQueueItem {
     id?: number;
-    type: 'CREATE' | 'UPDATE' | 'DELETE';
-    entity: 'paciente' | 'consulta' | 'antecedente';
+    type: SyncOperation;
+    operation?: SyncOperation;
+    entity: SyncEntity;
+    uuidOffline?: string;
+    clientMutationId: string;
+    baseLastModified?: string | null;
     data: any;
+    payload?: any;
     timestamp: number;
-    synced: number; // 0 = false, 1 = true (Dexie no puede indexar booleanos)
+    localUpdatedAt: number;
+    status: SyncItemStatus;
+    synced: number;
     retries: number;
+    lastError?: string;
 }
 
 export interface CatalogoItem {
     id?: number;
-    tipo: string; // 'provincia', 'canton', 'parroquia', 'enfermedad', etc.
+    tipo: string;
     codigo?: string;
     nombre: string;
-    parentId?: number; // Para relaciones jerárquicas
+    parentId?: number;
     metadatos?: any;
 }
 
@@ -30,102 +41,188 @@ export interface AppMetadata {
     updatedAt: number;
 }
 
-// Clase principal de la base de datos
+export interface ConsultaLocal {
+    uuidOffline: string;
+    id?: string;
+    idConsulta?: number;
+    idPaciente?: number;
+    pacienteUuidOffline?: string;
+    cedula: string;
+    data: any;
+    syncStatus?: SyncItemStatus;
+    lastModified?: string;
+    localUpdatedAt: number;
+}
+
+export interface SyncConflict {
+    id?: number;
+    entity: SyncEntity;
+    uuidOffline?: string;
+    clientMutationId?: string;
+    localPayload: any;
+    serverPayload: any;
+    reason: string;
+    createdAt: number;
+    resolvedAt?: number;
+}
+
+export interface FailedSyncItem {
+    id?: number;
+    queueItemId?: number;
+    clientMutationId?: string;
+    entity: SyncEntity;
+    uuidOffline?: string;
+    payload: any;
+    error: string;
+    createdAt: number;
+}
+
+export interface SyncState {
+    key: string;
+    value: any;
+    updatedAt: number;
+}
+
 class HceDatabase extends Dexie {
-    // Declaramos las tablas como propiedades con su tipo
-    pacientes!: Table<Paciente, string>; // Key: uuidOffline (string)
+    pacientes!: Table<Paciente, string>;
+    consultas!: Table<ConsultaLocal, string>;
     syncQueue!: Table<SyncQueueItem, number>;
     catalogos!: Table<CatalogoItem, number>;
     metadata!: Table<AppMetadata, string>;
+    conflicts!: Table<SyncConflict, number>;
+    syncState!: Table<SyncState, string>;
+    failedSyncItems!: Table<FailedSyncItem, number>;
 
     constructor() {
         super('HceDatabaseV2');
 
-        // Definir el esquema de la BD (versión 2 - cambio de PK a uuidOffline)
         this.version(2).stores({
-            // Tabla de pacientes: indexada por 'uuidOffline' (PK), búsqueda por cedula e idPaciente
             pacientes: 'uuidOffline, cedula, idPaciente, nombres, apellidos, provincia, canton',
-
-            // Cola de sincronización: auto-increment ID, indexada por estado 'synced'
             syncQueue: '++id, synced, timestamp, entity',
-
-            // Catálogos (provincias, cantones, enfermedades, etc.)
             catalogos: '++id, tipo, codigo, nombre, parentId',
-
-            // Metadata de la app (última sincronización, versión de datos, etc.)
             metadata: 'key'
+        });
+
+        this.version(3).stores({
+            pacientes: 'uuidOffline, cedula, idPaciente, nombres, apellidos, provincia, canton, syncStatus, lastModified',
+            consultas: 'uuidOffline, idConsulta, idPaciente, pacienteUuidOffline, cedula, syncStatus, lastModified, localUpdatedAt',
+            syncQueue: '++id, synced, status, timestamp, localUpdatedAt, entity, uuidOffline, clientMutationId',
+            catalogos: '++id, tipo, codigo, nombre, parentId',
+            metadata: 'key',
+            conflicts: '++id, entity, uuidOffline, clientMutationId, createdAt, resolvedAt',
+            syncState: 'key',
+            failedSyncItems: '++id, queueItemId, clientMutationId, entity, uuidOffline, createdAt'
+        }).upgrade(async tx => {
+            await tx.table('syncQueue').toCollection().modify((item: SyncQueueItem) => {
+                item.operation = item.operation || item.type;
+                item.clientMutationId = item.clientMutationId || crypto.randomUUID();
+                item.localUpdatedAt = item.localUpdatedAt || item.timestamp || Date.now();
+                item.status = item.status || (item.synced === 1 ? 'synced' : 'pending');
+                item.payload = item.payload || item.data;
+            });
         });
     }
 }
 
-// Instancia única de la base de datos (singleton)
 export const db = new HceDatabase();
 
-// Helper functions para operaciones comunes
 export const dbHelpers = {
-    // Obtener todos los pacientes
     async getAllPacientes(): Promise<Paciente[]> {
-        return await db.pacientes.toArray();
+        return db.pacientes.toArray();
     },
 
-    // Buscar paciente por cédula
     async getPacienteByCedula(cedula: string): Promise<Paciente | undefined> {
-        return await db.pacientes.where('cedula').equals(cedula).first();
+        return db.pacientes.where('cedula').equals(cedula).first();
     },
 
-    // Guardar o actualizar paciente
     async savePaciente(paciente: Paciente): Promise<string> {
-        if (!paciente.uuidOffline) {
-            paciente.uuidOffline = crypto.randomUUID();
-        }
-        return await db.pacientes.put(paciente);
+        const uuidOffline = paciente.uuidOffline || paciente.id || crypto.randomUUID();
+        return db.pacientes.put({
+            ...paciente,
+            id: paciente.id || uuidOffline,
+            uuidOffline,
+            localUpdatedAt: paciente.localUpdatedAt || Date.now()
+        });
     },
 
-    // Eliminar paciente
     async deletePaciente(cedula: string): Promise<void> {
-        // Ahora cedula no es PK, buscamos primero
         const paciente = await db.pacientes.where('cedula').equals(cedula).first();
-        if (paciente && paciente.uuidOffline) {
+        if (paciente?.uuidOffline) {
             await db.pacientes.delete(paciente.uuidOffline);
         }
     },
 
-    // Agregar item a la cola de sincronización
-    async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'synced' | 'retries'>): Promise<number> {
-        return await db.syncQueue.add({
+    async addToSyncQueue(
+        item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'localUpdatedAt' | 'synced' | 'retries' | 'status' | 'clientMutationId'>
+            & Partial<Pick<SyncQueueItem, 'clientMutationId' | 'status' | 'localUpdatedAt'>>
+    ): Promise<number> {
+        const now = Date.now();
+        return db.syncQueue.add({
             ...item,
-            timestamp: Date.now(),
-            synced: 0, // 0 = false
+            operation: item.operation || item.type,
+            clientMutationId: item.clientMutationId || crypto.randomUUID(),
+            payload: item.payload || item.data,
+            timestamp: now,
+            localUpdatedAt: item.localUpdatedAt || now,
+            status: item.status || 'pending',
+            synced: 0,
             retries: 0
         });
     },
 
-    // Obtener items pendientes de sincronización
     async getPendingSyncItems(): Promise<SyncQueueItem[]> {
-        return await db.syncQueue
-            .where('synced')
-            .equals(0)
+        return db.syncQueue
+            .where('status')
+            .anyOf('pending', 'failed')
             .sortBy('timestamp');
     },
 
-    // Marcar item como sincronizado
     async markAsSynced(itemId: number): Promise<void> {
-        await db.syncQueue.update(itemId, { synced: 1 }); // 1 = true
+        await db.syncQueue.update(itemId, { synced: 1, status: 'synced' });
     },
 
-    // Limpiar items sincronizados (opcional, para no llenar la BD)
     async clearSyncedItems(): Promise<void> {
         await db.syncQueue.where('synced').equals(1).delete();
     },
 
-    // Guardar metadata
+    async markAsFailed(item: SyncQueueItem, error: string): Promise<void> {
+        if (item.id) {
+            await db.syncQueue.update(item.id, {
+                status: 'failed',
+                retries: (item.retries || 0) + 1,
+                lastError: error
+            });
+        }
+        await db.failedSyncItems.add({
+            queueItemId: item.id,
+            clientMutationId: item.clientMutationId,
+            entity: item.entity,
+            uuidOffline: item.uuidOffline,
+            payload: item.payload || item.data,
+            error,
+            createdAt: Date.now()
+        });
+    },
+
+    async addConflict(conflict: Omit<SyncConflict, 'id' | 'createdAt'>): Promise<number> {
+        return db.conflicts.add({ ...conflict, createdAt: Date.now() });
+    },
+
     async setMetadata(key: string, value: any): Promise<void> {
         await db.metadata.put({ key, value, updatedAt: Date.now() });
     },
 
-    // Obtener metadata
     async getMetadata(key: string): Promise<any> {
         const item = await db.metadata.get(key);
+        return item?.value;
+    },
+
+    async setSyncState(key: string, value: any): Promise<void> {
+        await db.syncState.put({ key, value, updatedAt: Date.now() });
+    },
+
+    async getSyncState(key: string): Promise<any> {
+        const item = await db.syncState.get(key);
         return item?.value;
     }
 };

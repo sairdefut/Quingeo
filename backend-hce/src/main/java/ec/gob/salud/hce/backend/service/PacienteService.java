@@ -47,6 +47,9 @@ public class PacienteService {
         paciente.setTipoSangre(dto.getTipoSangre());
         paciente.setTipoIdentificacion(dto.getTipoIdentificacion());
         paciente.setAnioEscolar(dto.getAnioEscolar());
+        paciente.setUsuario(dto.getUsuario());
+        paciente.setOrigin(dto.getOrigin());
+        paciente.setIdPersonal(dto.getIdPersonal());
 
         // VALIDACIÓN DE CÉDULA VS EXTRANJERO
         if (dto.getTipoIdentificacion() != null && dto.getTipoIdentificacion().equals("EXTRANJERO")) {
@@ -64,7 +67,9 @@ public class PacienteService {
         paciente.setIdParroquia(dto.getIdParroquia());
         paciente.setIdPrqCanton(dto.getIdPrqCanton());
         paciente.setIdPrqCntProvincia(dto.getIdPrqCntProvincia());
+        paciente.setIdGrupoEtnico(dto.getIdGrupoEtnico());
         paciente.setUuidOffline(dto.getUuidOffline()); // Guardar UUID Offline
+        paciente.setSyncStatus("SYNCED");
 
         // Guardar Paciente
         paciente = pacienteRepository.save(paciente);

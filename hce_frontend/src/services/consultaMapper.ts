@@ -4,6 +4,9 @@
 export interface ConsultaBackend {
     idConsulta: number;
     idPaciente: number;
+    uuidOffline?: string;
+    syncStatus?: string;
+    lastModified?: string;
     idHistoriaClinica?: number;
     fecha: string;
     hora: string;
@@ -58,7 +61,10 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
 
     return {
         ...respaldo,
-        id: respaldo.id || `consulta-${consulta.idConsulta}`,
+        id: respaldo.id || consulta.uuidOffline || consulta.idConsulta || `consulta-${consulta.idConsulta}`,
+        uuidOffline: respaldo.uuidOffline || consulta.uuidOffline,
+        idConsulta: consulta.idConsulta,
+        idPaciente: consulta.idPaciente,
         fecha: respaldo.fecha || consulta.fecha,
         hora: respaldo.hora || consulta.hora,
         motivo: respaldo.motivo || respaldo.motivoConsulta || consulta.motivo,
@@ -124,6 +130,8 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
         motivoReferencia,
         usuario: consulta.usuario,
         idHistoriaClinica: consulta.idHistoriaClinica,
+        syncStatus: consulta.syncStatus || 'synced',
+        lastModified: consulta.lastModified,
         sincronizado: true
     };
 }
@@ -150,6 +158,8 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
         || 'admin';
 
     return {
+        idConsulta: consulta.idConsulta,
+        uuidOffline: consulta.uuidOffline || consulta.id,
         idPaciente,
         fecha: fechaISO,
         hora: horaISO,

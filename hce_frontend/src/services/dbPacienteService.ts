@@ -1,20 +1,49 @@
-import { db, dbHelpers } from '../db/db';
-import type { CatalogoItem } from '../db/db';
 import type { Paciente } from '../models/Paciente';
-import { API_BASE_URL, handleUnauthorized } from './authSession';
-import { mapConsultaFrontendToBackend } from './consultaMapper';
+import { db, dbHelpers, type ConsultaLocal } from '../db/db';
+import { apiGet } from './apiClient';
+import { mapConsultaBackendToFrontend, mapConsultaFrontendToBackend, type ConsultaBackend } from './consultaMapper';
+import { syncService } from './syncService';
 
-type PacienteBackendPayload = {
+type PacienteResponseDTO = {
     idPaciente?: number;
     numeroHistoriaClinica?: string;
-    apellidoPaterno: string;
-    apellidoMaterno: string;
-    primerNombre: string;
-    segundoNombre: string;
+    apellidoPaterno?: string;
+    apellidoMaterno?: string;
+    primerNombre?: string;
+    segundoNombre?: string;
     cedula: string;
     tipoIdentificacion?: string;
     tipoSangre?: string;
     anioEscolar?: string;
+    fechaCreacion?: string;
+    fechaNacimiento?: string;
+    sexo?: string;
+    idGrupoEtnico?: number;
+    nombreGrupoEtnico?: string;
+    idParroquia?: number;
+    idPrqCanton?: number;
+    idPrqCntProvincia?: number;
+    usuario?: string;
+    uuidOffline?: string;
+    nombreCompleto?: string;
+    edad?: number;
+    tutor?: any;
+    syncStatus?: string;
+    lastModified?: string;
+    origin?: string;
+};
+
+type PacienteRequestDTO = {
+    idPaciente?: number;
+    numeroHistoriaClinica?: string;
+    apellidoPaterno: string;
+    apellidoMaterno?: string;
+    primerNombre: string;
+    segundoNombre?: string;
+    cedula: string;
+    tipoIdentificacion?: string;
+    tipoSangre?: string;
+    anioEscolar?: string | null;
     fechaNacimiento?: string;
     sexo?: string;
     idGrupoEtnico?: number;
@@ -22,21 +51,9 @@ type PacienteBackendPayload = {
     idPrqCanton?: number;
     idPrqCntProvincia?: number;
     usuario?: string;
-    uuidOffline: string;
-    origin: string;
-    tutor?: {
-        primerNombre: string;
-        segundoNombre: string;
-        primerApellido: string;
-        segundoApellido: string;
-        parentesco?: string;
-        telefono?: string;
-        nivelEducativo?: string;
-        direccion?: string;
-        idParroquia?: number;
-        provincia?: number;
-        canton?: number;
-    };
+    uuidOffline?: string;
+    origin?: string;
+    tutor?: any;
 };
 
 function splitFullName(value?: string) {
@@ -59,39 +76,101 @@ function splitPersonName(value?: string) {
 
 function getCurrentUsername(): string | undefined {
     try {
-        const storedUser = localStorage.getItem('usuarioLogueado');
-        if (!storedUser) return undefined;
-        const parsed = JSON.parse(storedUser);
-        return parsed?.usuario || parsed?.nombre || undefined;
+        const parsed = JSON.parse(localStorage.getItem('usuarioLogueado') || '{}');
+        return parsed?.usuario || parsed?.username || parsed?.nombre || undefined;
     } catch {
         return undefined;
     }
 }
 
-async function findCatalogoByNombre(tipo: string, nombre?: string, parentId?: number): Promise<CatalogoItem | undefined> {
-    if (!nombre) return undefined;
-
-    const catalogos = await db.catalogos.where('tipo').equals(tipo).toArray();
-    return catalogos.find((item) => {
-        const sameName = item.nombre.trim().toLowerCase() === nombre.trim().toLowerCase();
-        const sameParent = parentId === undefined || Number(item.parentId) === Number(parentId);
-        return sameName && sameParent;
-    });
+function isOnline() {
+    return typeof navigator !== 'undefined' && navigator.onLine;
 }
 
-async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<PacienteBackendPayload> {
+function fireAndForgetSync() {
+    if (isOnline()) {
+        syncService.sync().catch(error => console.error('[dbPacienteService] sync failed:', error));
+    }
+}
+
+async function migrateLegacyLocalStorage() {
+    const migrated = await dbHelpers.getMetadata('legacyLocalStorageMigrated');
+    if (migrated) return;
+
+    try {
+        const raw = localStorage.getItem('hce_pacientes');
+        const pacientes = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(pacientes) && pacientes.length > 0) {
+            for (const paciente of pacientes) {
+                if (!paciente?.cedula) continue;
+                const existing = await db.pacientes.where('cedula').equals(paciente.cedula).first();
+                if (existing) continue;
+                const uuidOffline = paciente.uuidOffline || paciente.id || crypto.randomUUID();
+                await db.pacientes.put({
+                    ...paciente,
+                    id: uuidOffline,
+                    uuidOffline,
+                    syncStatus: 'pending',
+                    localUpdatedAt: Date.now()
+                });
+                await dbHelpers.addToSyncQueue({
+                    type: paciente.idPaciente ? 'UPDATE' : 'CREATE',
+                    entity: 'paciente',
+                    uuidOffline,
+                    baseLastModified: paciente.lastModified || null,
+                    data: mapPacienteFrontendToBackend({ ...paciente, id: uuidOffline, uuidOffline }),
+                    payload: mapPacienteFrontendToBackend({ ...paciente, id: uuidOffline, uuidOffline })
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('[dbPacienteService] no se pudo migrar localStorage legacy:', error);
+    } finally {
+        await dbHelpers.setMetadata('legacyLocalStorageMigrated', true);
+    }
+}
+
+export function mapPacienteBackendToFrontend(dto: PacienteResponseDTO): Paciente {
+    const nombres = [dto.primerNombre, dto.segundoNombre].filter(Boolean).join(' ').trim();
+    const apellidos = [dto.apellidoPaterno, dto.apellidoMaterno].filter(Boolean).join(' ').trim();
+    const uuidOffline = dto.uuidOffline || (dto.idPaciente ? `srv-paciente-${dto.idPaciente}` : crypto.randomUUID());
+
+    return {
+        id: uuidOffline,
+        uuidOffline,
+        idPaciente: dto.idPaciente,
+        numeroHistoriaClinica: dto.numeroHistoriaClinica,
+        cedula: dto.cedula,
+        tipoIdentificacion: dto.tipoIdentificacion,
+        nombres: nombres || dto.nombreCompleto || '',
+        apellidos,
+        fechaCreacion: dto.fechaCreacion,
+        fechaNacimiento: dto.fechaNacimiento || '',
+        edad: dto.edad,
+        sexo: dto.sexo || '',
+        tipoSangre: dto.tipoSangre,
+        anioEscolar: dto.anioEscolar,
+        grupoEtnico: dto.nombreGrupoEtnico,
+        idGrupoEtnico: dto.idGrupoEtnico,
+        idParroquia: dto.idParroquia,
+        idPrqCanton: dto.idPrqCanton,
+        idPrqCntProvincia: dto.idPrqCntProvincia,
+        provincia: dto.idPrqCntProvincia ? `ID ${dto.idPrqCntProvincia}` : '',
+        canton: dto.idPrqCanton ? `ID ${dto.idPrqCanton}` : '',
+        parroquia: dto.idParroquia ? `ID ${dto.idParroquia}` : '',
+        usuario: dto.usuario,
+        filiacion: dto.tutor,
+        historiaClinica: [],
+        syncStatus: dto.syncStatus || 'synced',
+        lastModified: dto.lastModified,
+        origin: dto.origin
+    };
+}
+
+function mapPacienteFrontendToBackend(paciente: Paciente): PacienteRequestDTO {
     const nombres = splitFullName(paciente.nombres);
     const apellidos = splitFullName(paciente.apellidos);
     const tutor = splitPersonName(paciente.filiacion?.nombreResponsable);
-
-    const provincia = await findCatalogoByNombre('provincia', paciente.provincia);
-    const canton = await findCatalogoByNombre('canton', paciente.canton, provincia ? Number(provincia.codigo) : undefined);
-    const parroquia = await findCatalogoByNombre('parroquia', paciente.parroquia, canton ? Number(canton.codigo) : undefined);
-    const grupoEtnico = await findCatalogoByNombre('etnia', paciente.grupoEtnico);
-
-    const provinciaTutor = await findCatalogoByNombre('provincia', paciente.filiacion?.provincia);
-    const cantonTutor = await findCatalogoByNombre('canton', paciente.filiacion?.canton, provinciaTutor ? Number(provinciaTutor.codigo) : undefined);
-    const parroquiaTutor = await findCatalogoByNombre('parroquia', paciente.filiacion?.parroquia, cantonTutor ? Number(cantonTutor.codigo) : undefined);
 
     return {
         idPaciente: paciente.idPaciente,
@@ -106,13 +185,13 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
         tipoSangre: paciente.tipoSangre,
         fechaNacimiento: paciente.fechaNacimiento,
         sexo: paciente.sexo,
-        idGrupoEtnico: grupoEtnico?.codigo ? Number(grupoEtnico.codigo) : undefined,
-        idParroquia: parroquia?.codigo ? Number(parroquia.codigo) : undefined,
-        idPrqCanton: canton?.codigo ? Number(canton.codigo) : undefined,
-        idPrqCntProvincia: provincia?.codigo ? Number(provincia.codigo) : undefined,
+        idGrupoEtnico: paciente.idGrupoEtnico,
+        idParroquia: paciente.idParroquia,
+        idPrqCanton: paciente.idPrqCanton,
+        idPrqCntProvincia: paciente.idPrqCntProvincia,
         usuario: getCurrentUsername(),
-        uuidOffline: paciente.uuidOffline!,
-        origin: 'frontend',
+        uuidOffline: paciente.uuidOffline || paciente.id || crypto.randomUUID(),
+        origin: 'frontend-offline',
         tutor: paciente.filiacion ? {
             primerNombre: tutor.primerNombre,
             segundoNombre: tutor.segundoNombre,
@@ -122,184 +201,313 @@ async function mapPacienteFrontendToBackend(paciente: Paciente): Promise<Pacient
             telefono: paciente.filiacion.telefonoContacto,
             nivelEducativo: paciente.filiacion.nivelEducativoResponsable,
             direccion: paciente.filiacion.domicilioActual,
-            idParroquia: parroquiaTutor?.codigo ? Number(parroquiaTutor.codigo) : undefined,
-            provincia: provinciaTutor?.codigo ? Number(provinciaTutor.codigo) : undefined,
-            canton: cantonTutor?.codigo ? Number(cantonTutor.codigo) : undefined
+            idParroquia: paciente.filiacion.idParroquia,
+            provincia: paciente.filiacion.idPrqCntProvincia,
+            canton: paciente.filiacion.idPrqCanton
         } : undefined
     };
 }
 
-async function postPacienteToBackend(paciente: Paciente): Promise<{ newId?: number; numeroHistoriaClinica?: string } | undefined> {
-    const pacienteParaBackend = await mapPacienteFrontendToBackend(paciente);
-    const response = await fetch(`${API_BASE_URL}/sync/up`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            entity: 'paciente',
-            type: 'CREATE',
-            data: pacienteParaBackend
-        })
-    });
+async function upsertRemotePacientes(dtos: PacienteResponseDTO[]) {
+    const pending = await dbHelpers.getPendingSyncItems();
+    const pendingCedulas = new Set(
+        pending
+            .filter(item => item.entity === 'paciente')
+            .map(item => (item.payload || item.data)?.cedula)
+            .filter(Boolean)
+    );
 
-    if (response.status === 403) {
-        handleUnauthorized();
-        return undefined;
+    const local = await db.pacientes.toArray();
+    const localByCedula = new Map(local.map(p => [p.cedula, p]));
+    const pacientes = dtos
+        .filter(dto => dto.cedula && !pendingCedulas.has(dto.cedula))
+        .map(dto => {
+            const mapped = mapPacienteBackendToFrontend(dto);
+            const existing = localByCedula.get(mapped.cedula);
+            const uuidOffline = existing?.uuidOffline || mapped.uuidOffline || crypto.randomUUID();
+            return {
+                ...existing,
+                ...mapped,
+                uuidOffline,
+                id: uuidOffline,
+                historiaClinica: existing?.historiaClinica || []
+            };
+        });
+
+    if (pacientes.length > 0) {
+        await db.pacientes.bulkPut(pacientes);
     }
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error al guardar en servidor (${response.status}): ${errorText || response.statusText}`);
-    }
-
-    const mappings = await response.json();
-    if (!Array.isArray(mappings)) return undefined;
-
-    const mapping = mappings.find((item: any) => item.uuidOffline === paciente.uuidOffline);
-    return mapping
-        ? { newId: mapping.newId, numeroHistoriaClinica: mapping.numeroHistoriaClinica }
-        : undefined;
 }
 
-async function postConsultaToBackend(consulta: any, idPaciente: number): Promise<boolean> {
-    const consultaParaBackend = mapConsultaFrontendToBackend(consulta, idPaciente);
-    const response = await fetch(`${API_BASE_URL}/sync/up`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            entity: 'consulta',
-            type: 'CREATE',
-            data: consultaParaBackend
-        })
-    });
+async function upsertRemoteConsultas(dtos: ConsultaBackend[]) {
+    const pending = await dbHelpers.getPendingSyncItems();
+    const pendingConsultaUuids = new Set(
+        pending
+            .filter(item => item.entity === 'consulta')
+            .map(item => item.uuidOffline)
+            .filter(Boolean)
+    );
 
-    if (response.status === 403) {
-        throw new Error('Su sesion expiro. La consulta quedo guardada localmente y pendiente de sincronizacion.');
+    for (const dto of dtos) {
+        const mapped = mapConsultaBackendToFrontend(dto);
+        const uuidOffline = mapped.uuidOffline || mapped.id || (dto.idConsulta ? `srv-consulta-${dto.idConsulta}` : crypto.randomUUID());
+        if (pendingConsultaUuids.has(uuidOffline)) continue;
+
+        let paciente = dto.idPaciente
+            ? await db.pacientes.where('idPaciente').equals(dto.idPaciente).first()
+            : undefined;
+        if (!paciente && mapped.cedula) {
+            paciente = await db.pacientes.where('cedula').equals(mapped.cedula).first();
+        }
+
+        await db.consultas.put({
+            uuidOffline,
+            id: String(mapped.id || uuidOffline),
+            idConsulta: dto.idConsulta,
+            idPaciente: dto.idPaciente,
+            pacienteUuidOffline: paciente?.uuidOffline,
+            cedula: paciente?.cedula || mapped.cedula || '',
+            data: { ...mapped, uuidOffline, sincronizado: true },
+            syncStatus: 'synced',
+            lastModified: dto.lastModified,
+            localUpdatedAt: Date.now()
+        });
     }
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error al guardar consulta en servidor (${response.status}): ${errorText || response.statusText}`);
-    }
-
-    return true;
 }
 
 export async function obtenerPacientes(): Promise<Paciente[]> {
-    return dbHelpers.getAllPacientes();
+    await migrateLegacyLocalStorage();
+
+    if (isOnline()) {
+        try {
+            const data = await apiGet<PacienteResponseDTO[]>('/pacientes');
+            if (Array.isArray(data)) {
+                await upsertRemotePacientes(data);
+            }
+        } catch (error) {
+            console.warn('[dbPacienteService] usando pacientes locales:', error);
+        }
+    }
+
+    return db.pacientes.toArray();
 }
 
 export async function buscarPacientePorCedula(cedula: string): Promise<Paciente | undefined> {
-    return dbHelpers.getPacienteByCedula(cedula);
+    await migrateLegacyLocalStorage();
+
+    const local = await db.pacientes.where('cedula').equals(cedula).first();
+    if (local || !isOnline()) {
+        return local;
+    }
+
+    try {
+        const data = await apiGet<PacienteResponseDTO>(`/pacientes/${encodeURIComponent(cedula)}`);
+        if (!data) return undefined;
+        const mapped = mapPacienteBackendToFrontend(data);
+        await dbHelpers.savePaciente(mapped);
+        return mapped;
+    } catch (error: any) {
+        if (error?.status === 404) return undefined;
+        throw error;
+    }
 }
 
-export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise<any[]> {
-    const pacientes = await dbHelpers.getAllPacientes();
-    const paciente = pacientes.find((item) => Number(item.idPaciente) === Number(idPaciente));
-    return Array.isArray(paciente?.historiaClinica) ? paciente.historiaClinica : [];
+export async function buscarPacientes(criterio: string): Promise<Paciente[]> {
+    const normalized = criterio.trim().toLowerCase();
+    const pacientes = await obtenerPacientes();
+    if (!normalized) return pacientes;
+
+    return pacientes.filter(p => [
+        p.cedula,
+        p.nombres,
+        p.apellidos,
+        p.numeroHistoriaClinica
+    ].filter(Boolean).some(value => String(value).toLowerCase().includes(normalized)));
 }
 
 export async function registrarPaciente(paciente: Paciente): Promise<Paciente> {
-    const existente = await dbHelpers.getPacienteByCedula(paciente.cedula);
-    if (existente) {
-        throw new Error('El paciente ya está registrado');
+    await migrateLegacyLocalStorage();
+
+    const existing = await db.pacientes.where('cedula').equals(paciente.cedula).first();
+    if (existing && existing.uuidOffline !== paciente.uuidOffline) {
+        throw new Error('El paciente ya esta registrado localmente.');
     }
 
-    const pacienteParaGuardar: Paciente = {
+    const uuidOffline = paciente.uuidOffline || paciente.id || crypto.randomUUID();
+    const localPaciente: Paciente = {
         ...paciente,
-        uuidOffline: paciente.uuidOffline || paciente.id || crypto.randomUUID(),
-        historiaClinica: paciente.historiaClinica || []
+        id: uuidOffline,
+        uuidOffline,
+        syncStatus: 'pending',
+        localUpdatedAt: Date.now()
     };
+    const payload = mapPacienteFrontendToBackend(localPaciente);
 
-    if (navigator.onLine) {
+    await db.transaction('rw', db.pacientes, db.syncQueue, async () => {
+        await dbHelpers.savePaciente(localPaciente);
+        await dbHelpers.addToSyncQueue({
+            type: localPaciente.idPaciente ? 'UPDATE' : 'CREATE',
+            entity: 'paciente',
+            uuidOffline,
+            baseLastModified: localPaciente.lastModified || null,
+            data: payload,
+            payload
+        });
+    });
+
+    fireAndForgetSync();
+    return localPaciente;
+}
+
+export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise<any[]> {
+    if (isOnline()) {
         try {
-            const mapping = await postPacienteToBackend(pacienteParaGuardar);
-            if (mapping?.newId) {
-                pacienteParaGuardar.idPaciente = mapping.newId;
+            const data = await apiGet<ConsultaBackend[]>(`/consultas/paciente/${idPaciente}`);
+            if (Array.isArray(data)) {
+                await upsertRemoteConsultas(data);
             }
-            if (mapping?.numeroHistoriaClinica) {
-                pacienteParaGuardar.numeroHistoriaClinica = mapping.numeroHistoriaClinica;
-            }
-            await dbHelpers.savePaciente(pacienteParaGuardar);
-            return pacienteParaGuardar;
         } catch (error) {
-            console.error('[dbPacienteService] Error registrando online. Se guarda pendiente para sync:', error);
+            console.warn('[dbPacienteService] usando consultas locales:', error);
         }
     }
 
-    await dbHelpers.savePaciente(pacienteParaGuardar);
-    await dbHelpers.addToSyncQueue({
-        entity: 'paciente',
-        type: 'CREATE',
-        data: pacienteParaGuardar
-    });
+    const rows = await db.consultas.where('idPaciente').equals(idPaciente).sortBy('localUpdatedAt');
+    return rows.map(row => row.data);
+}
 
-    return pacienteParaGuardar;
+export async function obtenerConsultasPorCedula(cedula: string): Promise<any[]> {
+    const paciente = await buscarPacientePorCedula(cedula);
+    if (paciente?.idPaciente) {
+        return obtenerConsultasPorPacienteId(paciente.idPaciente);
+    }
+
+    const rows = await db.consultas.where('cedula').equals(cedula).sortBy('localUpdatedAt');
+    return rows.map(row => row.data);
+}
+
+export async function obtenerTodasConsultas(): Promise<any[]> {
+    if (isOnline()) {
+        try {
+            const data = await apiGet<ConsultaBackend[]>('/consultas');
+            if (Array.isArray(data)) {
+                await upsertRemoteConsultas(data);
+            }
+        } catch (error) {
+            console.warn('[dbPacienteService] usando todas las consultas locales:', error);
+        }
+    }
+
+    const rows = await db.consultas.orderBy('localUpdatedAt').toArray();
+    return rows.map(row => row.data);
 }
 
 export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promise<boolean> {
-    const paciente = await dbHelpers.getPacienteByCedula(cedula);
-    if (!paciente) return false;
+    const paciente = await buscarPacientePorCedula(cedula);
+    if (!paciente?.uuidOffline) return false;
+    const pacienteUuidOffline = paciente.uuidOffline;
 
-    const historiaClinica = Array.isArray(paciente.historiaClinica) ? [...paciente.historiaClinica] : [];
-    historiaClinica.push(nuevaConsulta);
+    const uuidOffline = nuevaConsulta.uuidOffline || nuevaConsulta.id || crypto.randomUUID();
+    const data = {
+        ...nuevaConsulta,
+        id: nuevaConsulta.id || uuidOffline,
+        uuidOffline,
+        cedula,
+        idPaciente: paciente.idPaciente,
+        sincronizado: false,
+        syncStatus: 'pending'
+    };
 
-    await dbHelpers.savePaciente({
-        ...paciente,
-        antecedentes: nuevaConsulta.antecedentes,
-        historiaClinica
-    });
+    const payload = paciente.idPaciente
+        ? mapConsultaFrontendToBackend(data, paciente.idPaciente)
+        : { ...data, pendingPacienteUuidOffline: paciente.uuidOffline };
 
-    if (navigator.onLine && paciente.idPaciente) {
-        try {
-            await postConsultaToBackend(nuevaConsulta, paciente.idPaciente);
-            return true;
-        } catch (error) {
-            console.error('[dbPacienteService] Error registrando consulta online. Se guarda pendiente para sync:', error);
-            await dbHelpers.addToSyncQueue({
-                entity: 'consulta',
-                type: 'CREATE',
-                data: {
-                    cedula,
-                    consulta: nuevaConsulta
-                }
-            });
-            throw error;
-        }
-    }
-
-    await dbHelpers.addToSyncQueue({
-        entity: 'consulta',
-        type: 'CREATE',
-        data: {
+    await db.transaction('rw', db.pacientes, db.consultas, db.syncQueue, async () => {
+        const row: ConsultaLocal = {
+            uuidOffline,
+            id: String(data.id),
+            idConsulta: data.idConsulta,
+            idPaciente: paciente.idPaciente,
+            pacienteUuidOffline,
             cedula,
-            consulta: nuevaConsulta
-        }
+            data,
+            syncStatus: 'pending',
+            localUpdatedAt: Date.now()
+        };
+        await db.consultas.put(row);
+
+        const historiaClinica = Array.isArray(paciente.historiaClinica) ? paciente.historiaClinica : [];
+        await db.pacientes.update(pacienteUuidOffline, {
+            historiaClinica: [...historiaClinica.filter((c: any) => c.uuidOffline !== uuidOffline), data],
+            antecedentes: data.antecedentes,
+            syncStatus: paciente.syncStatus || 'synced'
+        });
+
+        await dbHelpers.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'consulta',
+            uuidOffline,
+            baseLastModified: data.lastModified || null,
+            data: { cedula, consulta: data, pacienteUuidOffline },
+            payload
+        });
     });
 
+    fireAndForgetSync();
     return true;
 }
 
 export async function actualizarConsultaExistente(cedula: string, consultaEditada: any): Promise<boolean> {
-    const paciente = await dbHelpers.getPacienteByCedula(cedula);
-    if (!paciente || !Array.isArray(paciente.historiaClinica)) return false;
+    const paciente = await buscarPacientePorCedula(cedula);
+    if (!paciente?.uuidOffline) return false;
+    const pacienteUuidOffline = paciente.uuidOffline;
 
-    const index = paciente.historiaClinica.findIndex((consulta: any) => consulta.id === consultaEditada.id);
-    if (index === -1) return false;
+    const uuidOffline = consultaEditada.uuidOffline || consultaEditada.id || consultaEditada.idConsulta || crypto.randomUUID();
+    const data = {
+        ...consultaEditada,
+        id: consultaEditada.id || uuidOffline,
+        uuidOffline,
+        cedula,
+        idPaciente: paciente.idPaciente,
+        sincronizado: false,
+        syncStatus: 'pending'
+    };
 
-    const historiaClinica = [...paciente.historiaClinica];
-    historiaClinica[index] = consultaEditada;
+    const payload = paciente.idPaciente
+        ? mapConsultaFrontendToBackend(data, paciente.idPaciente)
+        : { ...data, pendingPacienteUuidOffline: paciente.uuidOffline };
 
-    await dbHelpers.savePaciente({
-        ...paciente,
-        antecedentes: consultaEditada.antecedentes,
-        historiaClinica
+    await db.transaction('rw', db.pacientes, db.consultas, db.syncQueue, async () => {
+        await db.consultas.put({
+            uuidOffline: String(uuidOffline),
+            id: String(data.id),
+            idConsulta: data.idConsulta,
+            idPaciente: paciente.idPaciente,
+            pacienteUuidOffline,
+            cedula,
+            data,
+            syncStatus: 'pending',
+            lastModified: consultaEditada.lastModified,
+            localUpdatedAt: Date.now()
+        });
+
+        const historiaClinica = Array.isArray(paciente.historiaClinica) ? paciente.historiaClinica : [];
+        await db.pacientes.update(pacienteUuidOffline, {
+            historiaClinica: historiaClinica.map((c: any) =>
+                c.uuidOffline === uuidOffline || c.id === consultaEditada.id || c.idConsulta === consultaEditada.idConsulta ? data : c
+            ),
+            antecedentes: data.antecedentes
+        });
+
+        await dbHelpers.addToSyncQueue({
+            type: consultaEditada.idConsulta ? 'UPDATE' : 'CREATE',
+            entity: 'consulta',
+            uuidOffline: String(uuidOffline),
+            baseLastModified: consultaEditada.lastModified || null,
+            data: { cedula, consulta: data, pacienteUuidOffline },
+            payload
+        });
     });
 
+    fireAndForgetSync();
     return true;
 }

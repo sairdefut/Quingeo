@@ -11,5 +11,7 @@ public interface HistoriaClinicaRepository extends JpaRepository<HistoriaClinica
     // --- ESTA ES LA LÍNEA QUE FALTA ---
     // Spring usará la relación "paciente" y buscará por su "idPaciente"
     Optional<HistoriaClinica> findByPaciente_IdPaciente(Integer idPaciente);
+
+    Optional<HistoriaClinica> findTopByNumeroHistoriaClinicaIsNotNullOrderByNumeroHistoriaClinicaDesc();
     
 }
