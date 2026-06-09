@@ -11,7 +11,7 @@ import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
-import { obtenerPacientes } from '../services/dbPacienteService';
+import { obtenerConsultasPorCedula, obtenerPacientes } from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
 
 // Wrapper para cargar paciente por cédula para el reporte
@@ -23,7 +23,13 @@ const ReporteHCEWrapper = () => {
     const cargar = async () => {
       const lista = await obtenerPacientes();
       const encontrado = lista.find((p: any) => String(p.cedula) === String(cedula));
-      setPaciente(encontrado);
+      if (!encontrado) {
+        setPaciente(null);
+        return;
+      }
+
+      const historiaClinica = await obtenerConsultasPorCedula(encontrado.cedula);
+      setPaciente({ ...encontrado, historiaClinica });
     };
     cargar();
   }, [cedula]);

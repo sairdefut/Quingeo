@@ -40,6 +40,10 @@ type SyncBatchResponse = {
     serverTime?: string;
 };
 
+type SyncOptions = {
+    background?: boolean;
+};
+
 class SyncService {
     private syncInProgress = false;
     private initialized = false;
@@ -92,7 +96,7 @@ class SyncService {
         this.listeners.forEach(listener => listener(status));
     }
 
-    async syncDown(): Promise<void> {
+    async syncDown(options: SyncOptions = {}): Promise<void> {
         if (!(await this.isSyncAvailable(true))) return;
 
         try {
@@ -111,7 +115,9 @@ class SyncService {
                 headers: this.authHeaders()
             });
             if (response.status === 401 || response.status === 403) {
-                this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                if (!options.background) {
+                    this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                }
                 return;
             }
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -122,11 +128,15 @@ class SyncService {
             const serverTime = data.serverTime ? Date.parse(data.serverTime) : Date.now();
             await dbHelpers.setMetadata('lastSyncTimestamp', Number.isFinite(serverTime) ? serverTime : Date.now());
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
-            this.showToast('Datos actualizados', 'success');
+            if (!options.background) {
+                this.showToast('Datos actualizados', 'success');
+            }
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
-            this.showToast('Error al descargar datos', 'error');
+            if (!options.background) {
+                this.showToast('Error al descargar datos', 'error');
+            }
         } finally {
             this.syncInProgress = false;
             await this.notifyListeners();
@@ -196,7 +206,7 @@ class SyncService {
         }
     }
 
-    async syncUp(): Promise<void> {
+    async syncUp(options: SyncOptions = {}): Promise<void> {
         if (!(await this.isSyncAvailable(true))) return;
         const pendingItems = await dbHelpers.getPendingSyncItems();
         if (pendingItems.length === 0) return;
@@ -235,7 +245,9 @@ class SyncService {
                     });
 
                     if (response.status === 401 || response.status === 403) {
-                        this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                        if (!options.background) {
+                            this.showToast('Sesion expirada. Inicie sesion nuevamente.', 'warning');
+                        }
                         return;
                     }
                     if (response.ok) break;
@@ -253,7 +265,9 @@ class SyncService {
         } catch (error) {
             console.error('[SyncService] Error sync up:', error);
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
-            this.showToast('No se pudo completar la sincronizacion pendiente', 'error');
+            if (!options.background) {
+                this.showToast('No se pudo completar la sincronizacion pendiente', 'error');
+            }
         } finally {
             this.syncInProgress = false;
             await this.notifyListeners();
@@ -368,10 +382,10 @@ class SyncService {
         }
     }
 
-    async sync(): Promise<void> {
+    async sync(options: SyncOptions = {}): Promise<void> {
         if (this.syncInProgress) return;
-        await this.syncUp();
-        await this.syncDown();
+        await this.syncUp(options);
+        await this.syncDown(options);
     }
 
     initAutoSync() {
@@ -380,7 +394,7 @@ class SyncService {
 
         window.addEventListener('online', () => {
             this.checkBackendConnectivity(true)
-                .then(() => this.sync())
+                .then(() => this.sync({ background: true }))
                 .catch(console.error);
         });
         window.addEventListener('offline', () => {
@@ -390,7 +404,7 @@ class SyncService {
         setInterval(() => {
             this.checkBackendConnectivity(true)
                 .then(online => {
-                    if (online && !this.syncInProgress) this.sync().catch(console.error);
+                    if (online && !this.syncInProgress) this.sync({ background: true }).catch(console.error);
                     return this.notifyListeners();
                 })
                 .catch(console.error);
@@ -398,7 +412,7 @@ class SyncService {
 
         this.checkBackendConnectivity(true)
             .then(online => {
-                if (online) this.sync().catch(console.error);
+                if (online) this.sync({ background: true }).catch(console.error);
                 return this.notifyListeners();
             })
             .catch(console.error);

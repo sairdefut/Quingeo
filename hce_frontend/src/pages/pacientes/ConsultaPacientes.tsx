@@ -1,7 +1,7 @@
 /// <reference types="react" />
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { obtenerPacientes } from "../../services/dbPacienteService";
+import { obtenerConsultasPorCedula, obtenerPacientes } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
 import { useReactToPrint } from "react-to-print";
 import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE";
@@ -21,8 +21,21 @@ export default function ConsultaPacientes() {
     documentTitle: 'HCE_Pediatrica_Reporte',
   });
 
-  const triggerPrint = (paciente: any) => {
-    setPacienteAImprimir(paciente);
+  const getNumeroHistoriaClinica = (paciente: Paciente) => {
+    return paciente.numeroHistoriaClinica || 'Pendiente';
+  };
+
+  const hydratePaciente = async (paciente: Paciente) => {
+    const historiaClinica = await obtenerConsultasPorCedula(paciente.cedula);
+    return {
+      ...paciente,
+      historiaClinica,
+    };
+  };
+
+  const triggerPrint = async (paciente: Paciente) => {
+    const pacienteCompleto = await hydratePaciente(paciente);
+    setPacienteAImprimir(pacienteCompleto);
     // Le damos un pequeño tiempo (500ms) para que React renderice los datos del paciente en el componente oculto
     setTimeout(() => {
       handlePrint();
@@ -49,12 +62,6 @@ export default function ConsultaPacientes() {
   const getAvatar = (sexo: string) => {
     const isMale = sexo?.toLowerCase() === 'masculino' || sexo?.toLowerCase() === 'm';
     return isMale ? "bi-person-standing" : "bi-person-standing-dress";
-  };
-
-  // Función para garantizar que siempre se muestre un número secuencial en la tabla
-  const obtenerNumHistoria = (p: any) => {
-    const id = p.id_historia_clinica || p.idHistoriaClinica || p.numeroHistoriaClinica || p.id_paciente || p.idPaciente || p.id;
-    return id ? String(id).padStart(5, '0') : '00000';
   };
 
   return (
@@ -115,7 +122,7 @@ export default function ConsultaPacientes() {
                     <tr key={p.cedula} className="border-bottom transition-hover">
                       <td className="px-4">
                       <span className="badge bg-light text-dark border fw-bold px-2 py-1">
-                        {obtenerNumHistoria(p)}
+                          {getNumeroHistoriaClinica(p)}
                       </span>
                         </td>
                       <td>
@@ -176,7 +183,7 @@ export default function ConsultaPacientes() {
                           <button 
                             className="btn btn-white btn-sm px-3 py-2" 
                             title="Historial de Consultas"
-                            onClick={() => setPacienteConsultas(p)}
+                            onClick={async () => setPacienteConsultas(await hydratePaciente(p))}
                           >
                             <i className="bi bi-clock-history text-success"></i>
                           </button>

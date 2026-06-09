@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { obtenerLogs } from "../../services/logStorage";
+import { obtenerActividadClinica } from "../../services/actividadService";
 
 export default function HistorialUsuarios() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -7,11 +7,18 @@ export default function HistorialUsuarios() {
   const [inicial, setInicial] = useState('U');
 
   useEffect(() => {
-    // 1. CARGA DE DATOS DE LOGS
-    const data = obtenerLogs();
-    setLogs(Array.isArray(data) ? data : []);
+    const cargarActividad = async () => {
+      try {
+        const data = await obtenerActividadClinica();
+        setLogs(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error cargando actividad clinica:', error);
+        setLogs([]);
+      }
+    };
 
-    // 2. RECUPERAR USUARIO DEL LOGIN (LOCALSTORAGE)
+    cargarActividad();
+
     const storedUser = localStorage.getItem('usuarioLogueado');
     if (storedUser) {
       const userData = JSON.parse(storedUser);
@@ -83,14 +90,14 @@ export default function HistorialUsuarios() {
                 ) : (
                   logs.map((log, i) => (
                     <tr key={i}>
-                      <td className="ps-4 fw-bold text-dark">{log?.usuario || "Desconocido"}</td>
+                      <td className="ps-4 fw-bold text-dark">{log?.usuarioNombre || log?.usuario || "Desconocido"}</td>
                       <td>
                         <span className="badge bg-light text-primary border px-2 py-1">
                           {log?.accion || "—"}
                         </span>
                       </td>
-                      <td>{log?.paciente || "—"}</td>
-                      <td className="pe-4 text-muted">{formatearFecha(log?.fecha)}</td>
+                      <td>{log?.pacienteNombre || log?.paciente || "—"}</td>
+                      <td className="pe-4 text-muted">{formatearFecha(log?.fechaHora || log?.fecha)}</td>
                     </tr>
                   ))
                 )}
@@ -103,4 +110,3 @@ export default function HistorialUsuarios() {
     </div>
   );
 }
-

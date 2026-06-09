@@ -77,14 +77,7 @@ export default function VerHistorialCompleto() {
 
     const fechaCreacion = paciente.fechaCreacion || new Date().toLocaleDateString();
 
-    const idGenerado = paciente.id_historia_clinica ||
-        paciente.idHistoriaClinica ||
-        paciente.numeroHistoriaClinica ||
-        paciente.id_paciente ||
-        paciente.idPaciente ||
-        paciente.id;
-
-    const numHistoria = idGenerado ? String(idGenerado).padStart(5, '0') : '00000';
+    const numHistoria = paciente.numeroHistoriaClinica || 'Pendiente';
 
     return (
         <div className="d-flex" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
