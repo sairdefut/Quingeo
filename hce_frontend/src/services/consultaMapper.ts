@@ -58,9 +58,7 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
 
     return {
         ...respaldo,
-        id: respaldo.id || consulta.idConsulta || `consulta-${consulta.idConsulta}`,
-        idConsulta: consulta.idConsulta,
-        idPaciente: consulta.idPaciente,
+        id: respaldo.id || `consulta-${consulta.idConsulta}`,
         fecha: respaldo.fecha || consulta.fecha,
         hora: respaldo.hora || consulta.hora,
         motivo: respaldo.motivo || respaldo.motivoConsulta || consulta.motivo,
@@ -131,7 +129,6 @@ export function mapConsultaBackendToFrontend(consulta: ConsultaBackend): any {
 }
 
 export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number): any {
-    const vitales = consulta.signosVitales || consulta.examenFisico?.vitales || {};
     let fechaISO = consulta.fecha;
     if (consulta.fecha && consulta.fecha.includes('/')) {
         const [d, m, y] = consulta.fecha.split('/');
@@ -153,21 +150,20 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
         || 'admin';
 
     return {
-        idConsulta: consulta.idConsulta,
         idPaciente,
         fecha: fechaISO,
         hora: horaISO,
         motivo: consulta.motivo || consulta.motivoConsulta || 'Sin motivo',
         enfermedadActual: consulta.enfermedadActual || 'Sin enfermedad actual',
 
-        peso: parseFloat(vitales.peso) || 0,
-        talla: parseFloat(vitales.talla) || 0,
-        temperatura: parseFloat(vitales.temperatura) || 0,
-        fc: parseInt(vitales.fc) || 0,
-        fr: parseInt(vitales.fr) || 0,
-        spo2: parseInt(vitales.spo2) || 0,
-        perimetroCefalico: vitales.perimetroCefalico
-            ? parseFloat(vitales.perimetroCefalico)
+        peso: parseFloat(consulta.signosVitales?.peso) || 0,
+        talla: parseFloat(consulta.signosVitales?.talla) || 0,
+        temperatura: parseFloat(consulta.signosVitales?.temperatura) || 0,
+        fc: parseInt(consulta.signosVitales?.fc) || 0,
+        fr: parseInt(consulta.signosVitales?.fr) || 0,
+        spo2: parseInt(consulta.signosVitales?.spo2) || 0,
+        perimetroCefalico: consulta.signosVitales?.perimetroCefalico
+            ? parseFloat(consulta.signosVitales.perimetroCefalico)
             : null,
 
         diagnosticoTexto: [diagnosticoPrincipal.cie10, diagnosticoPrincipal.descripcion].filter(Boolean).join(' - ') || 'Sin diagnóstico',

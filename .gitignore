@@ -33,6 +33,7 @@ backend-hce/out/
 hs_err_pid*
 
 # --- Frontend (Node.js / React) ---
+node_modules/
 hce_frontend/node_modules/
 hce_frontend/dist/
 hce_frontend/build/

@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 
 const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className = "form-control" }: any) => {
+    const [isFocused, setIsFocused] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         const el = textareaRef.current;
         if (!el) return;
-        el.style.setProperty('height', '0px', 'important');
-        el.style.setProperty('height', `${Math.max(el.scrollHeight + 2, 62)}px`, 'important');
-    }, [value]);
+        if (isFocused) {
+            el.style.setProperty('height', 'auto', 'important');
+            el.style.setProperty('height', `${el.scrollHeight + 2}px`, 'important');
+        } else {
+            el.style.setProperty('height', '62px', 'important');
+        }
+    }, [value, isFocused]);
 
     return (
         <textarea
@@ -18,9 +23,11 @@ const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className 
             value={value || ''}
             disabled={disabled}
             onChange={onChange}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             style={{
                 resize: 'vertical',
-                overflowY: 'hidden',
+                overflowY: isFocused ? 'hidden' : 'auto',
                 minHeight: '62px',
                 boxSizing: 'border-box'
             }}

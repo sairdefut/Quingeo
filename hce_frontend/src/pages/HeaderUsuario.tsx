@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL, clearStoredSession } from '../services/apiClient';
 
 // Prop opcional para mostrar el título de la página actual a la izquierda
 export default function HeaderUsuario({ titulo }: { titulo?: string }) {
@@ -28,6 +27,8 @@ export default function HeaderUsuario({ titulo }: { titulo?: string }) {
   }, []);
 
   const cerrarSesion = async () => {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
       try {
         await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
@@ -37,7 +38,7 @@ export default function HeaderUsuario({ titulo }: { titulo?: string }) {
         console.warn('[HeaderUsuario] Error cerrando sesion en servidor:', error);
       }
 
-      clearStoredSession();
+      localStorage.removeItem('usuarioLogueado');
       navigate('/'); // Vuelve al Login
    };
 

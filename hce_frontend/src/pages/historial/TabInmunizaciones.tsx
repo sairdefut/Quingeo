@@ -56,8 +56,6 @@ export const TabInmunizaciones = ({
                     <div className="small fw-bold text-secondary mb-2">Vacunas del esquema MSP Ecuador</div>
                     <div className="row g-2">
                         {VACUNAS_MSP.map((vacuna) => {
-                            const vacunaId = vacuna.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
                             return (
                                 <div className="col-12 col-md-6 col-xl-4" key={vacuna}>
                                     <div className="bg-white border rounded p-2 h-100">

@@ -18,16 +18,12 @@ public interface PacienteRepository extends JpaRepository<Paciente, Integer> {
     @Query("SELECT p FROM Paciente p")
     List<Paciente> findAllWithTutores();
 
-    @EntityGraph(attributePaths = { "historiaClinicaRegistro" })
-    @Query("SELECT p FROM Paciente p")
-    List<Paciente> findAllWithHistoriaClinicaRegistro();
-
     // Método auxiliar para buscar por UUID (utilizado en sincronización)
     Optional<Paciente> findByUuidOffline(String uuidOffline);
 
     Optional<Paciente> findTopByNumeroHistoriaClinicaIsNotNullOrderByNumeroHistoriaClinicaDesc();
 
     // Tu código va aquí dentro:
-    @Query("SELECT DISTINCT p FROM Paciente p LEFT JOIN p.historiaClinicaRegistro hc WHERE p.cedula LIKE %:filtro% OR p.apellidoPaterno LIKE %:filtro% OR p.apellidoMaterno LIKE %:filtro% OR p.numeroHistoriaClinica LIKE %:filtro% OR hc.numeroHistoriaClinica LIKE %:filtro%")
+    @Query("SELECT p FROM Paciente p WHERE p.cedula LIKE %:filtro% OR p.apellidoPaterno LIKE %:filtro% OR p.apellidoMaterno LIKE %:filtro% OR p.numeroHistoriaClinica LIKE %:filtro%")
     List<Paciente> buscarPorCriterio(@Param("filtro") String filtro);
 }

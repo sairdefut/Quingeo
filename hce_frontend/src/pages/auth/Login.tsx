@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPost, clearStoredSession } from '../../services/apiClient';
+import { syncService } from '../../services/syncService';
+import { API_BASE_URL, clearStoredSession } from '../../services/authSession';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,26 +10,58 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [mensaje, setMensaje] = useState('');
+  const [mensajeSincronizacion, setMensajeSincronizacion] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setMensaje('');
     setCargando(true);
+    setMensajeSincronizacion('');
     clearStoredSession();
 
     try {
-      setMensaje('Validando credenciales...');
-      const data = await apiPost<any>('/auth/login', { username: usuario, password }, { skipUnauthorizedRedirect: true });
-      localStorage.setItem('usuarioLogueado', JSON.stringify(data));
-      if (data.token) {
-        localStorage.setItem('hceAuthToken', data.token);
+      // PASO 1: Autenticación Real
+      setMensajeSincronizacion('Validando credenciales...');
+      
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: usuario, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Credenciales incorrectas');
       }
+
+      const data = await response.json();
+
+      // Guardamos solo los datos de perfil; el JWT queda en cookie HttpOnly
+      localStorage.setItem('usuarioLogueado', JSON.stringify(data));
+
+      // PASO 2: Sincronización automática de datos
+      if (navigator.onLine) {
+        try {
+          setMensajeSincronizacion('Descargando datos del servidor...');
+          await syncService.syncDown();
+          setMensajeSincronizacion('¡Datos sincronizados! Redirigiendo...');
+        } catch (syncError) {
+          console.warn('[Login] Error en sincronización inicial:', syncError);
+          setMensajeSincronizacion('Advertencia: No se pudieron descargar los datos, pero puede trabajar offline');
+          // No bloqueamos el login si falla la sincronización
+        }
+      } else {
+        setMensajeSincronizacion('Sin conexión - Trabajará en modo offline');
+      }
+
+      // Pequeño delay para que el usuario vea el mensaje de éxito
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       navigate('/dashboard');
+
     } catch (err: any) {
-      setError(err.message || 'Credenciales incorrectas o error de conexion');
-      setMensaje('');
+      setError(err.message || 'Error de conexión');
     } finally {
       setCargando(false);
     }
@@ -39,7 +72,7 @@ export default function Login() {
       <div className="card p-4 shadow border-0" style={{ width: 400 }}>
         <div className="text-center mb-4">
           <h4 className="fw-bold text-primary mb-1">Sistema HCE</h4>
-          <p className="text-muted small">Historia Clinica Electronica</p>
+          <p className="text-muted small">Historia Clínica Electrónica</p>
         </div>
         <form onSubmit={handleLogin}>
           <div className="mb-3">
@@ -47,13 +80,13 @@ export default function Login() {
             <input className="form-control" placeholder="Ej: jandry" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoFocus />
           </div>
           <div className="mb-4">
-            <label className="form-label small fw-bold text-secondary">Contrasena</label>
+            <label className="form-label small fw-bold text-secondary">Contraseña</label>
             <input className="form-control" type="password" placeholder="***" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <div className="alert alert-danger py-2 small text-center mb-3">{error}</div>}
-          {mensaje && <div className="alert alert-info py-2 small text-center mb-3">{mensaje}</div>}
+          {mensajeSincronizacion && <div className="alert alert-info py-2 small text-center mb-3">{mensajeSincronizacion}</div>}
           <button className="btn btn-primary w-100 fw-bold py-2 shadow-sm" type="submit" disabled={cargando}>
-            {cargando ? 'Ingresando...' : 'INGRESAR'}
+            {cargando ? "Ingresando..." : "INGRESAR"}
           </button>
         </form>
       </div>
