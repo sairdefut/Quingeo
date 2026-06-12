@@ -36,6 +36,28 @@ export default function ConsultaPacientes() {
     return <span className="badge text-bg-success ms-2">Sincronizada</span>;
   };
 
+  const getPacienteSyncState = (paciente: Paciente) => {
+    if (paciente.syncStatus === 'conflict') {
+      return { className: 'text-warning', icon: 'bi-exclamation-triangle-fill', label: 'Conflicto' };
+    }
+    if (paciente.syncStatus === 'failed') {
+      return { className: 'text-danger', icon: 'bi-cloud-slash-fill', label: 'Fallida' };
+    }
+    if (paciente.syncStatus === 'pending' || paciente.syncStatus === 'syncing' || !paciente.idPaciente) {
+      return { className: 'text-warning', icon: 'bi-cloud-arrow-up-fill', label: 'Pendiente' };
+    }
+    return { className: 'text-success', icon: 'bi-cloud-check-fill', label: 'Sincronizado' };
+  };
+
+  const cargarPacientes = async () => {
+    try {
+      const lista = await obtenerPacientes();
+      setPacientes(Array.isArray(lista) ? lista : []);
+    } catch (error) {
+      console.error("Error cargando pacientes:", error);
+    }
+  };
+
   const triggerPrint = async (paciente: Paciente) => {
     const pacienteCompleto = await hydratePaciente(paciente);
     setPacienteAImprimir(pacienteCompleto);
@@ -47,15 +69,15 @@ export default function ConsultaPacientes() {
   // -----------------------------------
 
   useEffect(() => {
-    const cargarPacientes = async () => {
-      try {
-        const lista = await obtenerPacientes();
-        setPacientes(Array.isArray(lista) ? lista : []);
-      } catch (error) {
-        console.error("Error cargando pacientes:", error);
-      }
-    };
     cargarPacientes();
+  }, []);
+
+  useEffect(() => {
+    const refreshPacientes = () => {
+      cargarPacientes().catch(console.error);
+    };
+    window.addEventListener('hce-sync-complete', refreshPacientes);
+    return () => window.removeEventListener('hce-sync-complete', refreshPacientes);
   }, []);
 
   const pacientesFiltrados = pacientes.filter((p: Paciente) =>
@@ -146,15 +168,14 @@ export default function ConsultaPacientes() {
                       </td>
                       <td className="text-muted">{p.fechaNacimiento}</td>
                       <td>
-                        {p.idPaciente ? (
-                          <span className="text-success small d-flex align-items-center">
-                            <i className="bi bi-cloud-check-fill me-1"></i> Sincronizado
-                          </span>
-                        ) : (
-                          <span className="text-warning small d-flex align-items-center">
-                            <i className="bi bi-cloud-arrow-up-fill me-1"></i> Pendiente
-                          </span>
-                        )}
+                        {(() => {
+                          const state = getPacienteSyncState(p);
+                          return (
+                            <span className={`${state.className} small d-flex align-items-center`}>
+                              <i className={`bi ${state.icon} me-1`}></i> {state.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="text-end px-4">
                         <div className="btn-group shadow-sm rounded-3">

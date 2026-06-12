@@ -107,8 +107,14 @@ class SyncService {
         await this.notifyListeners();
     }
 
-    private emitSyncCompleted() {
-        window.dispatchEvent(new CustomEvent('hce-sync-complete'));
+    private emitSyncCompleted(source: 'up' | 'down' | 'full' = 'down', background = false) {
+        window.dispatchEvent(new CustomEvent('hce-sync-complete', {
+            detail: {
+                source,
+                background,
+                at: Date.now()
+            }
+        }));
     }
 
     async syncDown(options: SyncOptions = {}): Promise<void> {
@@ -148,8 +154,8 @@ class SyncService {
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
             if (!options.background) {
                 this.showToast('Datos actualizados', 'success');
-                this.emitSyncCompleted();
             }
+            this.emitSyncCompleted(options.full ? 'full' : 'down', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
@@ -256,6 +262,7 @@ class SyncService {
             prepared = [];
             await this.syncReadyPendingConsultas(options);
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
+            this.emitSyncCompleted('up', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync up:', error);
             await this.markPreparedItemsFailed(prepared, String(error));

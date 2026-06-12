@@ -15,7 +15,11 @@ export default function MainLayout() {
   }, [showToast]);
 
   useEffect(() => {
-    const refreshCurrentView = () => setSyncRefreshKey(value => value + 1);
+    const refreshCurrentView = (event: Event) => {
+      const detail = (event as CustomEvent<{ background?: boolean }>).detail;
+      if (detail?.background) return;
+      setSyncRefreshKey(value => value + 1);
+    };
     window.addEventListener('hce-sync-complete', refreshCurrentView);
     return () => window.removeEventListener('hce-sync-complete', refreshCurrentView);
   }, []);

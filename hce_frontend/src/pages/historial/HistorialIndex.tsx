@@ -52,29 +52,38 @@ export default function HistorialIndex() {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState("");
 
-    useEffect(() => {
-        const cargarDatos = async () => {
-            setLoading(true);
-            try {
-                const [lista, consultas] = await Promise.all([
-                    obtenerPacientes(),
-                    obtenerTodasConsultas()
-                ]);
-                const pacientesLista = Array.isArray(lista) ? lista : [];
-                const consultasLista = Array.isArray(consultas) ? consultas : [];
-                const gruposConsultas = agruparConsultasPorPaciente(consultasLista);
+    const cargarDatos = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
+        try {
+            const [lista, consultas] = await Promise.all([
+                obtenerPacientes(),
+                obtenerTodasConsultas()
+            ]);
+            const pacientesLista = Array.isArray(lista) ? lista : [];
+            const consultasLista = Array.isArray(consultas) ? consultas : [];
+            const gruposConsultas = agruparConsultasPorPaciente(consultasLista);
 
-                setPacientes(pacientesLista.map((paciente) => ({
-                    ...paciente,
-                    historiaClinica: obtenerConsultasDelPaciente(paciente, gruposConsultas)
-                })));
-            } catch (error) {
-                console.error("Error cargando pacientes:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+            setPacientes(pacientesLista.map((paciente) => ({
+                ...paciente,
+                historiaClinica: obtenerConsultasDelPaciente(paciente, gruposConsultas)
+            })));
+        } catch (error) {
+            console.error("Error cargando pacientes:", error);
+        } finally {
+            if (showLoading) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         cargarDatos();
+    }, []);
+
+    useEffect(() => {
+        const refreshHistoriales = () => {
+            cargarDatos(false).catch(console.error);
+        };
+        window.addEventListener('hce-sync-complete', refreshHistoriales);
+        return () => window.removeEventListener('hce-sync-complete', refreshHistoriales);
     }, []);
 
     const filtrados = pacientes.filter(p =>
