@@ -43,6 +43,8 @@ type SyncBatchResponse = {
 
 type SyncOptions = {
     background?: boolean;
+    full?: boolean;
+    reconcile?: boolean;
 };
 
 class SyncService {
@@ -101,6 +103,14 @@ class SyncService {
         this.listeners.forEach(listener => listener(status));
     }
 
+    async refreshStatus(): Promise<void> {
+        await this.notifyListeners();
+    }
+
+    private emitSyncCompleted() {
+        window.dispatchEvent(new CustomEvent('hce-sync-complete'));
+    }
+
     async syncDown(options: SyncOptions = {}): Promise<void> {
         if (!(await this.isSyncAvailable(true))) return;
 
@@ -108,7 +118,7 @@ class SyncService {
             this.syncInProgress = true;
             await this.notifyListeners();
 
-            const lastSync = await dbHelpers.getMetadata('lastSyncTimestamp');
+            const lastSync = options.full ? null : await dbHelpers.getMetadata('lastSyncTimestamp');
             const url = new URL(`${API_BASE_URL}/sync/down`, window.location.origin);
             if (lastSync) {
                 url.searchParams.set('since', String(lastSync));
@@ -129,12 +139,16 @@ class SyncService {
 
             const data = await response.json();
             await this.applyDownloadedData(data);
+            if (options.reconcile) {
+                await this.reconcileFullSnapshot(data);
+            }
 
             const serverTime = data.serverTime ? Date.parse(data.serverTime) : Date.now();
             await dbHelpers.setMetadata('lastSyncTimestamp', Number.isFinite(serverTime) ? serverTime : Date.now());
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
             if (!options.background) {
                 this.showToast('Datos actualizados', 'success');
+                this.emitSyncCompleted();
             }
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
@@ -191,10 +205,20 @@ class SyncService {
         }
 
         if (Array.isArray(data.consultas)) {
+            const pendingConsultas = await dbHelpers.getPendingSyncItems();
+            const blockedConsultaUuids = new Set(
+                pendingConsultas
+                    .filter(item => item.entity === 'consulta')
+                    .map(item => item.uuidOffline)
+                    .filter(Boolean)
+            );
+
             for (const c of data.consultas) {
                 const paciente = await db.pacientes.where('idPaciente').equals(c.idPaciente).first();
                 const consultaFE = mapConsultaBackendToFrontend(c);
                 const uuidOffline = consultaFE.uuidOffline || c.uuidOffline || consultaFE.id || `srv-consulta-${c.idConsulta}`;
+                if (blockedConsultaUuids.has(uuidOffline)) continue;
+
                 await db.consultas.put({
                     uuidOffline,
                     id: String(consultaFE.id || uuidOffline),
@@ -243,6 +267,72 @@ class SyncService {
             this.syncInProgress = false;
             await this.notifyListeners();
         }
+    }
+
+    private async reconcileFullSnapshot(data: any) {
+        const pendingItems = await dbHelpers.getPendingSyncItems();
+        const pendingPacienteUuids = new Set(
+            pendingItems
+                .filter(item => item.entity === 'paciente')
+                .map(item => item.uuidOffline)
+                .filter(Boolean)
+        );
+        const pendingPacienteCedulas = new Set(
+            pendingItems
+                .filter(item => item.entity === 'paciente')
+                .map(item => (item.payload || item.data)?.cedula)
+                .filter(Boolean)
+        );
+        const pendingConsultaUuids = new Set(
+            pendingItems
+                .filter(item => item.entity === 'consulta')
+                .map(item => item.uuidOffline)
+                .filter(Boolean)
+        );
+
+        const serverPacientes = Array.isArray(data.pacientes) ? data.pacientes : [];
+        const serverPacienteUuids = new Set(serverPacientes.map((p: any) => p.uuidOffline).filter(Boolean));
+        const serverPacienteIds = new Set(serverPacientes.map((p: any) => p.idPaciente).filter(Boolean));
+        const serverPacienteCedulas = new Set(serverPacientes.map((p: any) => p.cedula).filter(Boolean));
+
+        const serverConsultas = Array.isArray(data.consultas) ? data.consultas : [];
+        const serverConsultaUuids = new Set(serverConsultas.map((c: any) => c.uuidOffline).filter(Boolean));
+        const serverConsultaIds = new Set(serverConsultas.map((c: any) => c.idConsulta).filter(Boolean));
+
+        await db.transaction('rw', db.pacientes, db.consultas, async () => {
+            const pacientes = await db.pacientes.toArray();
+            const pacientesToDelete = pacientes
+                .filter(paciente => {
+                    if (paciente.syncStatus && paciente.syncStatus !== 'synced') return false;
+                    if (paciente.uuidOffline && pendingPacienteUuids.has(paciente.uuidOffline)) return false;
+                    if (paciente.cedula && pendingPacienteCedulas.has(paciente.cedula)) return false;
+                    if (paciente.uuidOffline && serverPacienteUuids.has(paciente.uuidOffline)) return false;
+                    if (paciente.idPaciente && serverPacienteIds.has(paciente.idPaciente)) return false;
+                    if (paciente.cedula && serverPacienteCedulas.has(paciente.cedula)) return false;
+                    return true;
+                })
+                .map(paciente => paciente.uuidOffline)
+                .filter(Boolean) as string[];
+
+            const consultas = await db.consultas.toArray();
+            const consultasToDelete = consultas
+                .filter(consulta => {
+                    if (consulta.syncStatus && consulta.syncStatus !== 'synced') return false;
+                    if (consulta.uuidOffline && pendingConsultaUuids.has(consulta.uuidOffline)) return false;
+                    if (consulta.uuidOffline && serverConsultaUuids.has(consulta.uuidOffline)) return false;
+                    if (consulta.idConsulta && serverConsultaIds.has(consulta.idConsulta)) return false;
+                    return true;
+                })
+                .map(consulta => consulta.uuidOffline)
+                .filter(Boolean);
+
+            if (pacientesToDelete.length > 0) {
+                await db.pacientes.bulkDelete(pacientesToDelete);
+            }
+            if (consultasToDelete.length > 0) {
+                await db.consultas.bulkDelete(consultasToDelete);
+            }
+        });
     }
 
     private async uploadPreparedItems(
@@ -403,12 +493,35 @@ class SyncService {
                             consulta.data.idPaciente = serverId;
                         }
                     });
+                await db.syncQueue
+                    .where('entity')
+                    .equals('consulta')
+                    .filter(item => item.data?.pacienteUuidOffline === mapping.uuidOffline)
+                    .modify(item => {
+                        if (item.data?.consulta) {
+                            item.data.consulta.idPaciente = serverId;
+                        }
+                        if (item.payload?.pendingPacienteUuidOffline === mapping.uuidOffline) {
+                            item.payload.idPaciente = serverId;
+                        }
+                    });
             }
             if (mapping.entityType === 'consulta' && mapping.uuidOffline && serverId) {
+                const consultaLocal = await db.consultas.get(mapping.uuidOffline);
+                const data = consultaLocal?.data
+                    ? {
+                        ...consultaLocal.data,
+                        idConsulta: serverId,
+                        lastModified: mapping.serverLastModified,
+                        syncStatus: 'synced',
+                        sincronizado: true
+                    }
+                    : undefined;
                 await db.consultas.update(mapping.uuidOffline, {
                     idConsulta: serverId,
                     lastModified: mapping.serverLastModified,
-                    syncStatus: 'synced'
+                    syncStatus: 'synced',
+                    ...(data ? { data } : {})
                 });
             }
         }
@@ -435,6 +548,13 @@ class SyncService {
             if (!item.id) continue;
             if (conflictIds.has(item.clientMutationId)) {
                 await db.syncQueue.update(item.id, { status: 'conflict', synced: 0 });
+                if (item.entity === 'consulta' && item.uuidOffline) {
+                    const row = await db.consultas.get(item.uuidOffline);
+                    await db.consultas.update(item.uuidOffline, {
+                        syncStatus: 'conflict',
+                        data: row?.data ? { ...row.data, syncStatus: 'conflict' } : row?.data
+                    });
+                }
                 continue;
             }
             if (rejected.has(item.clientMutationId)) {
@@ -459,6 +579,11 @@ class SyncService {
         if (this.syncInProgress) return;
         await this.syncUp(options);
         await this.syncDown(options);
+    }
+
+    async syncFullFromServer(): Promise<void> {
+        if (this.syncInProgress) return;
+        await this.syncDown({ full: true, reconcile: true });
     }
 
     initAutoSync() {

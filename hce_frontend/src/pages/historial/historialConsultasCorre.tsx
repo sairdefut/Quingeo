@@ -8,7 +8,7 @@ import { VistaIdentificacion } from './components/VistaIdentificacion';
 import { SeccionAntecedentes } from './components/SeccionAntecedentes';
 import { TabsConsultaActual } from './components/TabsConsultaActual';
 
-import { actualizarConsultaExistente, agregarConsulta, buscarPacientePorCedula, obtenerConsultasPorPacienteId } from '../../services/dbPacienteService';
+import { guardarConsultaOffline, obtenerPacienteConConsultas } from '../../services/dbPacienteService';
 import { calcularIMC, obtenerZScore, calcularEdadMeses } from './medicaCalcular';
 
 type EstadoVacuna = 'Falta' | 'Aplicada';
@@ -139,10 +139,10 @@ export default function HistorialConsultas() {
     useEffect(() => {
         const cargarPaciente = async () => {
             if (!cedula) return;
-            const encontrado = await buscarPacientePorCedula(cedula);
+            const encontrado = await obtenerPacienteConConsultas(cedula);
             if (encontrado) {
-                const historia = encontrado.idPaciente ? await obtenerConsultasPorPacienteId(encontrado.idPaciente) : [];
-                setPacienteActual({ ...encontrado, historiaClinica: historia });
+                const historia = encontrado.historiaClinica || [];
+                setPacienteActual(encontrado);
                 setBloquearAntecedentes(historia.length > 0);
 
                 if (historia.length > 0) {
@@ -206,7 +206,9 @@ export default function HistorialConsultas() {
         try {
             const consultaCompleta = {
                 id: consultaEnEdicion?.id || uuidv4(),
+                uuidOffline: consultaEnEdicion?.uuidOffline,
                 idConsulta: consultaEnEdicion?.idConsulta,
+                lastModified: consultaEnEdicion?.lastModified,
                 fecha: consultaEnEdicion?.fecha || new Date().toLocaleDateString(),
                 hora: consultaEnEdicion?.hora || new Date().toTimeString().slice(0, 8),
                 motivo: motivoConsulta,
@@ -239,26 +241,14 @@ export default function HistorialConsultas() {
 
             console.log('[DEBUG] Guardando consulta para cédula:', cedula, consultaCompleta);
 
-            if (modoEdicion) {
-                const exito = await actualizarConsultaExistente(cedula!, consultaCompleta);
-
-                if (exito) {
-                    alert('Consulta actualizada exitosamente.');
-                    navigate('/pacientes/consulta');
-                } else {
-                    alert('Error: No se pudo actualizar la consulta. Paciente no encontrado en la API.');
-                }
-                return;
-            }
-
-            const exito = await agregarConsulta(cedula!, consultaCompleta);
+            const exito = await guardarConsultaOffline(cedula!, consultaCompleta);
 
             if (exito) {
-                alert('Consulta guardada exitosamente.');
+                alert(modoEdicion ? 'Consulta actualizada exitosamente.' : 'Consulta guardada exitosamente.');
                 navigate('/pacientes/consulta');
             } else {
                 alert('Error: No se pudo guardar la consulta. Paciente no encontrado en la base de datos local.');
-                console.error('[ERROR] agregarConsulta retorno false. Paciente con cedula', cedula, 'no encontrado en API.');
+                console.error('[ERROR] guardarConsultaOffline retorno false. Paciente con cedula', cedula, 'no encontrado.');
             }
         } catch (error: any) {
             console.error('[ERROR] Error al guardar consulta:', error);

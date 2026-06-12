@@ -1,6 +1,50 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obtenerPacientes } from '../../services/dbPacienteService';
+import { obtenerPacientes, obtenerTodasConsultas } from '../../services/dbPacienteService';
+
+function agruparConsultasPorPaciente(consultas: any[]) {
+    const porIdPaciente = new Map<number, any[]>();
+    const porCedula = new Map<string, any[]>();
+
+    consultas.forEach((consulta) => {
+        if (consulta?.idPaciente) {
+            const actuales = porIdPaciente.get(consulta.idPaciente) || [];
+            porIdPaciente.set(consulta.idPaciente, [...actuales, consulta]);
+            return;
+        }
+
+        if (consulta?.cedula) {
+            const actuales = porCedula.get(consulta.cedula) || [];
+            porCedula.set(consulta.cedula, [...actuales, consulta]);
+        }
+    });
+
+    return { porIdPaciente, porCedula };
+}
+
+function obtenerConsultasDelPaciente(
+    paciente: any,
+    grupos: ReturnType<typeof agruparConsultasPorPaciente>
+) {
+    const porId = paciente.idPaciente ? grupos.porIdPaciente.get(paciente.idPaciente) || [] : [];
+    const porCedula = paciente.cedula ? grupos.porCedula.get(paciente.cedula) || [] : [];
+    const vistas = new Set(porId.map((consulta) => consulta.uuidOffline || consulta.idConsulta || consulta.id));
+
+    return [
+        ...porId,
+        ...porCedula.filter((consulta) => {
+            const clave = consulta.uuidOffline || consulta.idConsulta || consulta.id;
+            return !clave || !vistas.has(clave);
+        })
+    ];
+}
+
+function resumenEstadoConsultas(consultas: any[]) {
+    if (consultas.some((consulta) => consulta.syncStatus === 'conflict')) return 'Conflicto de sincronizacion';
+    if (consultas.some((consulta) => consulta.syncStatus === 'failed')) return 'Sincronizacion fallida';
+    if (consultas.some((consulta) => consulta.syncStatus === 'pending' || consulta.syncStatus === 'syncing')) return 'Pendiente de sincronizar';
+    return '';
+}
 
 export default function HistorialIndex() {
     const navigate = useNavigate();
@@ -12,8 +56,18 @@ export default function HistorialIndex() {
         const cargarDatos = async () => {
             setLoading(true);
             try {
-                const lista = await obtenerPacientes();
-                setPacientes(Array.isArray(lista) ? lista : []);
+                const [lista, consultas] = await Promise.all([
+                    obtenerPacientes(),
+                    obtenerTodasConsultas()
+                ]);
+                const pacientesLista = Array.isArray(lista) ? lista : [];
+                const consultasLista = Array.isArray(consultas) ? consultas : [];
+                const gruposConsultas = agruparConsultasPorPaciente(consultasLista);
+
+                setPacientes(pacientesLista.map((paciente) => ({
+                    ...paciente,
+                    historiaClinica: obtenerConsultasDelPaciente(paciente, gruposConsultas)
+                })));
             } catch (error) {
                 console.error("Error cargando pacientes:", error);
             } finally {
@@ -63,6 +117,11 @@ export default function HistorialIndex() {
                                     <small className="text-success fw-bold" style={{ fontSize: '0.8rem' }}>
                                         {p.historiaClinica?.length || 0} Consultas registradas
                                     </small>
+                                    {resumenEstadoConsultas(p.historiaClinica || []) && (
+                                        <small className="text-warning fw-bold d-block" style={{ fontSize: '0.75rem' }}>
+                                            {resumenEstadoConsultas(p.historiaClinica || [])}
+                                        </small>
+                                    )}
                                 </div>
                                 <button className="btn btn-outline-primary btn-sm ms-2" onClick={() => navigate(`/historial-completo/${p.cedula}`)}>
                                     <i className="bi bi-eye-fill"></i>

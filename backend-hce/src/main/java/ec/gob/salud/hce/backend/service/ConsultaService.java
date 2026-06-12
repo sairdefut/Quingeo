@@ -29,6 +29,7 @@ public class ConsultaService {
     private final ec.gob.salud.hce.backend.mapper.EstudioLaboratorioMapper estudioMapper;
     private final ObjectMapper objectMapper;
     private final ActividadClinicaService actividadClinicaService;
+    private final ConsultaDetallePersistenceService consultaDetallePersistenceService;
     private static final int HISTORIA_GRUPO_INICIAL = 1;
     private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
@@ -68,6 +69,8 @@ public class ConsultaService {
 
         // UN SOLO SAVE - cascade automático guarda planes y estudios
         Consulta consultaGuardada = consultaRepository.save(consulta);
+        consultaDetallePersistenceService.guardarDetalle(consultaGuardada, dto, paciente, historia);
+        consultaGuardada = consultaRepository.save(consultaGuardada);
         actividadClinicaService.registrar(
                 "Creacion de consulta",
                 paciente,
@@ -75,7 +78,7 @@ public class ConsultaService {
                 "Consulta creada con motivo: " + safeText(dto.getMotivo())
         );
 
-        return ConsultaMapper.toDto(consultaGuardada, planMapper, estudioMapper);
+        return mapConsultaCompleta(consultaGuardada);
     }
 
     @Transactional
@@ -100,6 +103,14 @@ public class ConsultaService {
         }
         consulta.setSyncStatus("SYNCED");
         Consulta consultaGuardada = consultaRepository.save(consulta);
+        if (consultaGuardada.getHistoriaClinica() != null && paciente != null) {
+            consultaDetallePersistenceService.guardarDetalle(
+                    consultaGuardada,
+                    dto,
+                    paciente,
+                    consultaGuardada.getHistoriaClinica());
+            consultaGuardada = consultaRepository.save(consultaGuardada);
+        }
         actividadClinicaService.registrar(
                 "Edicion de consulta",
                 paciente,
@@ -119,7 +130,7 @@ public class ConsultaService {
 
     @Transactional(readOnly = true)
     public List<ConsultaDTO> listarTodas() {
-        return consultaRepository.findAll().stream().map(c -> {
+        return consultaRepository.findAllWithDetails().stream().map(c -> {
             ConsultaDTO dto = mapConsultaCompleta(c);
             dto.setUsuario(c.getUsuarioMedico());
             return dto;
@@ -128,6 +139,7 @@ public class ConsultaService {
 
     private ConsultaDTO mapConsultaCompleta(Consulta consulta) {
         ConsultaDTO dto = ConsultaMapper.toDto(consulta, planMapper, estudioMapper);
+        consultaDetallePersistenceService.completarDtoDesdeTablas(consulta, dto);
         if (consulta.getDatosCompletosJson() != null && !consulta.getDatosCompletosJson().isBlank()) {
             try {
                 dto.setJsonCompleto(objectMapper.readValue(consulta.getDatosCompletosJson(), java.util.Map.class));

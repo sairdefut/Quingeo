@@ -117,34 +117,12 @@ public class SyncService {
             System.out.println("DEBUG: Antecedentes cargados: "
                     + (response.getAntecedentesFamiliares() != null ? response.getAntecedentesFamiliares().size() : 0));
 
-            // Cargar Consultas completas (con planes y estudios)
+            // Cargar Consultas completas desde el servicio normalizado
             System.out.println("DEBUG: Cargando Consultas...");
             try {
-                List<ec.gob.salud.hce.backend.entity.Consulta> consultas = consultaRepository.findAllWithDetails();
-                System.out.println("DEBUG: Consultas encontradas en DB: " + (consultas != null ? consultas.size() : 0));
-
-                if (consultas != null) {
-                    List<ec.gob.salud.hce.backend.dto.ConsultaDTO> consultasDTO = consultas.stream()
-                            .map(c -> {
-                                try {
-                                    ec.gob.salud.hce.backend.dto.ConsultaDTO dto = ec.gob.salud.hce.backend.mapper.ConsultaMapper
-                                            .toDto(c, planMapper, estudioMapper);
-                                    if (c.getDatosCompletosJson() != null && !c.getDatosCompletosJson().isBlank()) {
-                                        dto.setJsonCompleto(objectMapper.readValue(c.getDatosCompletosJson(), java.util.Map.class));
-                                    }
-                                    return dto;
-                                } catch (Exception e) {
-                                    System.err.println(
-                                            "ERROR mapeando consulta ID " + c.getIdConsulta() + ": " + e.getMessage());
-                                    e.printStackTrace();
-                                    return null;
-                                }
-                            })
-                            .filter(java.util.Objects::nonNull)
-                            .collect(Collectors.toList());
-                    response.setConsultas(consultasDTO);
-                    System.out.println("DEBUG: Consultas mapeadas: " + consultasDTO.size());
-                }
+                List<ec.gob.salud.hce.backend.dto.ConsultaDTO> consultasDTO = consultaService.listarTodas();
+                response.setConsultas(consultasDTO);
+                System.out.println("DEBUG: Consultas mapeadas: " + consultasDTO.size());
             } catch (Exception e) {
                 System.err
                         .println("ERROR CRÍTICO recuperando consultas (Continuando con Pacientes): " + e.getMessage());
@@ -352,6 +330,11 @@ public class SyncService {
 
         if (!existentesPorCedula.isEmpty()) {
             ec.gob.salud.hce.backend.entity.Paciente existente = existentesPorCedula.get(0);
+            if (existente.getUuidOffline() == null && dto.getUuidOffline() != null) {
+                existente.setUuidOffline(dto.getUuidOffline());
+                existente.setSyncStatus("SYNCED");
+                existente = pacienteRepository.save(existente);
+            }
             agregarMapping(response, item, dto.getUuidOffline(), existente.getIdPaciente(), "paciente",
                     existente.getNumeroHistoriaClinica(), existente.getLastModified());
             return;

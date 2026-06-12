@@ -1,7 +1,7 @@
 /// <reference types="react" />
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { obtenerConsultasPorCedula, obtenerPacientes } from "../../services/dbPacienteService";
+import { obtenerPacienteConConsultas, obtenerPacientes } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
 import { useReactToPrint } from "react-to-print";
 import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE";
@@ -26,11 +26,14 @@ export default function ConsultaPacientes() {
   };
 
   const hydratePaciente = async (paciente: Paciente) => {
-    const historiaClinica = await obtenerConsultasPorCedula(paciente.cedula);
-    return {
-      ...paciente,
-      historiaClinica,
-    };
+    return await obtenerPacienteConConsultas(paciente.cedula) || paciente;
+  };
+
+  const getConsultaSyncBadge = (status?: string) => {
+    if (status === 'conflict') return <span className="badge text-bg-warning ms-2">Conflicto</span>;
+    if (status === 'failed') return <span className="badge text-bg-danger ms-2">Fallida</span>;
+    if (status === 'pending' || status === 'syncing') return <span className="badge text-bg-primary ms-2">Pendiente</span>;
+    return <span className="badge text-bg-success ms-2">Sincronizada</span>;
   };
 
   const triggerPrint = async (paciente: Paciente) => {
@@ -229,6 +232,7 @@ export default function ConsultaPacientes() {
                           <div>
                             <span className="badge bg-success bg-opacity-10 text-success mb-1">{c.fecha}</span>
                             <span className="text-muted small ms-2">{c.hora}</span>
+                            {getConsultaSyncBadge(c.syncStatus)}
                           </div>
                           <button 
                             className="btn btn-light btn-sm rounded-pill px-3" 
