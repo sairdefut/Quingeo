@@ -11,6 +11,7 @@ export interface SyncStatus {
     syncing: boolean;
     pendingChanges: number;
     online: boolean;
+    checking: boolean;
     conflicts: number;
     failedChanges: number;
     lastError?: string;
@@ -53,9 +54,13 @@ class SyncService {
     private listeners: Array<(status: SyncStatus) => void> = [];
     private toastCallback: ToastCallback | null = null;
     private backendOnline = navigator.onLine;
+    private connectivityChecking = false;
     private lastConnectivityCheck = 0;
+    private activeSyncAbortController: AbortController | null = null;
+    private suspendedForLogout = false;
     private readonly retryDelaysMs = [1000, 2000, 4000];
-    private readonly connectivityCacheMs = 5000;
+    private readonly connectivityCacheMs = 1000;
+    private readonly pingTimeoutMs = 1000;
 
     setToastCallback(callback: ToastCallback) {
         this.toastCallback = callback;
@@ -71,19 +76,20 @@ class SyncService {
 
     async getStatus(): Promise<SyncStatus> {
         const lastSync = await dbHelpers.getMetadata('lastSyncTimestamp');
-        const pendingItems = await dbHelpers.getPendingSyncItems();
+        const pendingItems = this.orderPendingItems(await dbHelpers.getPendingSyncItems());
         const conflicts = await db.conflicts.filter(conflict => !conflict.resolvedAt).count();
         const failedChanges = pendingItems.filter(item => item.status === 'failed').length;
         const failedItems = pendingItems
             .filter(item => item.lastError)
             .sort((a, b) => (b.localUpdatedAt || b.timestamp) - (a.localUpdatedAt || a.timestamp));
-        const online = await this.isSyncAvailable();
+        const online = navigator.onLine && this.backendOnline;
 
         return {
             lastSync: lastSync || null,
             syncing: this.syncInProgress,
             pendingChanges: pendingItems.length,
             online,
+            checking: this.connectivityChecking,
             conflicts,
             failedChanges,
             lastError: failedItems[0]?.lastError
@@ -101,6 +107,9 @@ class SyncService {
     private async notifyListeners() {
         const status = await this.getStatus();
         this.listeners.forEach(listener => listener(status));
+        window.dispatchEvent(new CustomEvent('hce-sync-status-change', {
+            detail: status
+        }));
     }
 
     async refreshStatus(): Promise<void> {
@@ -117,11 +126,38 @@ class SyncService {
         }));
     }
 
+    private async setBackendOnline(online: boolean, notify = true) {
+        if (this.backendOnline !== online) {
+            this.backendOnline = online;
+        }
+        if (notify) {
+            await this.notifyListeners();
+        }
+    }
+
+    private abortActiveSync() {
+        this.activeSyncAbortController?.abort();
+        this.activeSyncAbortController = null;
+    }
+
+    async prepareForLogout() {
+        this.suspendedForLogout = true;
+        this.abortActiveSync();
+        this.syncInProgress = false;
+        await this.notifyListeners();
+    }
+
+    resumeAfterLogin() {
+        this.suspendedForLogout = false;
+    }
+
     async syncDown(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (!(await this.isSyncAvailable(true))) return;
 
         try {
             this.syncInProgress = true;
+            this.activeSyncAbortController = new AbortController();
             await this.notifyListeners();
 
             const lastSync = options.full ? null : await dbHelpers.getMetadata('lastSyncTimestamp');
@@ -133,7 +169,8 @@ class SyncService {
 
             const response = await fetch(requestUrl, {
                 credentials: 'include',
-                headers: this.authHeaders()
+                headers: this.authHeaders(),
+                signal: this.activeSyncAbortController.signal
             });
             if (response.status === 401 || response.status === 403) {
                 if (!options.background) {
@@ -158,12 +195,14 @@ class SyncService {
             this.emitSyncCompleted(options.full ? 'full' : 'down', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
+            await this.handleConnectivityFailure(error);
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
             if (!options.background) {
                 this.showToast('Error al descargar datos', 'error');
             }
         } finally {
             this.syncInProgress = false;
+            this.activeSyncAbortController = null;
             await this.notifyListeners();
         }
     }
@@ -242,6 +281,7 @@ class SyncService {
     }
 
     async syncUp(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (!(await this.isSyncAvailable(true))) return;
         const pendingItems = await dbHelpers.getPendingSyncItems();
         if (pendingItems.length === 0) return;
@@ -349,6 +389,7 @@ class SyncService {
         let response: Response | null = null;
         for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
             try {
+                this.activeSyncAbortController = new AbortController();
                 response = await fetch(`${API_BASE_URL}/sync/up`, {
                     method: 'POST',
                     credentials: 'include',
@@ -356,6 +397,7 @@ class SyncService {
                         ...this.authHeaders(),
                         'Content-Type': 'application/json'
                     },
+                    signal: this.activeSyncAbortController.signal,
                     body: JSON.stringify({
                         deviceId: await this.getDeviceId(),
                         userId: this.getCurrentUserId(),
@@ -382,8 +424,11 @@ class SyncService {
                 if (response.ok) break;
                 throw new Error(`HTTP ${response.status}`);
             } catch (error) {
+                await this.handleConnectivityFailure(error);
                 if (attempt === this.retryDelaysMs.length) throw error;
                 await this.wait(this.retryDelaysMs[attempt]);
+            } finally {
+                this.activeSyncAbortController = null;
             }
         }
 
@@ -391,7 +436,7 @@ class SyncService {
     }
 
     private async syncReadyPendingConsultas(options: SyncOptions): Promise<void> {
-        const pendingConsultas = (await dbHelpers.getPendingSyncItems())
+        const pendingConsultas = this.orderPendingItems(await dbHelpers.getPendingSyncItems())
             .filter(item => item.entity === 'consulta' && (item.status === 'pending' || item.status === 'failed'));
         if (pendingConsultas.length === 0) return;
 
@@ -583,9 +628,25 @@ class SyncService {
     }
 
     async sync(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (this.syncInProgress) return;
         await this.syncUp(options);
         await this.syncDown(options);
+    }
+
+    private orderPendingItems(items: SyncQueueItem[]): SyncQueueItem[] {
+        const priority: Record<string, number> = {
+            paciente: 0,
+            consulta: 1,
+            antecedente: 2
+        };
+        return [...items].sort((a, b) => {
+            const byEntity = (priority[a.entity] ?? 99) - (priority[b.entity] ?? 99);
+            if (byEntity !== 0) return byEntity;
+            const byTimestamp = (a.timestamp || 0) - (b.timestamp || 0);
+            if (byTimestamp !== 0) return byTimestamp;
+            return (a.localUpdatedAt || 0) - (b.localUpdatedAt || 0);
+        });
     }
 
     async syncFullFromServer(): Promise<void> {
@@ -598,15 +659,22 @@ class SyncService {
         this.initialized = true;
 
         window.addEventListener('online', () => {
-            this.checkBackendConnectivity(true)
-                .then(() => this.sync({ background: true }))
+            this.handleBrowserOnline()
                 .catch(console.error);
         });
         window.addEventListener('offline', () => {
-            this.backendOnline = false;
-            this.notifyListeners().catch(console.error);
+            this.handleBrowserOffline().catch(console.error);
+        });
+        window.addEventListener('focus', () => {
+            this.checkAndSyncImmediately('focus').catch(console.error);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.checkAndSyncImmediately('visible').catch(console.error);
+            }
         });
         setInterval(() => {
+            if (this.suspendedForLogout) return;
             this.checkBackendConnectivity(true)
                 .then(online => {
                     if (online && !this.syncInProgress) this.sync({ background: true }).catch(console.error);
@@ -621,6 +689,41 @@ class SyncService {
                 return this.notifyListeners();
             })
             .catch(console.error);
+    }
+
+    private async handleBrowserOffline() {
+        this.abortActiveSync();
+        this.syncInProgress = false;
+        this.lastConnectivityCheck = 0;
+        await this.setBackendOnline(false);
+    }
+
+    private async handleBrowserOnline() {
+        if (this.suspendedForLogout) return;
+        this.connectivityChecking = true;
+        await this.notifyListeners();
+        try {
+            const online = await this.checkBackendConnectivity(true);
+            if (online) {
+                await this.sync({ background: true });
+            }
+        } finally {
+            this.connectivityChecking = false;
+            await this.notifyListeners();
+        }
+    }
+
+    private async checkAndSyncImmediately(_reason: 'focus' | 'visible') {
+        if (this.suspendedForLogout) return;
+        if (!navigator.onLine) {
+            await this.handleBrowserOffline();
+            return;
+        }
+        const online = await this.checkBackendConnectivity(true);
+        await this.notifyListeners();
+        if (online && !this.syncInProgress) {
+            await this.sync({ background: true });
+        }
     }
 
     private async isSyncAvailable(force = false): Promise<boolean> {
@@ -639,7 +742,8 @@ class SyncService {
 
         this.lastConnectivityCheck = now;
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 2500);
+        this.connectivityChecking = true;
+        const timeout = window.setTimeout(() => controller.abort(), this.pingTimeoutMs);
         try {
             const response = await fetch(`${API_BASE_URL}/sync/ping?t=${now}`, {
                 method: 'GET',
@@ -648,14 +752,21 @@ class SyncService {
                 headers: this.authHeaders(),
                 signal: controller.signal
             });
-            this.backendOnline = response.ok || response.status === 401 || response.status === 403;
+            await this.setBackendOnline(response.ok || response.status === 401 || response.status === 403, false);
         } catch {
-            this.backendOnline = false;
+            await this.setBackendOnline(false, false);
         } finally {
+            this.connectivityChecking = false;
             window.clearTimeout(timeout);
         }
 
         return this.backendOnline;
+    }
+
+    private async handleConnectivityFailure(error: unknown) {
+        if (!navigator.onLine || error instanceof DOMException || String(error).includes('Failed to fetch')) {
+            await this.setBackendOnline(false);
+        }
     }
 
     private authHeaders(): Record<string, string> {

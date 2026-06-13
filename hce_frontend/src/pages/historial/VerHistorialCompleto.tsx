@@ -9,19 +9,29 @@ export default function VerHistorialCompleto() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const cargarDatos = async () => {
+        const cargarDatos = async (showLoading = true) => {
             if (!cedula) return;
-            setLoading(true);
+            if (showLoading) setLoading(true);
             try {
                 const encontrado = await obtenerPacienteConConsultas(cedula);
                 setPaciente(encontrado || null);
             } catch (error) {
                 console.error('Error cargando datos:', error);
             } finally {
-                setLoading(false);
+                if (showLoading) setLoading(false);
             }
         };
         cargarDatos();
+
+        const refreshHistorial = () => {
+            cargarDatos(false).catch(console.error);
+        };
+        window.addEventListener('hce-sync-complete', refreshHistorial);
+        window.addEventListener('hce-sync-status-change', refreshHistorial);
+        return () => {
+            window.removeEventListener('hce-sync-complete', refreshHistorial);
+            window.removeEventListener('hce-sync-status-change', refreshHistorial);
+        };
     }, [cedula]);
 
     if (loading) {

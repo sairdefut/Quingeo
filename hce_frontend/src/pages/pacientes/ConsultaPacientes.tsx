@@ -77,7 +77,11 @@ export default function ConsultaPacientes() {
       cargarPacientes().catch(console.error);
     };
     window.addEventListener('hce-sync-complete', refreshPacientes);
-    return () => window.removeEventListener('hce-sync-complete', refreshPacientes);
+    window.addEventListener('hce-sync-status-change', refreshPacientes);
+    return () => {
+      window.removeEventListener('hce-sync-complete', refreshPacientes);
+      window.removeEventListener('hce-sync-status-change', refreshPacientes);
+    };
   }, []);
 
   const pacientesFiltrados = pacientes.filter((p: Paciente) =>

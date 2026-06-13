@@ -83,7 +83,11 @@ export default function HistorialIndex() {
             cargarDatos(false).catch(console.error);
         };
         window.addEventListener('hce-sync-complete', refreshHistoriales);
-        return () => window.removeEventListener('hce-sync-complete', refreshHistoriales);
+        window.addEventListener('hce-sync-status-change', refreshHistoriales);
+        return () => {
+            window.removeEventListener('hce-sync-complete', refreshHistoriales);
+            window.removeEventListener('hce-sync-status-change', refreshHistoriales);
+        };
     }, []);
 
     const filtrados = pacientes.filter(p =>

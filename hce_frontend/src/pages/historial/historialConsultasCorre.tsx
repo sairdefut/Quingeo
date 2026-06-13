@@ -10,6 +10,7 @@ import { TabsConsultaActual } from './components/TabsConsultaActual';
 
 import { guardarConsultaOffline, obtenerPacienteConConsultas } from '../../services/dbPacienteService';
 import { calcularIMC, obtenerZScore, calcularEdadMeses } from './medicaCalcular';
+import { notifyError, notifySuccess, notifyWarning } from '../../services/notificationService';
 
 type EstadoVacuna = 'Falta' | 'Aplicada';
 
@@ -198,7 +199,7 @@ export default function HistorialConsultas() {
 
     const handleGuardar = async () => {
         if (!diagnosticoPrincipal.cie10) {
-            alert('Debe ingresar el diagnóstico principal.');
+            notifyWarning('Debe ingresar el diagnóstico principal.');
             setTabActiva('diagnostico');
             return;
         }
@@ -244,15 +245,15 @@ export default function HistorialConsultas() {
             const exito = await guardarConsultaOffline(cedula!, consultaCompleta);
 
             if (exito) {
-                alert(modoEdicion ? 'Consulta actualizada exitosamente.' : 'Consulta guardada exitosamente.');
+                notifySuccess(modoEdicion ? 'Consulta actualizada exitosamente.' : 'Consulta guardada exitosamente.');
                 navigate('/pacientes/consulta');
             } else {
-                alert('Error: No se pudo guardar la consulta. Paciente no encontrado en la base de datos local.');
+                notifyError('Error: No se pudo guardar la consulta. Paciente no encontrado en la base de datos local.');
                 console.error('[ERROR] guardarConsultaOffline retorno false. Paciente con cedula', cedula, 'no encontrado.');
             }
         } catch (error: any) {
             console.error('[ERROR] Error al guardar consulta:', error);
-            alert('Error al guardar la consulta: ' + (error.message || error));
+            notifyError('Error al guardar la consulta: ' + (error.message || error));
         }
     };
 

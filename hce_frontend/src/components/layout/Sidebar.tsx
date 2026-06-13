@@ -1,13 +1,35 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users } from "lucide-react";
+import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut } from "lucide-react";
+import { logout } from "../../services/authSession";
+import { syncService } from "../../services/syncService";
 import "./Sidebar.css";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const navigate = useNavigate();
   const userStr = localStorage.getItem('usuarioLogueado');
   const user = userStr ? JSON.parse(userStr) : null;
   const isAdmin = user && user.cargo === 'admin';
+  const fullName = user?.nombres && user?.apellidos
+    ? `${user.nombres} ${user.apellidos}`
+    : user?.nombre || user?.username || 'Usuario';
+  const role = user?.cargo || 'medico';
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await syncService.prepareForLogout();
+      const loggedOut = await logout(navigate);
+      if (!loggedOut) {
+        syncService.resumeAfterLogin();
+      }
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <>
@@ -55,6 +77,22 @@ export default function Sidebar() {
             </NavLink>
           )}
         </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="sidebar-user-avatar">
+              {fullName.charAt(0).toUpperCase()}
+            </div>
+            <div className="sidebar-user-meta">
+              <strong>{fullName}</strong>
+              <span>{role}</span>
+            </div>
+          </div>
+          <button className="logout-btn" onClick={handleLogout} disabled={loggingOut}>
+            <LogOut size={18} />
+            {loggingOut ? 'Cerrando...' : 'Cerrar sesión'}
+          </button>
+        </div>
       </aside>
     </>
   );

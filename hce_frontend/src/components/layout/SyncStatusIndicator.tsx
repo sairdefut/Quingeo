@@ -9,6 +9,7 @@ const initialStatus: SyncStatus = {
     syncing: false,
     pendingChanges: 0,
     online: false,
+    checking: false,
     conflicts: 0,
     failedChanges: 0,
     lastError: undefined
@@ -62,7 +63,7 @@ export function SyncStatusIndicator() {
         task.catch(console.error);
     };
 
-    const label = status.online ? 'Online' : 'Offline';
+    const label = status.checking ? 'Verificando' : (status.online ? 'Online' : 'Offline');
     const variant = status.conflicts > 0 || status.failedChanges > 0
         ? 'warning'
         : status.online
