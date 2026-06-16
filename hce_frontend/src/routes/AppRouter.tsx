@@ -10,6 +10,7 @@ import HistorialIndex from '../pages/historial/HistorialIndex';
 import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
+import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
 import { obtenerPacienteConConsultas } from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
@@ -51,6 +52,7 @@ export default function AppRouter() {
           <Route path="/reporte-hce/:cedula" element={<ReporteHCEWrapper />} />
 
           <Route path="/historial-usuarios" element={<HistorialUsuarios />} />
+          <Route path="/perfil" element={<PerfilUsuario />} />
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
         </Route>
       </Routes>

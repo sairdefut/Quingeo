@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut, UserRound } from "lucide-react";
 import { logout } from "../../services/authSession";
 import { syncService } from "../../services/syncService";
 import "./Sidebar.css";
@@ -8,6 +8,7 @@ import "./Sidebar.css";
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [sessionVersion, setSessionVersion] = useState(0);
   const navigate = useNavigate();
   const userStr = localStorage.getItem('usuarioLogueado');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -16,6 +17,14 @@ export default function Sidebar() {
     ? `${user.nombres} ${user.apellidos}`
     : user?.nombre || user?.username || 'Usuario';
   const role = user?.cargo || 'medico';
+
+  useEffect(() => {
+    const refreshUser = () => setSessionVersion(value => value + 1);
+    window.addEventListener('hce-profile-updated', refreshUser);
+    return () => window.removeEventListener('hce-profile-updated', refreshUser);
+  }, []);
+
+  void sessionVersion;
 
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -69,6 +78,10 @@ export default function Sidebar() {
 
           <NavLink to="/historial-clinico" className="nav-item">
             <FileText size={18} /> Historial Clínico
+          </NavLink>
+
+          <NavLink to="/perfil" className="nav-item">
+            <UserRound size={18} /> Mi Perfil
           </NavLink>
 
           {isAdmin && (
