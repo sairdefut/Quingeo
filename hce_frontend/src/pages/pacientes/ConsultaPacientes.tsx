@@ -157,10 +157,18 @@ export default function ConsultaPacientes() {
                         <div className="btn-group shadow-sm rounded-3">
                           <button 
                             className="btn btn-white btn-sm border-end px-3 py-2" 
-                            title="Nueva Consulta"
+                            title="Nueva Consulta Pediátrica"
                             onClick={() => navigate(`/historial/${p.cedula}`)}
                           >
                             <i className="bi bi-plus-circle-fill text-primary"></i>
+                          </button>
+
+                          <button 
+                            className="btn btn-white btn-sm border-end px-3 py-2" 
+                            title="Nueva Consulta Medicina General"
+                            onClick={() => navigate(`/historial-general/${p.cedula}`)}
+                          >
+                            <i className="bi bi-plus-square-fill text-success"></i>
                           </button>
                           
                           <button 

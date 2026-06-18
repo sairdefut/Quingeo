@@ -10,6 +10,7 @@ import HistorialIndex from '../pages/historial/HistorialIndex';
 import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
+import HistorialMedicinaGeneral from '../pages/historial/HistorialMedicinaGeneral';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
 import { obtenerConsultasPorCedula, obtenerPacientes } from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
@@ -50,6 +51,7 @@ export default function AppRouter() {
 
           {/* Gestión de Historial */}
           <Route path="/historial/:cedula" element={<HistorialConsultas />} />
+          <Route path="/historial-general/:cedula" element={<HistorialMedicinaGeneral />} />
           {/* Gestión de Historial - Index (Busqueda) y Detalle */}
           <Route path="/historial-clinico" element={<HistorialIndex />} />
           <Route path="/historial-completo/:cedula" element={<VerHistorialCompleto />} />

@@ -347,7 +347,7 @@ export const TabDiagnostico: FC<Props> = ({
           </div>
         </div>
 
-        <div className="col-md-6 border-end mb-4">
+        <div className="col-12 mb-4">
           <h6 className="text-primary fw-bold border-bottom pb-2">B. Estudios y Laboratorios</h6>
           <label className="small fw-bold mt-2">Estudios Solicitados (Texto libre)</label>
           <ExpandableTextarea className="form-control mb-3" value={estudios} onChange={(e: any) => setEstudios(e.target.value)} placeholder="Ej: Biometría hemática, Rx de tórax, etc." />
@@ -401,7 +401,7 @@ export const TabDiagnostico: FC<Props> = ({
           </div>
         </div>
 
-        <div className="col-md-6 mb-4">
+        <div className="col-12 mb-4">
           <h6 className="text-primary fw-bold border-bottom pb-2">C. Plan Terapéutico</h6>
 
           <label className="small fw-bold mt-2">Manejo Farmacológico</label>
