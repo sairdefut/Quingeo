@@ -11,6 +11,7 @@ export interface SyncStatus {
     syncing: boolean;
     pendingChanges: number;
     online: boolean;
+    checking: boolean;
     conflicts: number;
     failedChanges: number;
     lastError?: string;
@@ -43,6 +44,8 @@ type SyncBatchResponse = {
 
 type SyncOptions = {
     background?: boolean;
+    full?: boolean;
+    reconcile?: boolean;
 };
 
 class SyncService {
@@ -51,9 +54,13 @@ class SyncService {
     private listeners: Array<(status: SyncStatus) => void> = [];
     private toastCallback: ToastCallback | null = null;
     private backendOnline = navigator.onLine;
+    private connectivityChecking = false;
     private lastConnectivityCheck = 0;
+    private activeSyncAbortController: AbortController | null = null;
+    private suspendedForLogout = false;
     private readonly retryDelaysMs = [1000, 2000, 4000];
-    private readonly connectivityCacheMs = 5000;
+    private readonly connectivityCacheMs = 1000;
+    private readonly pingTimeoutMs = 1000;
 
     setToastCallback(callback: ToastCallback) {
         this.toastCallback = callback;
@@ -69,19 +76,20 @@ class SyncService {
 
     async getStatus(): Promise<SyncStatus> {
         const lastSync = await dbHelpers.getMetadata('lastSyncTimestamp');
-        const pendingItems = await dbHelpers.getPendingSyncItems();
+        const pendingItems = this.orderPendingItems(await dbHelpers.getPendingSyncItems());
         const conflicts = await db.conflicts.filter(conflict => !conflict.resolvedAt).count();
         const failedChanges = pendingItems.filter(item => item.status === 'failed').length;
         const failedItems = pendingItems
             .filter(item => item.lastError)
             .sort((a, b) => (b.localUpdatedAt || b.timestamp) - (a.localUpdatedAt || a.timestamp));
-        const online = await this.isSyncAvailable();
+        const online = navigator.onLine && this.backendOnline;
 
         return {
             lastSync: lastSync || null,
             syncing: this.syncInProgress,
             pendingChanges: pendingItems.length,
             online,
+            checking: this.connectivityChecking,
             conflicts,
             failedChanges,
             lastError: failedItems[0]?.lastError
@@ -99,16 +107,60 @@ class SyncService {
     private async notifyListeners() {
         const status = await this.getStatus();
         this.listeners.forEach(listener => listener(status));
+        window.dispatchEvent(new CustomEvent('hce-sync-status-change', {
+            detail: status
+        }));
+    }
+
+    async refreshStatus(): Promise<void> {
+        await this.notifyListeners();
+    }
+
+    private emitSyncCompleted(source: 'up' | 'down' | 'full' = 'down', background = false) {
+        window.dispatchEvent(new CustomEvent('hce-sync-complete', {
+            detail: {
+                source,
+                background,
+                at: Date.now()
+            }
+        }));
+    }
+
+    private async setBackendOnline(online: boolean, notify = true) {
+        if (this.backendOnline !== online) {
+            this.backendOnline = online;
+        }
+        if (notify) {
+            await this.notifyListeners();
+        }
+    }
+
+    private abortActiveSync() {
+        this.activeSyncAbortController?.abort();
+        this.activeSyncAbortController = null;
+    }
+
+    async prepareForLogout() {
+        this.suspendedForLogout = true;
+        this.abortActiveSync();
+        this.syncInProgress = false;
+        await this.notifyListeners();
+    }
+
+    resumeAfterLogin() {
+        this.suspendedForLogout = false;
     }
 
     async syncDown(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (!(await this.isSyncAvailable(true))) return;
 
         try {
             this.syncInProgress = true;
+            this.activeSyncAbortController = new AbortController();
             await this.notifyListeners();
 
-            const lastSync = await dbHelpers.getMetadata('lastSyncTimestamp');
+            const lastSync = options.full ? null : await dbHelpers.getMetadata('lastSyncTimestamp');
             const url = new URL(`${API_BASE_URL}/sync/down`, window.location.origin);
             if (lastSync) {
                 url.searchParams.set('since', String(lastSync));
@@ -117,7 +169,8 @@ class SyncService {
 
             const response = await fetch(requestUrl, {
                 credentials: 'include',
-                headers: this.authHeaders()
+                headers: this.authHeaders(),
+                signal: this.activeSyncAbortController.signal
             });
             if (response.status === 401 || response.status === 403) {
                 if (!options.background) {
@@ -129,6 +182,9 @@ class SyncService {
 
             const data = await response.json();
             await this.applyDownloadedData(data);
+            if (options.reconcile) {
+                await this.reconcileFullSnapshot(data);
+            }
 
             const serverTime = data.serverTime ? Date.parse(data.serverTime) : Date.now();
             await dbHelpers.setMetadata('lastSyncTimestamp', Number.isFinite(serverTime) ? serverTime : Date.now());
@@ -136,14 +192,17 @@ class SyncService {
             if (!options.background) {
                 this.showToast('Datos actualizados', 'success');
             }
+            this.emitSyncCompleted(options.full ? 'full' : 'down', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
+            await this.handleConnectivityFailure(error);
             await dbHelpers.setSyncState('lastSyncResult', { ok: false, at: Date.now(), error: String(error) });
             if (!options.background) {
                 this.showToast('Error al descargar datos', 'error');
             }
         } finally {
             this.syncInProgress = false;
+            this.activeSyncAbortController = null;
             await this.notifyListeners();
         }
     }
@@ -191,10 +250,20 @@ class SyncService {
         }
 
         if (Array.isArray(data.consultas)) {
+            const pendingConsultas = await dbHelpers.getPendingSyncItems();
+            const blockedConsultaUuids = new Set(
+                pendingConsultas
+                    .filter(item => item.entity === 'consulta')
+                    .map(item => item.uuidOffline)
+                    .filter(Boolean)
+            );
+
             for (const c of data.consultas) {
                 const paciente = await db.pacientes.where('idPaciente').equals(c.idPaciente).first();
                 const consultaFE = mapConsultaBackendToFrontend(c);
                 const uuidOffline = consultaFE.uuidOffline || c.uuidOffline || consultaFE.id || `srv-consulta-${c.idConsulta}`;
+                if (blockedConsultaUuids.has(uuidOffline)) continue;
+
                 await db.consultas.put({
                     uuidOffline,
                     id: String(consultaFE.id || uuidOffline),
@@ -212,6 +281,7 @@ class SyncService {
     }
 
     async syncUp(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (!(await this.isSyncAvailable(true))) return;
         const pendingItems = await dbHelpers.getPendingSyncItems();
         if (pendingItems.length === 0) return;
@@ -232,6 +302,7 @@ class SyncService {
             prepared = [];
             await this.syncReadyPendingConsultas(options);
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
+            this.emitSyncCompleted('up', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync up:', error);
             await this.markPreparedItemsFailed(prepared, String(error));
@@ -245,6 +316,72 @@ class SyncService {
         }
     }
 
+    private async reconcileFullSnapshot(data: any) {
+        const pendingItems = await dbHelpers.getPendingSyncItems();
+        const pendingPacienteUuids = new Set(
+            pendingItems
+                .filter(item => item.entity === 'paciente')
+                .map(item => item.uuidOffline)
+                .filter(Boolean)
+        );
+        const pendingPacienteCedulas = new Set(
+            pendingItems
+                .filter(item => item.entity === 'paciente')
+                .map(item => (item.payload || item.data)?.cedula)
+                .filter(Boolean)
+        );
+        const pendingConsultaUuids = new Set(
+            pendingItems
+                .filter(item => item.entity === 'consulta')
+                .map(item => item.uuidOffline)
+                .filter(Boolean)
+        );
+
+        const serverPacientes = Array.isArray(data.pacientes) ? data.pacientes : [];
+        const serverPacienteUuids = new Set(serverPacientes.map((p: any) => p.uuidOffline).filter(Boolean));
+        const serverPacienteIds = new Set(serverPacientes.map((p: any) => p.idPaciente).filter(Boolean));
+        const serverPacienteCedulas = new Set(serverPacientes.map((p: any) => p.cedula).filter(Boolean));
+
+        const serverConsultas = Array.isArray(data.consultas) ? data.consultas : [];
+        const serverConsultaUuids = new Set(serverConsultas.map((c: any) => c.uuidOffline).filter(Boolean));
+        const serverConsultaIds = new Set(serverConsultas.map((c: any) => c.idConsulta).filter(Boolean));
+
+        await db.transaction('rw', db.pacientes, db.consultas, async () => {
+            const pacientes = await db.pacientes.toArray();
+            const pacientesToDelete = pacientes
+                .filter(paciente => {
+                    if (paciente.syncStatus && paciente.syncStatus !== 'synced') return false;
+                    if (paciente.uuidOffline && pendingPacienteUuids.has(paciente.uuidOffline)) return false;
+                    if (paciente.cedula && pendingPacienteCedulas.has(paciente.cedula)) return false;
+                    if (paciente.uuidOffline && serverPacienteUuids.has(paciente.uuidOffline)) return false;
+                    if (paciente.idPaciente && serverPacienteIds.has(paciente.idPaciente)) return false;
+                    if (paciente.cedula && serverPacienteCedulas.has(paciente.cedula)) return false;
+                    return true;
+                })
+                .map(paciente => paciente.uuidOffline)
+                .filter(Boolean) as string[];
+
+            const consultas = await db.consultas.toArray();
+            const consultasToDelete = consultas
+                .filter(consulta => {
+                    if (consulta.syncStatus && consulta.syncStatus !== 'synced') return false;
+                    if (consulta.uuidOffline && pendingConsultaUuids.has(consulta.uuidOffline)) return false;
+                    if (consulta.uuidOffline && serverConsultaUuids.has(consulta.uuidOffline)) return false;
+                    if (consulta.idConsulta && serverConsultaIds.has(consulta.idConsulta)) return false;
+                    return true;
+                })
+                .map(consulta => consulta.uuidOffline)
+                .filter(Boolean);
+
+            if (pacientesToDelete.length > 0) {
+                await db.pacientes.bulkDelete(pacientesToDelete);
+            }
+            if (consultasToDelete.length > 0) {
+                await db.consultas.bulkDelete(consultasToDelete);
+            }
+        });
+    }
+
     private async uploadPreparedItems(
         prepared: Array<{ item: SyncQueueItem; payload: any }>,
         options: SyncOptions
@@ -252,6 +389,7 @@ class SyncService {
         let response: Response | null = null;
         for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt++) {
             try {
+                this.activeSyncAbortController = new AbortController();
                 response = await fetch(`${API_BASE_URL}/sync/up`, {
                     method: 'POST',
                     credentials: 'include',
@@ -259,6 +397,7 @@ class SyncService {
                         ...this.authHeaders(),
                         'Content-Type': 'application/json'
                     },
+                    signal: this.activeSyncAbortController.signal,
                     body: JSON.stringify({
                         deviceId: await this.getDeviceId(),
                         userId: this.getCurrentUserId(),
@@ -285,8 +424,11 @@ class SyncService {
                 if (response.ok) break;
                 throw new Error(`HTTP ${response.status}`);
             } catch (error) {
+                await this.handleConnectivityFailure(error);
                 if (attempt === this.retryDelaysMs.length) throw error;
                 await this.wait(this.retryDelaysMs[attempt]);
+            } finally {
+                this.activeSyncAbortController = null;
             }
         }
 
@@ -294,7 +436,7 @@ class SyncService {
     }
 
     private async syncReadyPendingConsultas(options: SyncOptions): Promise<void> {
-        const pendingConsultas = (await dbHelpers.getPendingSyncItems())
+        const pendingConsultas = this.orderPendingItems(await dbHelpers.getPendingSyncItems())
             .filter(item => item.entity === 'consulta' && (item.status === 'pending' || item.status === 'failed'));
         if (pendingConsultas.length === 0) return;
 
@@ -403,12 +545,35 @@ class SyncService {
                             consulta.data.idPaciente = serverId;
                         }
                     });
+                await db.syncQueue
+                    .where('entity')
+                    .equals('consulta')
+                    .filter(item => item.data?.pacienteUuidOffline === mapping.uuidOffline)
+                    .modify(item => {
+                        if (item.data?.consulta) {
+                            item.data.consulta.idPaciente = serverId;
+                        }
+                        if (item.payload?.pendingPacienteUuidOffline === mapping.uuidOffline) {
+                            item.payload.idPaciente = serverId;
+                        }
+                    });
             }
             if (mapping.entityType === 'consulta' && mapping.uuidOffline && serverId) {
+                const consultaLocal = await db.consultas.get(mapping.uuidOffline);
+                const data = consultaLocal?.data
+                    ? {
+                        ...consultaLocal.data,
+                        idConsulta: serverId,
+                        lastModified: mapping.serverLastModified,
+                        syncStatus: 'synced',
+                        sincronizado: true
+                    }
+                    : undefined;
                 await db.consultas.update(mapping.uuidOffline, {
                     idConsulta: serverId,
                     lastModified: mapping.serverLastModified,
-                    syncStatus: 'synced'
+                    syncStatus: 'synced',
+                    ...(data ? { data } : {})
                 });
             }
         }
@@ -435,6 +600,13 @@ class SyncService {
             if (!item.id) continue;
             if (conflictIds.has(item.clientMutationId)) {
                 await db.syncQueue.update(item.id, { status: 'conflict', synced: 0 });
+                if (item.entity === 'consulta' && item.uuidOffline) {
+                    const row = await db.consultas.get(item.uuidOffline);
+                    await db.consultas.update(item.uuidOffline, {
+                        syncStatus: 'conflict',
+                        data: row?.data ? { ...row.data, syncStatus: 'conflict' } : row?.data
+                    });
+                }
                 continue;
             }
             if (rejected.has(item.clientMutationId)) {
@@ -456,9 +628,30 @@ class SyncService {
     }
 
     async sync(options: SyncOptions = {}): Promise<void> {
+        if (this.suspendedForLogout) return;
         if (this.syncInProgress) return;
         await this.syncUp(options);
         await this.syncDown(options);
+    }
+
+    private orderPendingItems(items: SyncQueueItem[]): SyncQueueItem[] {
+        const priority: Record<string, number> = {
+            paciente: 0,
+            consulta: 1,
+            antecedente: 2
+        };
+        return [...items].sort((a, b) => {
+            const byEntity = (priority[a.entity] ?? 99) - (priority[b.entity] ?? 99);
+            if (byEntity !== 0) return byEntity;
+            const byTimestamp = (a.timestamp || 0) - (b.timestamp || 0);
+            if (byTimestamp !== 0) return byTimestamp;
+            return (a.localUpdatedAt || 0) - (b.localUpdatedAt || 0);
+        });
+    }
+
+    async syncFullFromServer(): Promise<void> {
+        if (this.syncInProgress) return;
+        await this.syncDown({ full: true, reconcile: true });
     }
 
     initAutoSync() {
@@ -466,15 +659,22 @@ class SyncService {
         this.initialized = true;
 
         window.addEventListener('online', () => {
-            this.checkBackendConnectivity(true)
-                .then(() => this.sync({ background: true }))
+            this.handleBrowserOnline()
                 .catch(console.error);
         });
         window.addEventListener('offline', () => {
-            this.backendOnline = false;
-            this.notifyListeners().catch(console.error);
+            this.handleBrowserOffline().catch(console.error);
+        });
+        window.addEventListener('focus', () => {
+            this.checkAndSyncImmediately('focus').catch(console.error);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.checkAndSyncImmediately('visible').catch(console.error);
+            }
         });
         setInterval(() => {
+            if (this.suspendedForLogout) return;
             this.checkBackendConnectivity(true)
                 .then(online => {
                     if (online && !this.syncInProgress) this.sync({ background: true }).catch(console.error);
@@ -489,6 +689,41 @@ class SyncService {
                 return this.notifyListeners();
             })
             .catch(console.error);
+    }
+
+    private async handleBrowserOffline() {
+        this.abortActiveSync();
+        this.syncInProgress = false;
+        this.lastConnectivityCheck = 0;
+        await this.setBackendOnline(false);
+    }
+
+    private async handleBrowserOnline() {
+        if (this.suspendedForLogout) return;
+        this.connectivityChecking = true;
+        await this.notifyListeners();
+        try {
+            const online = await this.checkBackendConnectivity(true);
+            if (online) {
+                await this.sync({ background: true });
+            }
+        } finally {
+            this.connectivityChecking = false;
+            await this.notifyListeners();
+        }
+    }
+
+    private async checkAndSyncImmediately(_reason: 'focus' | 'visible') {
+        if (this.suspendedForLogout) return;
+        if (!navigator.onLine) {
+            await this.handleBrowserOffline();
+            return;
+        }
+        const online = await this.checkBackendConnectivity(true);
+        await this.notifyListeners();
+        if (online && !this.syncInProgress) {
+            await this.sync({ background: true });
+        }
     }
 
     private async isSyncAvailable(force = false): Promise<boolean> {
@@ -507,7 +742,8 @@ class SyncService {
 
         this.lastConnectivityCheck = now;
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 2500);
+        this.connectivityChecking = true;
+        const timeout = window.setTimeout(() => controller.abort(), this.pingTimeoutMs);
         try {
             const response = await fetch(`${API_BASE_URL}/sync/ping?t=${now}`, {
                 method: 'GET',
@@ -516,14 +752,21 @@ class SyncService {
                 headers: this.authHeaders(),
                 signal: controller.signal
             });
-            this.backendOnline = response.ok || response.status === 401 || response.status === 403;
+            await this.setBackendOnline(response.ok || response.status === 401 || response.status === 403, false);
         } catch {
-            this.backendOnline = false;
+            await this.setBackendOnline(false, false);
         } finally {
+            this.connectivityChecking = false;
             window.clearTimeout(timeout);
         }
 
         return this.backendOnline;
+    }
+
+    private async handleConnectivityFailure(error: unknown) {
+        if (!navigator.onLine || error instanceof DOMException || String(error).includes('Failed to fetch')) {
+            await this.setBackendOnline(false);
+        }
     }
 
     private authHeaders(): Record<string, string> {

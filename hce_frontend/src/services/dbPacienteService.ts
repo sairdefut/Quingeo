@@ -1,5 +1,5 @@
 import type { Paciente } from '../models/Paciente';
-import { db, dbHelpers, type ConsultaLocal } from '../db/db';
+import { db, dbHelpers, type ConsultaLocal, type SyncConflict, type SyncItemStatus } from '../db/db';
 import { apiGet } from './apiClient';
 import { mapConsultaBackendToFrontend, mapConsultaFrontendToBackend, type ConsultaBackend } from './consultaMapper';
 import { syncService } from './syncService';
@@ -55,6 +55,9 @@ type PacienteRequestDTO = {
     origin?: string;
     tutor?: any;
 };
+
+type ConsultaSaveMode = 'create' | 'update';
+type ConflictResolution = 'local' | 'server';
 
 function splitFullName(value?: string) {
     const parts = value?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -275,6 +278,110 @@ async function upsertRemoteConsultas(dtos: ConsultaBackend[]) {
     }
 }
 
+function dedupeConsultaRows(rows: ConsultaLocal[]): ConsultaLocal[] {
+    const byKey = new Map<string, ConsultaLocal>();
+
+    rows.forEach(row => {
+        const key = row.uuidOffline || row.id || (row.idConsulta ? `srv-${row.idConsulta}` : '');
+        if (!key) return;
+        const existing = byKey.get(key);
+        if (!existing || (row.localUpdatedAt || 0) > (existing.localUpdatedAt || 0)) {
+            byKey.set(key, row);
+        }
+    });
+
+    return Array.from(byKey.values()).sort((a, b) => (a.localUpdatedAt || 0) - (b.localUpdatedAt || 0));
+}
+
+async function obtenerFilasConsultaDelPaciente(paciente: Paciente): Promise<ConsultaLocal[]> {
+    const grupos = await Promise.all([
+        paciente.idPaciente ? db.consultas.where('idPaciente').equals(paciente.idPaciente).toArray() : Promise.resolve([]),
+        paciente.cedula ? db.consultas.where('cedula').equals(paciente.cedula).toArray() : Promise.resolve([]),
+        paciente.uuidOffline ? db.consultas.where('pacienteUuidOffline').equals(paciente.uuidOffline).toArray() : Promise.resolve([])
+    ]);
+
+    return dedupeConsultaRows(grupos.flat());
+}
+
+async function obtenerConsultaRowLocal(uuidOffline: string, idConsulta?: number): Promise<ConsultaLocal | undefined> {
+    const byUuid = await db.consultas.get(uuidOffline);
+    if (byUuid) return byUuid;
+    if (idConsulta) {
+        return db.consultas.where('idConsulta').equals(idConsulta).first();
+    }
+    return undefined;
+}
+
+async function upsertConsultaSyncQueue(params: {
+    uuidOffline: string;
+    cedula: string;
+    pacienteUuidOffline: string;
+    consulta: any;
+    mode: ConsultaSaveMode;
+    payload: any;
+    baseLastModified?: string | null;
+}) {
+    const pending = await db.syncQueue
+        .where('uuidOffline')
+        .equals(params.uuidOffline)
+        .filter(item => item.entity === 'consulta' && item.status !== 'synced')
+        .toArray();
+    const existing = pending
+        .sort((a, b) => (b.localUpdatedAt || b.timestamp || 0) - (a.localUpdatedAt || a.timestamp || 0))[0];
+    const type = existing?.type === 'CREATE' || params.mode === 'create' ? 'CREATE' : 'UPDATE';
+    const now = Date.now();
+    const queueData = {
+        cedula: params.cedula,
+        consulta: params.consulta,
+        pacienteUuidOffline: params.pacienteUuidOffline
+    };
+
+    if (existing?.id) {
+        await db.syncQueue.update(existing.id, {
+            type,
+            operation: type,
+            data: queueData,
+            payload: params.payload,
+            baseLastModified: type === 'CREATE' ? null : params.baseLastModified || null,
+            status: 'pending',
+            synced: 0,
+            retries: 0,
+            lastError: undefined,
+            localUpdatedAt: now
+        });
+
+        const duplicateIds = pending
+            .filter(item => item.id && item.id !== existing.id)
+            .map(item => item.id!);
+        if (duplicateIds.length > 0) {
+            await db.syncQueue.bulkDelete(duplicateIds);
+        }
+        return;
+    }
+
+    await dbHelpers.addToSyncQueue({
+        type,
+        entity: 'consulta',
+        uuidOffline: params.uuidOffline,
+        baseLastModified: type === 'CREATE' ? null : params.baseLastModified || null,
+        data: queueData,
+        payload: params.payload
+    });
+}
+
+function buildConsultaPayload(consulta: any, paciente: Paciente) {
+    return paciente.idPaciente
+        ? mapConsultaFrontendToBackend(consulta, paciente.idPaciente)
+        : { ...consulta, pendingPacienteUuidOffline: paciente.uuidOffline };
+}
+
+function estadoConsultaLocal(status?: SyncItemStatus) {
+    if (status === 'conflict') return 'conflict';
+    if (status === 'failed') return 'failed';
+    if (status === 'pending' || status === 'syncing') return 'pending';
+    return 'synced';
+}
+
 export async function obtenerPacientes(): Promise<Paciente[]> {
     await migrateLegacyLocalStorage();
 
@@ -325,6 +432,32 @@ export async function buscarPacientes(criterio: string): Promise<Paciente[]> {
     ].filter(Boolean).some(value => String(value).toLowerCase().includes(normalized)));
 }
 
+export async function obtenerPacienteConConsultas(cedula: string): Promise<Paciente | undefined> {
+    const paciente = await buscarPacientePorCedula(cedula);
+    if (!paciente) return undefined;
+
+    if (isOnline() && paciente.idPaciente) {
+        try {
+            const data = await apiGet<ConsultaBackend[]>(`/consultas/paciente/${paciente.idPaciente}`);
+            if (Array.isArray(data)) {
+                await upsertRemoteConsultas(data);
+            }
+        } catch (error) {
+            console.warn('[dbPacienteService] usando consultas locales del paciente:', error);
+        }
+    }
+
+    const rows = await obtenerFilasConsultaDelPaciente(paciente);
+    return {
+        ...paciente,
+        historiaClinica: rows.map(row => ({
+            ...row.data,
+            syncStatus: estadoConsultaLocal(row.syncStatus),
+            lastModified: row.lastModified || row.data?.lastModified
+        }))
+    };
+}
+
 export async function registrarPaciente(paciente: Paciente): Promise<Paciente> {
     await migrateLegacyLocalStorage();
 
@@ -372,17 +505,16 @@ export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise
     }
 
     const rows = await db.consultas.where('idPaciente').equals(idPaciente).sortBy('localUpdatedAt');
-    return rows.map(row => row.data);
+    return rows.map(row => ({
+        ...row.data,
+        syncStatus: estadoConsultaLocal(row.syncStatus),
+        lastModified: row.lastModified || row.data?.lastModified
+    }));
 }
 
 export async function obtenerConsultasPorCedula(cedula: string): Promise<any[]> {
-    const paciente = await buscarPacientePorCedula(cedula);
-    if (paciente?.idPaciente) {
-        return obtenerConsultasPorPacienteId(paciente.idPaciente);
-    }
-
-    const rows = await db.consultas.where('cedula').equals(cedula).sortBy('localUpdatedAt');
-    return rows.map(row => row.data);
+    const paciente = await obtenerPacienteConConsultas(cedula);
+    return paciente?.historiaClinica || [];
 }
 
 export async function obtenerTodasConsultas(): Promise<any[]> {
@@ -398,18 +530,25 @@ export async function obtenerTodasConsultas(): Promise<any[]> {
     }
 
     const rows = await db.consultas.orderBy('localUpdatedAt').toArray();
-    return rows.map(row => row.data);
+    return rows.map(row => ({
+        ...row.data,
+        syncStatus: estadoConsultaLocal(row.syncStatus),
+        lastModified: row.lastModified || row.data?.lastModified
+    }));
 }
 
-export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promise<boolean> {
+export async function guardarConsultaOffline(cedula: string, consulta: any): Promise<boolean> {
     const paciente = await buscarPacientePorCedula(cedula);
     if (!paciente?.uuidOffline) return false;
     const pacienteUuidOffline = paciente.uuidOffline;
 
-    const uuidOffline = nuevaConsulta.uuidOffline || nuevaConsulta.id || crypto.randomUUID();
+    const requestedUuid = String(consulta.uuidOffline || consulta.id || (consulta.idConsulta ? `srv-consulta-${consulta.idConsulta}` : crypto.randomUUID()));
+    const existingRow = await obtenerConsultaRowLocal(requestedUuid, consulta.idConsulta);
+    const uuidOffline = existingRow?.uuidOffline || requestedUuid;
+    const mode: ConsultaSaveMode = consulta.idConsulta || existingRow?.idConsulta ? 'update' : 'create';
     const data = {
-        ...nuevaConsulta,
-        id: nuevaConsulta.id || uuidOffline,
+        ...consulta,
+        id: consulta.id || uuidOffline,
         uuidOffline,
         cedula,
         idPaciente: paciente.idPaciente,
@@ -417,38 +556,44 @@ export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promi
         syncStatus: 'pending'
     };
 
-    const payload = paciente.idPaciente
-        ? mapConsultaFrontendToBackend(data, paciente.idPaciente)
-        : { ...data, pendingPacienteUuidOffline: paciente.uuidOffline };
+    const payload = buildConsultaPayload(data, paciente);
+    const baseLastModified = existingRow?.lastModified || consulta.lastModified || null;
 
     await db.transaction('rw', db.pacientes, db.consultas, db.syncQueue, async () => {
         const row: ConsultaLocal = {
             uuidOffline,
             id: String(data.id),
-            idConsulta: data.idConsulta,
+            idConsulta: data.idConsulta || existingRow?.idConsulta,
             idPaciente: paciente.idPaciente,
             pacienteUuidOffline,
             cedula,
             data,
             syncStatus: 'pending',
+            lastModified: existingRow?.lastModified || consulta.lastModified,
             localUpdatedAt: Date.now()
         };
         await db.consultas.put(row);
 
         const historiaClinica = Array.isArray(paciente.historiaClinica) ? paciente.historiaClinica : [];
+        const sinActual = historiaClinica.filter((c: any) =>
+            c.uuidOffline !== uuidOffline &&
+            c.id !== data.id &&
+            (!data.idConsulta || c.idConsulta !== data.idConsulta)
+        );
         await db.pacientes.update(pacienteUuidOffline, {
-            historiaClinica: [...historiaClinica.filter((c: any) => c.uuidOffline !== uuidOffline), data],
+            historiaClinica: [...sinActual, data],
             antecedentes: data.antecedentes,
             syncStatus: paciente.syncStatus || 'synced'
         });
 
-        await dbHelpers.addToSyncQueue({
-            type: 'CREATE',
-            entity: 'consulta',
+        await upsertConsultaSyncQueue({
             uuidOffline,
-            baseLastModified: data.lastModified || null,
-            data: { cedula, consulta: data, pacienteUuidOffline },
-            payload
+            cedula,
+            pacienteUuidOffline,
+            consulta: data,
+            mode,
+            payload,
+            baseLastModified
         });
     });
 
@@ -456,56 +601,89 @@ export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promi
     return true;
 }
 
+export async function agregarConsulta(cedula: string, nuevaConsulta: any): Promise<boolean> {
+    return guardarConsultaOffline(cedula, nuevaConsulta);
+}
+
 export async function actualizarConsultaExistente(cedula: string, consultaEditada: any): Promise<boolean> {
-    const paciente = await buscarPacientePorCedula(cedula);
+    return guardarConsultaOffline(cedula, consultaEditada);
+}
+
+export async function obtenerConflictosPendientes(): Promise<SyncConflict[]> {
+    return db.conflicts
+        .filter(conflict => !conflict.resolvedAt)
+        .sortBy('createdAt');
+}
+
+export async function resolverConflictoConsulta(conflictId: number, resolution: ConflictResolution): Promise<boolean> {
+    const conflict = await db.conflicts.get(conflictId);
+    if (!conflict || conflict.entity !== 'consulta') return false;
+
+    const uuidOffline = conflict.uuidOffline || conflict.localPayload?.uuidOffline || conflict.serverPayload?.uuidOffline;
+    if (!uuidOffline) return false;
+
+    const row = await db.consultas.get(uuidOffline);
+
+    if (resolution === 'server') {
+        const serverData = mapConsultaBackendToFrontend(conflict.serverPayload as ConsultaBackend);
+        const paciente = serverData.idPaciente
+            ? await db.pacientes.where('idPaciente').equals(serverData.idPaciente).first()
+            : undefined;
+        const cedula = row?.cedula || paciente?.cedula || serverData.cedula || '';
+        const pacienteUuidOffline = row?.pacienteUuidOffline || paciente?.uuidOffline;
+
+        await db.transaction('rw', db.consultas, db.syncQueue, db.conflicts, async () => {
+            await db.consultas.put({
+                uuidOffline,
+                id: String(serverData.id || uuidOffline),
+                idConsulta: serverData.idConsulta,
+                idPaciente: serverData.idPaciente,
+                pacienteUuidOffline,
+                cedula,
+                data: { ...serverData, uuidOffline, cedula, sincronizado: true, syncStatus: 'synced' },
+                syncStatus: 'synced',
+                lastModified: serverData.lastModified,
+                localUpdatedAt: Date.now()
+            });
+            await db.syncQueue
+                .where('clientMutationId')
+                .equals(conflict.clientMutationId || '')
+                .modify({ status: 'synced', synced: 1 });
+            await db.conflicts.update(conflictId, { resolvedAt: Date.now() });
+        });
+        return true;
+    }
+
+    if (!row) return false;
+    const serverLastModified = conflict.serverPayload?.lastModified || null;
+    const paciente = row.pacienteUuidOffline
+        ? await db.pacientes.get(row.pacienteUuidOffline)
+        : await db.pacientes.where('cedula').equals(row.cedula).first();
     if (!paciente?.uuidOffline) return false;
-    const pacienteUuidOffline = paciente.uuidOffline;
 
-    const uuidOffline = consultaEditada.uuidOffline || consultaEditada.id || consultaEditada.idConsulta || crypto.randomUUID();
     const data = {
-        ...consultaEditada,
-        id: consultaEditada.id || uuidOffline,
-        uuidOffline,
-        cedula,
-        idPaciente: paciente.idPaciente,
-        sincronizado: false,
-        syncStatus: 'pending'
+        ...row.data,
+        syncStatus: 'pending',
+        sincronizado: false
     };
+    const payload = buildConsultaPayload(data, paciente);
 
-    const payload = paciente.idPaciente
-        ? mapConsultaFrontendToBackend(data, paciente.idPaciente)
-        : { ...data, pendingPacienteUuidOffline: paciente.uuidOffline };
-
-    await db.transaction('rw', db.pacientes, db.consultas, db.syncQueue, async () => {
-        await db.consultas.put({
-            uuidOffline: String(uuidOffline),
-            id: String(data.id),
-            idConsulta: data.idConsulta,
-            idPaciente: paciente.idPaciente,
-            pacienteUuidOffline,
-            cedula,
+    await db.transaction('rw', db.consultas, db.syncQueue, db.conflicts, async () => {
+        await db.consultas.update(uuidOffline, {
             data,
             syncStatus: 'pending',
-            lastModified: consultaEditada.lastModified,
             localUpdatedAt: Date.now()
         });
-
-        const historiaClinica = Array.isArray(paciente.historiaClinica) ? paciente.historiaClinica : [];
-        await db.pacientes.update(pacienteUuidOffline, {
-            historiaClinica: historiaClinica.map((c: any) =>
-                c.uuidOffline === uuidOffline || c.id === consultaEditada.id || c.idConsulta === consultaEditada.idConsulta ? data : c
-            ),
-            antecedentes: data.antecedentes
+        await upsertConsultaSyncQueue({
+            uuidOffline,
+            cedula: row.cedula,
+            pacienteUuidOffline: paciente.uuidOffline!,
+            consulta: data,
+            mode: 'update',
+            payload,
+            baseLastModified: serverLastModified
         });
-
-        await dbHelpers.addToSyncQueue({
-            type: consultaEditada.idConsulta ? 'UPDATE' : 'CREATE',
-            entity: 'consulta',
-            uuidOffline: String(uuidOffline),
-            baseLastModified: consultaEditada.lastModified || null,
-            data: { cedula, consulta: data, pacienteUuidOffline },
-            payload
-        });
+        await db.conflicts.update(conflictId, { resolvedAt: Date.now() });
     });
 
     fireAndForgetSync();

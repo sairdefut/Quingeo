@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { buscarPacientePorCedula, obtenerConsultasPorPacienteId } from '../../services/dbPacienteService';
+import { obtenerPacienteConConsultas } from '../../services/dbPacienteService';
 
 export default function VerHistorialCompleto() {
     const { cedula } = useParams();
@@ -9,24 +9,29 @@ export default function VerHistorialCompleto() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const cargarDatos = async () => {
+        const cargarDatos = async (showLoading = true) => {
             if (!cedula) return;
-            setLoading(true);
+            if (showLoading) setLoading(true);
             try {
-                const encontrado = await buscarPacientePorCedula(cedula);
-                if (encontrado?.idPaciente) {
-                    const consultas = await obtenerConsultasPorPacienteId(encontrado.idPaciente);
-                    setPaciente({ ...encontrado, historiaClinica: consultas });
-                } else if (encontrado) {
-                    setPaciente(encontrado);
-                }
+                const encontrado = await obtenerPacienteConConsultas(cedula);
+                setPaciente(encontrado || null);
             } catch (error) {
                 console.error('Error cargando datos:', error);
             } finally {
-                setLoading(false);
+                if (showLoading) setLoading(false);
             }
         };
         cargarDatos();
+
+        const refreshHistorial = () => {
+            cargarDatos(false).catch(console.error);
+        };
+        window.addEventListener('hce-sync-complete', refreshHistorial);
+        window.addEventListener('hce-sync-status-change', refreshHistorial);
+        return () => {
+            window.removeEventListener('hce-sync-complete', refreshHistorial);
+            window.removeEventListener('hce-sync-status-change', refreshHistorial);
+        };
     }, [cedula]);
 
     if (loading) {
@@ -73,6 +78,13 @@ export default function VerHistorialCompleto() {
         const planFarmacologico = consulta.diagnostico?.plan?.farmacologico?.esquema;
         const planNoFarmacologico = consulta.diagnostico?.plan?.noFarmacologico?.otros;
         return [planFarmacologico, planNoFarmacologico].filter(Boolean).join(' | ') || 'No registrado';
+    };
+
+    const badgeSync = (consulta: any) => {
+        if (consulta.syncStatus === 'conflict') return <span className="badge bg-warning text-dark mt-1">Conflicto</span>;
+        if (consulta.syncStatus === 'failed') return <span className="badge bg-danger mt-1">Fallida</span>;
+        if (consulta.syncStatus === 'pending' || consulta.syncStatus === 'syncing') return <span className="badge bg-primary mt-1">Pendiente</span>;
+        return null;
     };
 
     const fechaCreacion = paciente.fechaCreacion || new Date().toLocaleDateString();
@@ -168,6 +180,7 @@ export default function VerHistorialCompleto() {
                                     <span className={`badge mt-1 ${consulta.estado === 'Finalizada' ? 'bg-success' : 'bg-warning'}`}>
                                         {consulta.estado || 'Finalizada'}
                                     </span>
+                                    <div>{badgeSync(consulta)}</div>
                                 </div>
 
                                 <div className="position-absolute bg-secondary opacity-25" style={{ width: '2px', top: '15px', bottom: '-50px', left: '135px' }}></div>

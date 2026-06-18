@@ -50,18 +50,20 @@ public class ConsultaMapper {
             entity.setDatosCompletosJson(dto.getJsonCompleto().toString());
         }
 
-        // Mapear planes (con cascade)
-        if (dto.getListaPlan() != null && planMapper != null) {
-            dto.getListaPlan().forEach(planDTO -> {
+        List<ec.gob.salud.hce.backend.dto.PlanTerapeuticoDTO> planes =
+                dto.getListaPlan() != null ? dto.getListaPlan() : dto.getPlanesTerapeuticos();
+        if (planes != null && planMapper != null) {
+            planes.forEach(planDTO -> {
                 ec.gob.salud.hce.backend.entity.PlanTerapeutico plan = planMapper.toEntity(planDTO);
                 plan.setConsulta(entity);
                 entity.getPlanes().add(plan);
             });
         }
 
-        // Mapear estudios (con cascade)
-        if (dto.getListaEstudios() != null && estudioMapper != null) {
-            dto.getListaEstudios().forEach(estudioDTO -> {
+        List<ec.gob.salud.hce.backend.dto.EstudioLaboratorioDTO> estudios =
+                dto.getListaEstudios() != null ? dto.getListaEstudios() : dto.getEstudiosLaboratorios();
+        if (estudios != null && estudioMapper != null) {
+            estudios.forEach(estudioDTO -> {
                 ec.gob.salud.hce.backend.entity.EstudioLaboratorio estudio = estudioMapper.toEntity(estudioDTO);
                 estudio.setConsulta(entity);
                 entity.getEstudios().add(estudio);
@@ -118,6 +120,7 @@ public class ConsultaMapper {
             dto.setListaPlan(entity.getPlanes().stream()
                     .map(planMapper::toDTO)
                     .collect(Collectors.toList()));
+            dto.setPlanesTerapeuticos(dto.getListaPlan());
         }
 
         // Mapear estudios si están cargados
@@ -125,6 +128,7 @@ public class ConsultaMapper {
             dto.setListaEstudios(entity.getEstudios().stream()
                     .map(estudioMapper::toDTO)
                     .collect(Collectors.toList()));
+            dto.setEstudiosLaboratorios(dto.getListaEstudios());
         }
 
         return dto;

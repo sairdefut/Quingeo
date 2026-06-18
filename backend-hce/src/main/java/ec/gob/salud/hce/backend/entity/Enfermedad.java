@@ -4,13 +4,13 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-@Entity // <--- OBLIGATORIO
-@Table(name = "enfermedades") // Asegúrate que este nombre coincida con tu base de datos MySQL
+@Entity
+@Table(name = "enfermedades")
 @Getter
 @Setter
 public class Enfermedad {
 
-    @Id // <--- OBLIGATORIO
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_enfermedad")
     private Integer idEnfermedad;

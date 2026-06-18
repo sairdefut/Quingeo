@@ -12,6 +12,7 @@ import {
   obtenerSexos,
   obtenerTiposSangre
 } from "../../services/catalogService";
+import { notifyError, notifySuccess, notifyWarning } from "../../services/notificationService";
 
 export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
@@ -262,16 +263,16 @@ export default function RegistroPaciente() {
 
       if (tieneErroresIdentificacion && activeTab !== 'identificacion') {
         setActiveTab('identificacion');
-        alert("Por favor complete todos los campos obligatorios en la pestaña 'Datos de Identificación'.");
+        notifyWarning("Por favor complete todos los campos obligatorios en la pestaña 'Datos de Identificación'.");
       } else if (tieneErroresFiliacion && activeTab !== 'filiacion') {
         setActiveTab('filiacion');
-        alert("Por favor complete todos los campos obligatorios en la pestaña 'Filiación y Contacto'.");
+        notifyWarning("Por favor complete todos los campos obligatorios en la pestaña 'Filiación y Contacto'.");
       } else if (erroresActuales.cedula === 'Cédula inválida') {
-        alert("Error: Cédula del paciente inválida.");
+        notifyError("Error: Cédula del paciente inválida.");
       } else if (mensajeEdad) {
-        alert("Error: " + mensajeEdad);
+        notifyError("Error: " + mensajeEdad);
       } else {
-        alert("Por favor complete todos los campos obligatorios marcados con *");
+        notifyWarning("Por favor complete todos los campos obligatorios marcados con *");
       }
       return;
     }
@@ -315,10 +316,10 @@ export default function RegistroPaciente() {
     };
     try {
       await registrarPaciente(paciente as any);
-      alert('Paciente guardado exitosamente.');
+      notifySuccess('Paciente guardado exitosamente.');
       navigate('/pacientes/consulta');
     } catch (err: any) {
-      alert(err.message);
+      notifyError(err.message);
     } finally {
       setGuardando(false);
     }
