@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route, useParams } from 'react-router-dom';
 import Login from '../pages/auth/Login';
 import MainLayout from '../components/layout/MainLayout';
 import Dashboard from '../pages/dashboard/Dashboard';
@@ -10,8 +10,9 @@ import HistorialIndex from '../pages/historial/HistorialIndex';
 import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
-import AdminCie10 from '../pages/admin/AdminCie10';
+import AdminCatalogos from '../pages/admin/AdminCatalogos';
 import AdminRoute from './AdminRoute';
+import OnlineRoute from './OnlineRoute';
 import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
 import { obtenerPacienteConConsultas } from '../services/dbPacienteService';
@@ -54,9 +55,10 @@ export default function AppRouter() {
           <Route path="/reporte-hce/:cedula" element={<ReporteHCEWrapper />} />
 
           <Route path="/historial-usuarios" element={<HistorialUsuarios />} />
-          <Route path="/perfil" element={<PerfilUsuario />} />
+          <Route path="/perfil" element={<OnlineRoute><PerfilUsuario /></OnlineRoute>} />
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
-          <Route path="/admin/cie10" element={<AdminRoute><AdminCie10 /></AdminRoute>} />
+          <Route path="/admin/catalogos" element={<AdminRoute><OnlineRoute><AdminCatalogos /></OnlineRoute></AdminRoute>} />
+          <Route path="/admin/cie10" element={<AdminRoute><OnlineRoute><Navigate to="/admin/catalogos" replace /></OnlineRoute></AdminRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

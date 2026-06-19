@@ -13,6 +13,9 @@ public class Canton {
     @Column(name = "id_canton")
     private Long id;
 
+    @Column(name = "codigo", length = 20)
+    private String codigo;
+
     @Column(nullable = false)
     private String nombre;
 

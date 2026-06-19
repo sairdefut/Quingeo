@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut, UserRound, FileUp } from "lucide-react";
+import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut, UserRound, LibraryBig } from "lucide-react";
 import { logout } from "../../services/authSession";
 import { syncService } from "../../services/syncService";
 import "./Sidebar.css";
@@ -9,6 +9,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [sessionVersion, setSessionVersion] = useState(0);
+  const [online, setOnline] = useState(() => navigator.onLine);
   const navigate = useNavigate();
   const userStr = localStorage.getItem('usuarioLogueado');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -23,6 +24,8 @@ export default function Sidebar() {
     window.addEventListener('hce-profile-updated', refreshUser);
     return () => window.removeEventListener('hce-profile-updated', refreshUser);
   }, []);
+
+  useEffect(() => syncService.subscribe(status => setOnline(status.online)), []);
 
   void sessionVersion;
 
@@ -80,18 +83,30 @@ export default function Sidebar() {
             <FileText size={18} /> Historial Clínico
           </NavLink>
 
-          <NavLink to="/perfil" className="nav-item">
-            <UserRound size={18} /> Mi Perfil
-          </NavLink>
+          {online ? (
+            <NavLink to="/perfil" className="nav-item">
+              <UserRound size={18} /> Mi Perfil
+            </NavLink>
+          ) : (
+            <span className="nav-item nav-item-disabled" title="Disponible únicamente con conexión">
+              <UserRound size={18} /> Mi Perfil
+            </span>
+          )}
 
           {isAdmin && (
             <>
               <NavLink to="/admin/usuarios" className="nav-item">
                 <Users size={18} /> Gestión de Usuarios
               </NavLink>
-              <NavLink to="/admin/cie10" className="nav-item">
-                <FileUp size={18} /> Carga CIE-10
-              </NavLink>
+              {online ? (
+                <NavLink to="/admin/catalogos" className="nav-item">
+                  <LibraryBig size={18} /> Configuración de catálogos
+                </NavLink>
+              ) : (
+                <span className="nav-item nav-item-disabled" title="Disponible únicamente con conexión">
+                  <LibraryBig size={18} /> Configuración de catálogos
+                </span>
+              )}
             </>
           )}
         </nav>

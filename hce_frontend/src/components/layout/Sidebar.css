@@ -63,6 +63,16 @@ nav {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
+.nav-item-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.nav-item-disabled:hover {
+  background-color: transparent;
+}
+
 .sidebar-footer {
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   margin-top: auto;

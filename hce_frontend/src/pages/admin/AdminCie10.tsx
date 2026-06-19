@@ -22,7 +22,7 @@ interface Cie10ImportResult {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export default function AdminCie10() {
+export default function AdminCie10({ embedded = false }: { embedded?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Cie10ImportResult | null>(null);
@@ -104,7 +104,7 @@ export default function AdminCie10() {
 
   return (
     <div className="cie10-page container-fluid py-2">
-      <div className="cie10-heading mb-4">
+      {!embedded && <div className="cie10-heading mb-4">
         <div>
           <span className="cie10-eyebrow">Administración</span>
           <h2 className="fw-bold mb-2">Carga del catálogo CIE-10</h2>
@@ -113,7 +113,7 @@ export default function AdminCie10() {
           </p>
         </div>
         <FileSpreadsheet size={44} aria-hidden="true" />
-      </div>
+      </div>}
 
       <section className="card border-0 shadow-sm p-4 mb-4">
         <h5 className="fw-bold mb-3">1. Seleccionar archivo</h5>

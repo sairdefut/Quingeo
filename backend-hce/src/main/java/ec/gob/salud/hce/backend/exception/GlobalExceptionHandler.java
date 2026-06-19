@@ -20,6 +20,11 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(GeographicCatalogImportException.class)
+    public ResponseEntity<Map<String, Object>> handleGeographicCatalogImportException(GeographicCatalogImportException ex) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleMaxUploadSizeExceededException() {
         return errorResponse(HttpStatus.BAD_REQUEST, "El archivo supera el límite de 5 MB.");
