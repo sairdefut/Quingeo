@@ -424,8 +424,8 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
         try {
             // Check if there are pending offline changes for this patient
             const pending = await dbHelpers.getPendingSyncItems();
-            const hasPending = pending.some(item => 
-                item.entity === 'paciente' && 
+            const hasPending = pending.some(item =>
+                item.entity === 'paciente' &&
                 (item.payload || item.data)?.cedula === cedula
             );
 
@@ -433,7 +433,7 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
                 const data = await apiGet<PacienteResponseDTO>(`/pacientes/${encodeURIComponent(cedula)}`);
                 if (data) {
                     const mapped = mapPacienteBackendToFrontend(data);
-                    
+
                     // Merge local properties like historiaClinica if they exist
                     const merged = {
                         ...(local || {}),
@@ -450,7 +450,7 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
                         uuidOffline: local?.uuidOffline || mapped.uuidOffline,
                         historiaClinica: local?.historiaClinica || mapped.historiaClinica || []
                     };
-                    
+
                     await db.pacientes.put(merged);
                     return merged;
                 }
