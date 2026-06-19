@@ -12,6 +12,9 @@ public class Provincia {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_provincia") // <--- ESTE ES EL CAMBIO CLAVE
     private Long id;
+
+    @Column(name = "codigo", length = 20)
+    private String codigo;
     
     @Column(name = "nombre", nullable = false, length = 150)
     private String nombre;

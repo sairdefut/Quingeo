@@ -13,11 +13,17 @@ public class Parroquia {
     @Column(name = "id_parroquia") // Verifica si en tu DB es 'id_parroquia'
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "codigo", length = 20)
+    private String codigo;
+
+    @Column(nullable = false, length = 255)
     private String nombre;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_canton") // El nombre de la columna llave foránea en tu DB
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Canton canton;
+
+    @Column(name = "id_cnt_provincia", nullable = false)
+    private Long provinciaId;
 }
