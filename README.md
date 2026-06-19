@@ -1,4 +1,4 @@
-# Proyecto HCE - Historia Clínica Electrónica (Offline-First)
+# Proyecto HCE - Historia Clínica Electrónica
 
 Este proyecto implementa un sistema de Historia Clínica Electrónica (HCE) con una arquitectura de microservicios contenerizada y capacidades **Offline-First**, permitiendo el registro de pacientes y consultas incluso sin conexión a internet.
 
