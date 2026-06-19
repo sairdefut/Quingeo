@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut, UserRound } from "lucide-react";
+import { LayoutDashboard, History, UserPlus, Search, FileText, Menu, X, Users, LogOut, UserRound, FileUp } from "lucide-react";
 import { logout } from "../../services/authSession";
 import { syncService } from "../../services/syncService";
 import "./Sidebar.css";
@@ -85,9 +85,14 @@ export default function Sidebar() {
           </NavLink>
 
           {isAdmin && (
-            <NavLink to="/admin/usuarios" className="nav-item">
-              <Users size={18} /> Gestión de Usuarios
-            </NavLink>
+            <>
+              <NavLink to="/admin/usuarios" className="nav-item">
+                <Users size={18} /> Gestión de Usuarios
+              </NavLink>
+              <NavLink to="/admin/cie10" className="nav-item">
+                <FileUp size={18} /> Carga CIE-10
+              </NavLink>
+            </>
           )}
         </nav>
 

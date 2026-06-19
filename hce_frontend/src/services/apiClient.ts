@@ -49,7 +49,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     const headers = new Headers(options.headers);
     const hasBody = options.body !== undefined && options.body !== null;
 
-    if (hasBody && !headers.has('Content-Type')) {
+    if (hasBody && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
     }
     const token = localStorage.getItem('hceAuthToken');
@@ -96,6 +96,14 @@ export function apiPost<T>(path: string, body?: unknown, options?: ApiOptions) {
         ...options,
         method: 'POST',
         body: body === undefined ? undefined : JSON.stringify(body)
+    });
+}
+
+export function apiPostForm<T>(path: string, formData: FormData, options?: ApiOptions) {
+    return apiRequest<T>(path, {
+        ...options,
+        method: 'POST',
+        body: formData
     });
 }
 

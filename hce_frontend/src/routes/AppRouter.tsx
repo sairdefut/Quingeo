@@ -10,6 +10,8 @@ import HistorialIndex from '../pages/historial/HistorialIndex';
 import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
+import AdminCie10 from '../pages/admin/AdminCie10';
+import AdminRoute from './AdminRoute';
 import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
 import { obtenerPacienteConConsultas } from '../services/dbPacienteService';
@@ -53,7 +55,8 @@ export default function AppRouter() {
 
           <Route path="/historial-usuarios" element={<HistorialUsuarios />} />
           <Route path="/perfil" element={<PerfilUsuario />} />
-          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+          <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
+          <Route path="/admin/cie10" element={<AdminRoute><AdminCie10 /></AdminRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>
