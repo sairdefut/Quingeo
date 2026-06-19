@@ -1,191 +1,112 @@
-# 🐳 Sistema HCE - Dockerizado
+# Sistema HCE con Docker
 
-## Inicio Rápido
+## Arquitectura de producción
 
-### Requisitos Previos
-- Docker Desktop instalado
-- Docker Compose v2+
-- 4GB RAM disponible
+El único punto de entrada público es el proxy Nginx:
 
-### 1️⃣ Configurar Variables de Entorno
+| Servicio | Acceso |
+|---|---|
+| Aplicación | `https://hce.codifyhub.dev/` |
+| API | `https://hce.codifyhub.dev/api/` |
+| Nginx | Puertos públicos `80` y `443` |
+| Frontend | Solo red interna Docker, puerto `80` |
+| Backend | Solo red interna Docker, puerto `8080` |
+| MySQL | Solo red interna Docker, puerto `3306` |
+
+El tráfico HTTP se redirige a HTTPS. Los certificados de Let's Encrypt y los archivos de desafío ACME se conservan en volúmenes Docker.
+
+## Primer despliegue HTTPS
+
+### Requisitos
+
+- Docker Engine y Docker Compose v2.
+- El registro DNS `A` de `hce.codifyhub.dev` debe apuntar a `34.45.247.176`.
+- Los puertos TCP `80` y `443` deben estar abiertos en el firewall del servidor y del proveedor cloud.
+- Ningún otro proceso debe estar utilizando los puertos `80` o `443`.
+
+### 1. Configurar el entorno
 
 ```bash
-# Copiar archivo de ejemplo
 cp .env.example .env
-
-# Editar .env con tus credenciales (opcional)
-# Define al menos MYSQL_ROOT_PASSWORD y HCE_DEFAULT_USER_PASSWORD
 ```
 
-### 2️⃣ Iniciar el Sistema
+Define como mínimo valores seguros para `MYSQL_ROOT_PASSWORD` y `HCE_DEFAULT_USER_PASSWORD`. Conserva este origen permitido:
+
+```dotenv
+ALLOWED_ORIGINS=https://hce.codifyhub.dev
+```
+
+### 2. Obtener el certificado inicial
+
+El proxy HTTPS todavía no debe estar levantado, porque Certbot necesita ocupar temporalmente el puerto 80:
 
 ```bash
-# Construir e iniciar todos los contenedores
-docker-compose up -d
-
-# Ver logs en tiempo real
-docker-compose logs -f
+docker compose down
+docker compose --profile cert-init run --rm --service-ports certbot-init
 ```
 
-Espera ~60 segundos para que todo esté listo.
+Certbot se registra sin correo y almacena el certificado en el volumen `hce-certbot-conf`.
 
-### 3️⃣ Verificar que Funcione
+### 3. Levantar la aplicación
 
-**Frontend Web:**
 ```bash
-# Abrir en navegador
-http://localhost
+docker compose up -d --build
+docker compose ps
 ```
 
-**Backend API:**
+Comprueba el acceso en `https://hce.codifyhub.dev/`. El contenedor `certbot` revisará la renovación cada 12 horas y Nginx recargará los certificados periódicamente.
+
+## Verificación
+
 ```bash
-curl http://localhost:8080/actuator/health
+# Validar la configuración resuelta de Compose
+docker compose config --quiet
+
+# Validar Nginx dentro del contenedor
+docker compose exec reverse-proxy nginx -t
+
+# Consultar el frontend y la API a través del proxy
+curl -I http://hce.codifyhub.dev/
+curl -I https://hce.codifyhub.dev/
+curl https://hce.codifyhub.dev/api/actuator/health
+
+# Ensayar la renovación sin modificar el certificado vigente
+docker compose exec certbot certbot renew --dry-run --webroot --webroot-path /var/www/certbot
 ```
 
-**Base de Datos:**
+Para comprobar la PWA, abre la aplicación una vez con Internet y confirma en las herramientas del navegador que `/sw.js` controla la página. Después desconecta la red y refresca una ruta como `/dashboard`.
+
+## Operación
+
 ```bash
-docker exec -it hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> -e "SHOW DATABASES;"
+# Estado
+docker compose ps
+
+# Logs
+docker compose logs -f
+docker compose logs -f reverse-proxy certbot
+
+# Reiniciar un servicio
+docker compose restart backend
+
+# Reconstruir la aplicación
+docker compose up -d --build
+
+# Detener sin borrar datos ni certificados
+docker compose down
 ```
 
----
+Para acceder a MySQL desde el servidor usa el propio contenedor:
 
-## 🎯 Acceso a los Servicios
-
-| Servicio | URL | Credenciales |
-|----------|-----|--------------|
-| **Frontend Web** | http://localhost | - |
-| **Backend API** | http://localhost:8080 | - |
-| **MySQL** | localhost:3306 | root / valor de `MYSQL_ROOT_PASSWORD` |
-| **Health Check Backend** | http://localhost:8080/actuator/health | - |
-
-> **Nota**: El frontend hace proxy de `/api/*` → `backend:8080/api/*` automáticamente
-
----
-
-## 🛠️ Comandos Útiles
-
-### Ver Estado de Contenedores
 ```bash
-docker-compose ps
+docker exec -it hce-mysql mysql -uroot -p hce_prueba2
 ```
 
-### Ver Logs
-```bash
-# Todos los servicios
-docker-compose logs -f
+No uses `docker compose down -v` salvo que quieras eliminar tanto la base de datos como los certificados persistentes.
 
-# Solo backend
-docker-compose logs -f backend
+## Resolución de problemas
 
-# Solo MySQL
-docker-compose logs -f mysql
-```
-
-### Detener el Sistema
-```bash
-docker-compose down
-```
-
-### Detener y Eliminar Datos
-```bash
-# ⚠️ CUIDADO: Elimina la base de datos
-docker-compose down -v
-```
-
-### Reiniciar un Servicio
-```bash
-docker-compose restart backend
-```
-
-### Reconstruir Imagen del Backend
-```bash
-docker-compose build backend
-docker-compose up -d backend
-```
-
----
-
-## 🗄️ Base de Datos
-
-### Acceder a MySQL
-```bash
-docker exec -it hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2
-```
-
-### Backup de la BD
-```bash
-docker exec hce-mysql mysqldump -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2 > backup_$(date +%Y%m%d).sql
-```
-
-### Restaurar Backup
-```bash
-docker exec -i hce-mysql mysql -uroot -p<TU_PASSWORD_MYSQL> hce_prueba2 < backup.sql
-```
-
----
-
-## 🔧 Desarrollo Local
-
-### Modo Desarrollo (sin Docker)
-
-**Backend:**
-```bash
-cd backend-hce/backend-hce
-./mvnw spring-boot:run
-```
-
-**MySQL (con Docker):**
-```bash
-docker-compose up -d mysql
-```
-
----
-
-## 📦 Estructura de Volúmenes
-
-```
-hce-mysql-data/     # Datos persistentes de MySQL
-```
-
-Los datos sobreviven a reinicios de contenedores.
-
----
-
-## ⚠️ Troubleshooting
-
-### Error: Puerto 3306 ya en uso
-```bash
-# Detener MySQL local
-sudo systemctl stop mysql
-# o en Windows: Services → MySQL → Stop
-```
-
-### Error: Puerto 8080 ya en uso
-```bash
-# Cambiar en .env
-BACKEND_PORT=8081
-```
-
-### Backend no se conecta a MySQL
-```bash
-# Verificar que MySQL esté healthy
-docker-compose ps
-
-# Ver logs de MySQL
-docker-compose logs mysql
-```
-
-### Reiniciar desde cero
-```bash
-docker-compose down -v
-docker-compose up -d
-```
-
-
----
-
-## 📝 Notas
-
-- El dump SQL se ejecuta **solo la primera vez** que se crea el contenedor MySQL
-- Para reinicializar la BD: `docker-compose down -v && docker-compose up -d`
-- Health checks aseguran que los servicios estén listos antes de aceptar tráfico
+- Si Certbot no valida el dominio, confirma primero el DNS con `nslookup hce.codifyhub.dev` y revisa el firewall del puerto 80.
+- Si Nginx indica que no encuentra `fullchain.pem`, ejecuta nuevamente el paso de obtención inicial antes de levantar el stack.
+- Si el navegador continúa mostrando HTTP, verifica que estés entrando mediante el dominio y no mediante la IP.
+- Si la API rechaza el origen, confirma que `.env` contenga `ALLOWED_ORIGINS=https://hce.codifyhub.dev` y recrea el backend.
