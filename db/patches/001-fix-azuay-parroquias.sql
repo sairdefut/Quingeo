@@ -1054,12 +1054,13 @@ INSERT INTO seed_parroquias_ecuador (id_cnt_provincia, id_canton, nombre) VALUES
 (24, 4, 'ANCONCITO'),
 (24, 4, 'JOSÉ LUIS TAMAYO');
 
-INSERT INTO parroquias (nombre, id_canton)
-SELECT s.nombre, s.id_canton
+INSERT INTO parroquias (nombre, id_canton, id_cnt_provincia)
+SELECT s.nombre, s.id_canton, s.id_cnt_provincia
 FROM seed_parroquias_ecuador s
 LEFT JOIN parroquias p
   ON p.nombre = s.nombre
  AND p.id_canton = s.id_canton
+ AND p.id_cnt_provincia = s.id_cnt_provincia
 WHERE p.id_parroquia IS NULL;
 
 DROP TEMPORARY TABLE seed_parroquias_ecuador;
