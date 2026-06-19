@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate, useLocation } from "react-router-dom";
-import ErrorBoundary from "../../ErrorBoundary";
 import {
   obtenerCantones,
   obtenerEtnias,
@@ -15,7 +14,7 @@ import {
 } from "../../services/catalogService";
 import { notifyError, notifySuccess, notifyWarning } from "../../services/notificationService";
 
-function RegistroPacienteInner() {
+export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
   const navigate = useNavigate();
   const { state } = useLocation();
@@ -582,13 +581,5 @@ function RegistroPacienteInner() {
         </div>
       </div>
     </>
-  );
-}
-
-export default function RegistroPaciente() {
-  return (
-    <ErrorBoundary>
-      <RegistroPacienteInner />
-    </ErrorBoundary>
   );
 }

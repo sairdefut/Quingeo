@@ -16,8 +16,6 @@ services:
     volumes:
       # Persistencia de datos
       - mysql-data:/var/lib/mysql
-      - ./db/patches/000-provincias.sql:/docker-entrypoint-initdb.d/01-provincias.sql:ro
-      - ./db/patches/000b-cantones.sql:/docker-entrypoint-initdb.d/01b-cantones.sql:ro
       - ./db/patches/001-fix-azuay-parroquias.sql:/docker-entrypoint-initdb.d/02-fix-azuay-parroquias.sql:ro
       - ./db/patches/002-referencia-medica.sql:/docker-entrypoint-initdb.d/03-referencia-medica.sql:ro
       - ./db/patches/003-agregar-enfermedades-cie10.sql:/docker-entrypoint-initdb.d/04-agregar-enfermedades-cie10.sql:ro

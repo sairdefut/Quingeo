@@ -23,6 +23,7 @@ public class PacienteMapper {
         dto.setIdPaciente(entity.getIdPaciente());
         dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
         dto.setCedula(entity.getCedula());
+        dto.setTipoIdentificacion(entity.getTipoIdentificacion());
         dto.setPrimerNombre(entity.getPrimerNombre());
         dto.setSegundoNombre(entity.getSegundoNombre());
         dto.setApellidoPaterno(entity.getApellidoPaterno());
@@ -30,6 +31,11 @@ public class PacienteMapper {
         dto.setFechaNacimiento(entity.getFechaNacimiento());
         dto.setSexo(entity.getSexo());
         dto.setTipoSangre(entity.getTipoSangre());
+
+        dto.setNombreCompleto(entity.getNombreCompleto());
+        dto.setEdad(entity.getEdad());
+        dto.setTipoPaciente(entity.getTipoPaciente());
+        dto.setAnioEscolar(entity.getAnioEscolar());
 
         // --- CORRECCIÓN: ASIGNACIÓN DIRECTA DE IDs ---
         // Ahora: entity.getIdGrupoEtnico() ya devuelve el Integer
