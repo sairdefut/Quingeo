@@ -79,7 +79,8 @@ public class PacienteService {
             TutorDTO tutorDto = dto.getTutor();
 
             Tutor tutor = new Tutor();
-            // Mapeamos los campos del Tutor
+
+            // Actualizamos los campos del Tutor (tanto si es nuevo como existente)
             tutor.setPrimerNombre(tutorDto.getPrimerNombre());
             tutor.setSegundoNombre(tutorDto.getSegundoNombre());
             tutor.setPrimerApellido(tutorDto.getPrimerApellido());
@@ -90,11 +91,14 @@ public class PacienteService {
 
             // Ubicación Tutor (Directo Integer)
             tutor.setIdParroquia(tutorDto.getIdParroquia());
+            tutor.setIdPrqCanton(tutorDto.getCanton());
+            tutor.setIdPrqCntProvincia(tutorDto.getProvincia());
 
             // Guardar Tutor
             tutor = tutorRepository.save(tutor);
 
-            // C. GUARDAR RELACIÓN (Tabla Intermedia)
+            // Crear la relación
+
             PacienteTutor relacion = new PacienteTutor();
             relacion.setPaciente(paciente);
             relacion.setTutor(tutor);

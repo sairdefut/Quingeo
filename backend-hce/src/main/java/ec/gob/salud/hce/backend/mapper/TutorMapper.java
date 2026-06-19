@@ -22,6 +22,8 @@ public class TutorMapper {
         dto.setDireccion(entity.getDireccion());
         dto.setNivelEducativo(entity.getNivelEducativo());
         dto.setIdParroquia(entity.getIdParroquia());
+        dto.setCanton(entity.getIdPrqCanton());
+        dto.setProvincia(entity.getIdPrqCntProvincia());
 
         return dto;
     }
@@ -41,6 +43,8 @@ public class TutorMapper {
         entity.setDireccion(dto.getDireccion());
         entity.setNivelEducativo(dto.getNivelEducativo());
         entity.setIdParroquia(dto.getIdParroquia());
+        entity.setIdPrqCanton(dto.getCanton());
+        entity.setIdPrqCntProvincia(dto.getProvincia());
 
         return entity;
     }

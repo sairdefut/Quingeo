@@ -158,11 +158,16 @@ export function mapPacienteBackendToFrontend(dto: PacienteResponseDTO): Paciente
         idParroquia: dto.idParroquia,
         idPrqCanton: dto.idPrqCanton,
         idPrqCntProvincia: dto.idPrqCntProvincia,
-        provincia: dto.idPrqCntProvincia ? `ID ${dto.idPrqCntProvincia}` : '',
-        canton: dto.idPrqCanton ? `ID ${dto.idPrqCanton}` : '',
-        parroquia: dto.idParroquia ? `ID ${dto.idParroquia}` : '',
+        provincia: '',
+        canton: '',
+        parroquia: '',
         usuario: dto.usuario,
-        filiacion: dto.tutor,
+        filiacion: dto.tutor ? {
+            ...dto.tutor,
+            idPrqCntProvincia: dto.tutor.provincia,
+            idPrqCanton: dto.tutor.canton,
+            idParroquia: dto.tutor.idParroquia
+        } : undefined,
         historiaClinica: [],
         syncStatus: dto.syncStatus || 'synced',
         lastModified: dto.lastModified,
@@ -173,7 +178,8 @@ export function mapPacienteBackendToFrontend(dto: PacienteResponseDTO): Paciente
 function mapPacienteFrontendToBackend(paciente: Paciente): PacienteRequestDTO {
     const nombres = splitFullName(paciente.nombres);
     const apellidos = splitFullName(paciente.apellidos);
-    const tutor = splitPersonName(paciente.filiacion?.nombreResponsable);
+    const tutorFields = paciente.filiacion || {};
+    const tutorSplit = tutorFields.primerNombre ? tutorFields : splitPersonName(paciente.filiacion?.nombreResponsable);
 
     return {
         idPaciente: paciente.idPaciente,
@@ -196,17 +202,18 @@ function mapPacienteFrontendToBackend(paciente: Paciente): PacienteRequestDTO {
         uuidOffline: paciente.uuidOffline || paciente.id || crypto.randomUUID(),
         origin: 'frontend-offline',
         tutor: paciente.filiacion ? {
-            primerNombre: tutor.primerNombre,
-            segundoNombre: tutor.segundoNombre,
-            primerApellido: tutor.primerApellido,
-            segundoApellido: tutor.segundoApellido,
+            primerNombre: tutorSplit.primerNombre,
+            segundoNombre: tutorSplit.segundoNombre,
+            primerApellido: tutorSplit.primerApellido,
+            segundoApellido: tutorSplit.segundoApellido,
             parentesco: paciente.filiacion.parentesco,
-            telefono: paciente.filiacion.telefonoContacto,
-            nivelEducativo: paciente.filiacion.nivelEducativoResponsable,
-            direccion: paciente.filiacion.domicilioActual,
+            // Support both field name conventions (frontend saved vs backend returned)
+            telefono: paciente.filiacion.telefonoContacto || paciente.filiacion.telefono,
+            nivelEducativo: paciente.filiacion.nivelEducativoResponsable || paciente.filiacion.nivelEducativo,
+            direccion: paciente.filiacion.domicilioActual || paciente.filiacion.direccion,
             idParroquia: paciente.filiacion.idParroquia,
-            provincia: paciente.filiacion.idPrqCntProvincia,
-            canton: paciente.filiacion.idPrqCanton
+            provincia: paciente.filiacion.idPrqCntProvincia || paciente.filiacion.provincia,
+            canton: paciente.filiacion.idPrqCanton || paciente.filiacion.canton
         } : undefined
     };
 }
@@ -231,6 +238,15 @@ async function upsertRemotePacientes(dtos: PacienteResponseDTO[]) {
             return {
                 ...existing,
                 ...mapped,
+                // Preserve local filiacion strings if server didn't return them or returned IDs
+                filiacion: mapped.filiacion ? {
+                    ...(localByCedula.get(mapped.cedula)?.filiacion || {}),
+                    ...mapped.filiacion,
+                    provincia: typeof mapped.filiacion.provincia === 'string' ? mapped.filiacion.provincia : localByCedula.get(mapped.cedula)?.filiacion?.provincia,
+                    canton: typeof mapped.filiacion.canton === 'string' ? mapped.filiacion.canton : localByCedula.get(mapped.cedula)?.filiacion?.canton,
+                    parroquia: typeof mapped.filiacion.parroquia === 'string' ? mapped.filiacion.parroquia : localByCedula.get(mapped.cedula)?.filiacion?.parroquia,
+                } : existing?.filiacion,
+                grupoEtnico: mapped.grupoEtnico || existing?.grupoEtnico,
                 uuidOffline,
                 id: uuidOffline,
                 historiaClinica: existing?.historiaClinica || []
@@ -403,20 +419,49 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
     await migrateLegacyLocalStorage();
 
     const local = await db.pacientes.where('cedula').equals(cedula).first();
-    if (local || !isOnline()) {
-        return local;
+
+    if (isOnline()) {
+        try {
+            // Check if there are pending offline changes for this patient
+            const pending = await dbHelpers.getPendingSyncItems();
+            const hasPending = pending.some(item =>
+                item.entity === 'paciente' &&
+                (item.payload || item.data)?.cedula === cedula
+            );
+
+            if (!hasPending) {
+                const data = await apiGet<PacienteResponseDTO>(`/pacientes/${encodeURIComponent(cedula)}`);
+                if (data) {
+                    const mapped = mapPacienteBackendToFrontend(data);
+
+                    // Merge local properties like historiaClinica if they exist
+                    const merged = {
+                        ...(local || {}),
+                        ...mapped,
+                        grupoEtnico: mapped.grupoEtnico || local?.grupoEtnico,
+                        filiacion: mapped.filiacion ? {
+                            ...(local?.filiacion || {}),
+                            ...mapped.filiacion,
+                            provincia: typeof mapped.filiacion.provincia === 'string' ? mapped.filiacion.provincia : local?.filiacion?.provincia,
+                            canton: typeof mapped.filiacion.canton === 'string' ? mapped.filiacion.canton : local?.filiacion?.canton,
+                            parroquia: typeof mapped.filiacion.parroquia === 'string' ? mapped.filiacion.parroquia : local?.filiacion?.parroquia,
+                        } : local?.filiacion,
+                        id: local?.id || mapped.id,
+                        uuidOffline: local?.uuidOffline || mapped.uuidOffline,
+                        historiaClinica: local?.historiaClinica || mapped.historiaClinica || []
+                    };
+
+                    await db.pacientes.put(merged);
+                    return merged;
+                }
+            }
+        } catch (error: any) {
+            console.warn('[dbPacienteService] Could not fetch full patient info from server:', error);
+            if (error?.status === 404 && !local) return undefined;
+        }
     }
 
-    try {
-        const data = await apiGet<PacienteResponseDTO>(`/pacientes/${encodeURIComponent(cedula)}`);
-        if (!data) return undefined;
-        const mapped = mapPacienteBackendToFrontend(data);
-        await dbHelpers.savePaciente(mapped);
-        return mapped;
-    } catch (error: any) {
-        if (error?.status === 404) return undefined;
-        throw error;
-    }
+    return local || undefined;
 }
 
 export async function buscarPacientes(criterio: string): Promise<Paciente[]> {

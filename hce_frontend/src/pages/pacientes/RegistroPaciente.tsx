@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { registrarPaciente } from "../../services/dbPacienteService";
 import { v4 as uuidv4 } from "uuid";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   obtenerCantones,
   obtenerEtnias,
@@ -17,6 +17,10 @@ import { notifyError, notifySuccess, notifyWarning } from "../../services/notifi
 export default function RegistroPaciente() {
   const [activeTab, setActiveTab] = useState<'identificacion' | 'filiacion'>('identificacion');
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const pacienteEditar = state?.pacienteEditar;
+  const [uuidOffline, setUuidOffline] = useState<string | undefined>(undefined);
+  const [idPaciente, setIdPaciente] = useState<number | undefined>(undefined);
 
   // MODIFICACIÓN 1: El nombre se inicializa vacío y se carga del login
   const [nombreDoctor, setNombreDoctor] = useState("Cargando...");
@@ -142,7 +146,7 @@ export default function RegistroPaciente() {
     setEdad({ años: anos, meses: meses });
   };
 
-  // LISTAS DESDE CATÁLOGOS LOCALES
+  // LISTAS DESDE CATÁLOGOS LOCALES (MOVIDO ARRIBA PARA EVITAR TEMPORAL DEAD ZONE)
   const [provincias, setProvincias] = useState<any[]>([]);
   const [cantonesList, setCantonesList] = useState<any[]>([]);
   const [parroquiasList, setParroquiasList] = useState<any[]>([]);
@@ -153,6 +157,175 @@ export default function RegistroPaciente() {
   const [tiposSangreList, setTiposSangreList] = useState<any[]>([]);
   const [parentescosList, setParentescosList] = useState<any[]>([]);
   const [nivelesEducativosList, setNivelesEducativosList] = useState<any[]>([]);
+
+  const [formCargado, setFormCargado] = useState(false);
+
+  // ====== EFECTO 1: Llenar campos básicos INMEDIATAMENTE cuando hay pacienteEditar ======
+  useEffect(() => {
+    if (!pacienteEditar) return;
+    if (formCargado) return;
+    setFormCargado(true);
+
+    try {
+      setUuidOffline(pacienteEditar.uuidOffline);
+      setIdPaciente(pacienteEditar.idPaciente);
+      setCedula(pacienteEditar.cedula || '');
+      setTipoIdentificacion(pacienteEditar.tipoIdentificacion || 'CEDULA');
+
+      const partsNombres = pacienteEditar.nombres?.trim().split(/\s+/) || [];
+      setPrimerNombre(partsNombres[0] || '');
+      setSegundoNombre(partsNombres.slice(1).join(' ') || '');
+
+      const partsApellidos = pacienteEditar.apellidos?.trim().split(/\s+/) || [];
+      setPrimerApellido(partsApellidos[0] || '');
+      setSegundoApellido(partsApellidos.slice(1).join(' ') || '');
+
+      setFechaNacimiento(pacienteEditar.fechaNacimiento || '');
+      if (pacienteEditar.fechaNacimiento) manejarFechaNacimiento(pacienteEditar.fechaNacimiento);
+
+      setSexo(pacienteEditar.sexo || '');
+      setTipoSangre(pacienteEditar.tipoSangre || '');
+      setAnioEscolar(pacienteEditar.anioEscolar?.trim() || '');
+      // Grupo Étnico: usar el nombre guardado inmediatamente (el catálogo lo refinará si carga)
+      setGrupoEtnico(pacienteEditar.grupoEtnico || '');
+
+      // Filiación del tutor - campos de texto (no dependen de catálogos)
+      const fil = pacienteEditar.filiacion;
+      if (fil) {
+        if (fil.primerNombre || fil.primerApellido) {
+          setPrimerNombreRes(fil.primerNombre || '');
+          setSegundoNombreRes(fil.segundoNombre || '');
+          setPrimerApellidoRes(fil.primerApellido || '');
+          setSegundoApellidoRes(fil.segundoApellido || '');
+        } else if (fil.nombreResponsable) {
+          const parts = fil.nombreResponsable.trim().split(/\s+/);
+          setPrimerNombreRes(parts[0] || '');
+          setPrimerApellidoRes(parts[1] || '');
+          setSegundoApellidoRes(parts.slice(2).join(' ') || '');
+        }
+        setParentesco(fil.parentesco || '');
+        setTelefonoContacto(fil.telefono || fil.telefonoContacto || '');
+        setNivelEducativoResponsable(fil.nivelEducativo || fil.nivelEducativoResponsable || '');
+        setDomicilioActual(fil.direccion || fil.domicilioActual || '');
+      }
+    } catch (error) {
+      console.error("Error llenando campos básicos:", error);
+    }
+  }, [pacienteEditar, formCargado]);
+
+  // ====== EFECTO 2: Resolver nombres de catálogos CUANDO ESTÉN LISTOS ======
+  useEffect(() => {
+    if (!pacienteEditar || !formCargado) return;
+    // Solo correr cuando hay catálogos disponibles
+    if (provincias.length === 0 && etnias.length === 0) return;
+
+    try {
+      // Grupo Étnico: buscar por ID primero, luego por nombre (case-insensitive)
+      if (etnias.length > 0) {
+        let etnia = null;
+        if (pacienteEditar.idGrupoEtnico) {
+          etnia = etnias.find((x: any) => Number(x.codigo) === Number(pacienteEditar.idGrupoEtnico));
+        }
+        if (!etnia && pacienteEditar.grupoEtnico) {
+          etnia = etnias.find((x: any) => x.nombre?.toLowerCase() === pacienteEditar.grupoEtnico?.toLowerCase());
+        }
+        if (etnia) setGrupoEtnico(etnia.nombre);
+        else if (pacienteEditar.grupoEtnico) {
+           // Fallback en caso de que el ID no cruce pero tengamos un string aproximado
+           const match = etnias.find(e => e.nombre.toLowerCase().includes(pacienteEditar.grupoEtnico.toLowerCase()));
+           if(match) setGrupoEtnico(match.nombre);
+        }
+      }
+
+      // Provincia del paciente
+      if (provincias.length > 0) {
+        const provPacId = pacienteEditar.idPrqCntProvincia;
+        if (provPacId) {
+          const provPac = provincias.find((x: any) => Number(x.codigo) === Number(provPacId));
+          const provPacNombre = provPac ? provPac.nombre : '';
+          setProvincia(prev => prev || provPacNombre);
+
+          // Cargar cantones y parroquia del paciente
+          obtenerCantones(String(provPacId)).then(cantones => {
+            setCantonesList(cantones);
+            const cantId = pacienteEditar.idPrqCanton;
+            const cant = cantId ? cantones.find((x: any) => Number(x.codigo) === Number(cantId)) : null;
+            if (cant) setCanton(prev => prev || cant.nombre);
+
+            if (cantId) {
+              obtenerParroquias(String(provPacId), String(cantId)).then(parrs => {
+                setParroquiasList(parrs);
+                const parrId = pacienteEditar.idParroquia;
+                const parr = parrId ? parrs.find((x: any) => Number(x.codigo) === Number(parrId)) : null;
+                if (parr) setParroquia(prev => prev || parr.nombre);
+              });
+            }
+          });
+        }
+
+        // Provincia del tutor — IMPORTANTE: usar ID numérico primero, luego nombre
+        const fil = pacienteEditar.filiacion;
+        if (fil) {
+          // Preferir campos ID numéricos; los campos de nombre son solo texto y no sirven para buscar
+          const provResId = fil.idPrqCntProvincia || (typeof fil.provincia === 'number' ? fil.provincia : null);
+          const provResNombre = typeof fil.provincia === 'string' ? fil.provincia : '';
+
+          // Buscar provincia: primero por ID, luego por nombre
+          let provRes = provResId
+            ? provincias.find((x: any) => Number(x.codigo) === Number(provResId))
+            : null;
+          if (!provRes && provResNombre) {
+            provRes = provincias.find((x: any) => x.nombre?.toLowerCase() === provResNombre.toLowerCase());
+          }
+
+          if (provRes) {
+            setProvinciaRes(prev => prev || provRes!.nombre);
+
+            obtenerCantones(String(provRes.codigo)).then(cantones => {
+              setCantonesResList(cantones);
+
+              const cantResId = fil.idPrqCanton || (typeof fil.canton === 'number' ? fil.canton : null);
+              const cantResNombre = typeof fil.canton === 'string' ? fil.canton : '';
+
+              // Buscar cantón: primero por ID, luego por nombre
+              let cantRes = cantResId
+                ? cantones.find((x: any) => Number(x.codigo) === Number(cantResId))
+                : null;
+              if (!cantRes && cantResNombre) {
+                cantRes = cantones.find((x: any) => x.nombre?.toLowerCase() === cantResNombre.toLowerCase());
+              }
+
+              if (cantRes) {
+                setCantonRes(prev => prev || cantRes!.nombre);
+
+                obtenerParroquias(String(provRes!.codigo), String(cantRes.codigo)).then(parrs => {
+                  setParroquiasResList(parrs);
+
+                  const parrResId = fil.idParroquia || (typeof fil.parroquia === 'number' ? fil.parroquia : null);
+                  const parrResNombre = typeof fil.parroquia === 'string' ? fil.parroquia : '';
+
+                  // Buscar parroquia: primero por ID, luego por nombre
+                  let parrRes = parrResId
+                    ? parrs.find((x: any) => Number(x.codigo) === Number(parrResId))
+                    : null;
+                  if (!parrRes && parrResNombre) {
+                    parrRes = parrs.find((x: any) => x.nombre?.toLowerCase() === parrResNombre.toLowerCase());
+                  }
+
+                  if (parrRes) setParroquiaRes(prev => prev || parrRes!.nombre);
+                });
+              }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error resolviendo catálogos:", error);
+    }
+  }, [pacienteEditar, formCargado, provincias, etnias]);
+
+
+  // LISTAS DESDE CATÁLOGOS LOCALES (MOVIDO ARRIBA)
 
   useEffect(() => {
     const cargarCatalogos = async () => {
@@ -175,49 +348,46 @@ export default function RegistroPaciente() {
     cargarCatalogos();
   }, []);
 
-  useEffect(() => {
-    const provinciaSeleccionada = provincias.find(p => p.nombre === provincia);
+  // ====== HANDLERS EXPLÍCITOS para cascada provincia→cantón→parroquia (sin useEffect) ======
+  // Paciente
+  const handleProvinciaChange = (nombre: string) => {
+    setProvincia(nombre);
+    setCanton('');
+    setParroquia('');
     setCantonesList([]);
     setParroquiasList([]);
-    if (!provinciaSeleccionada) return;
+    const prov = provincias.find(p => p.nombre === nombre);
+    if (prov) obtenerCantones(prov.codigo).then(setCantonesList).catch(console.error);
+  };
 
-    obtenerCantones(provinciaSeleccionada.codigo)
-      .then(setCantonesList)
-      .catch(error => console.error("Error cargando cantones", error));
-  }, [provincia, provincias]);
-
-  useEffect(() => {
-    const provinciaSeleccionada = provincias.find(p => p.nombre === provincia);
-    const cantonSeleccionado = cantonesList.find(c => c.nombre === canton);
+  const handleCantonChange = (nombre: string) => {
+    setCanton(nombre);
+    setParroquia('');
     setParroquiasList([]);
-    if (!provinciaSeleccionada || !cantonSeleccionado) return;
+    const prov = provincias.find(p => p.nombre === provincia);
+    const cant = cantonesList.find(c => c.nombre === nombre);
+    if (prov && cant) obtenerParroquias(prov.codigo, cant.codigo).then(setParroquiasList).catch(console.error);
+  };
 
-    obtenerParroquias(provinciaSeleccionada.codigo, cantonSeleccionado.codigo)
-      .then(setParroquiasList)
-      .catch(error => console.error("Error cargando parroquias", error));
-  }, [canton, cantonesList, provincia, provincias]);
-
-  useEffect(() => {
-    const provinciaSeleccionada = provincias.find(p => p.nombre === provinciaRes);
+  // Tutor
+  const handleProvinciaResChange = (nombre: string) => {
+    setProvinciaRes(nombre);
+    setCantonRes('');
+    setParroquiaRes('');
     setCantonesResList([]);
     setParroquiasResList([]);
-    if (!provinciaSeleccionada) return;
+    const prov = provincias.find(p => p.nombre === nombre);
+    if (prov) obtenerCantones(prov.codigo).then(setCantonesResList).catch(console.error);
+  };
 
-    obtenerCantones(provinciaSeleccionada.codigo)
-      .then(setCantonesResList)
-      .catch(error => console.error("Error cargando cantones del responsable", error));
-  }, [provinciaRes, provincias]);
-
-  useEffect(() => {
-    const provinciaSeleccionada = provincias.find(p => p.nombre === provinciaRes);
-    const cantonSeleccionado = cantonesResList.find(c => c.nombre === cantonRes);
+  const handleCantonResChange = (nombre: string) => {
+    setCantonRes(nombre);
+    setParroquiaRes('');
     setParroquiasResList([]);
-    if (!provinciaSeleccionada || !cantonSeleccionado) return;
-
-    obtenerParroquias(provinciaSeleccionada.codigo, cantonSeleccionado.codigo)
-      .then(setParroquiasResList)
-      .catch(error => console.error("Error cargando parroquias del responsable", error));
-  }, [cantonRes, cantonesResList, provinciaRes, provincias]);
+    const prov = provincias.find(p => p.nombre === provinciaRes);
+    const cant = cantonesResList.find(c => c.nombre === nombre);
+    if (prov && cant) obtenerParroquias(prov.codigo, cant.codigo).then(setParroquiasResList).catch(console.error);
+  };
 
   // VALIDACIÓN
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -279,7 +449,7 @@ export default function RegistroPaciente() {
 
     setGuardando(true);
 
-    const nuevoId = uuidv4();
+    const nuevoId = uuidOffline || uuidv4();
     const nombresPaciente = `${primerNombre.trim()} ${segundoNombre.trim()}`.trim();
     const apellidosPaciente = `${primerApellido.trim()} ${segundoApellido.trim()}`.trim();
     const nombresResponsable = `${primerNombreRes.trim()} ${segundoNombreRes.trim()}`.trim();
@@ -299,18 +469,24 @@ export default function RegistroPaciente() {
       fechaCreacion, fechaNacimiento,
       edad: edad ? `${edad.años} años, ${edad.meses} meses` : '',
       sexo, grupoEtnico, provincia, canton, parroquia, tipoSangre,
-      idGrupoEtnico: etniaSeleccionada?.codigo ? Number(etniaSeleccionada.codigo) : undefined,
-      idPrqCntProvincia: provinciaSeleccionada?.codigo ? Number(provinciaSeleccionada.codigo) : undefined,
-      idPrqCanton: cantonSeleccionado?.codigo ? Number(cantonSeleccionado.codigo) : undefined,
-      idParroquia: parroquiaSeleccionada?.codigo ? Number(parroquiaSeleccionada.codigo) : undefined,
+      idGrupoEtnico: etniaSeleccionada?.codigo ? Number(etniaSeleccionada.codigo) : pacienteEditar?.idGrupoEtnico,
+      idPrqCntProvincia: provinciaSeleccionada?.codigo ? Number(provinciaSeleccionada.codigo) : pacienteEditar?.idPrqCntProvincia,
+      idPrqCanton: cantonSeleccionado?.codigo ? Number(cantonSeleccionado.codigo) : pacienteEditar?.idPrqCanton,
+      idParroquia: parroquiaSeleccionada?.codigo ? Number(parroquiaSeleccionada.codigo) : pacienteEditar?.idParroquia,
       anioEscolar: (edad && edad.años < 25) ? anioEscolar : null,
+      uuidOffline: nuevoId,
+      idPaciente: idPaciente,
       filiacion: {
         nombreResponsable: nombreCompletoResponsable,
+        primerNombre: primerNombreRes.trim(),
+        segundoNombre: segundoNombreRes.trim(),
+        primerApellido: primerApellidoRes.trim(),
+        segundoApellido: segundoApellidoRes.trim(),
         parentesco, telefonoContacto, nivelEducativoResponsable,
         domicilioActual, provincia: provinciaRes, canton: cantonRes, parroquia: parroquiaRes,
-        idPrqCntProvincia: provinciaResSeleccionada?.codigo ? Number(provinciaResSeleccionada.codigo) : undefined,
-        idPrqCanton: cantonResSeleccionado?.codigo ? Number(cantonResSeleccionado.codigo) : undefined,
-        idParroquia: parroquiaResSeleccionada?.codigo ? Number(parroquiaResSeleccionada.codigo) : undefined
+        idPrqCntProvincia: provinciaResSeleccionada?.codigo ? Number(provinciaResSeleccionada.codigo) : pacienteEditar?.filiacion?.idPrqCntProvincia,
+        idPrqCanton: cantonResSeleccionado?.codigo ? Number(cantonResSeleccionado.codigo) : pacienteEditar?.filiacion?.idPrqCanton,
+        idParroquia: parroquiaResSeleccionada?.codigo ? Number(parroquiaResSeleccionada.codigo) : pacienteEditar?.filiacion?.idParroquia
       },
       historiaClinica: []
     };
@@ -376,8 +552,8 @@ export default function RegistroPaciente() {
               <div className="col-md-4"><label className="form-label fw-bold small">Tipo de Sangre</label><select className="form-select" value={tipoSangre} onChange={e => setTipoSangre(e.target.value)}><option value="">Seleccione...</option>{tiposSangreList.length > 0 ? tiposSangreList.map(t => <option key={t.codigo} value={t.nombre}>{t.nombre}</option>) : <><option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option></>}</select></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Grupo Étnico</label><select className="form-select" value={grupoEtnico} onChange={e => setGrupoEtnico(e.target.value)}><option value="">Seleccione...</option>{etnias.length > 0 ? etnias.map(e => <option key={e.codigo} value={e.nombre}>{e.nombre}</option>) : <><option value="Mestizo">Mestizo</option><option value="Blanco">Blanco</option><option value="Indígena">Indígena</option><option value="Afroecuatoriano">Afroecuatoriano</option></>}</select></div>
               <div className="col-12 mt-4"><h6 className="text-muted border-bottom pb-2">Ubicación Geográfica del Paciente</h6></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => { setProvincia(e.target.value); setCanton(''); setParroquia('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => { setCanton(e.target.value); setParroquia('') }} disabled={!provincia}><option value="">Seleccione...</option>{cantonesList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provincia} onChange={e => handleProvinciaChange(e.target.value)}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={canton} onChange={e => handleCantonChange(e.target.value)} disabled={!provincia}><option value="">Seleccione...</option>{cantonesList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquia} onChange={e => setParroquia(e.target.value)} disabled={!canton}><option value="">Seleccione...</option>{parroquiasList.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
             </div>
           )}
@@ -393,16 +569,15 @@ export default function RegistroPaciente() {
               <div className="col-md-4"><label className="form-label fw-bold small">Teléfono (Celular) <span className="text-danger">*</span></label><input type="text" maxLength={10} className={`form-control ${errores.telefonoContacto ? 'is-invalid' : ''}`} value={telefonoContacto} onChange={e => { if (/^\d*$/.test(e.target.value)) setTelefonoContacto(e.target.value); }} placeholder="09XXXXXXXX" /><div className="form-text small">Máximo 10 dígitos.</div></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Nivel Educativo</label><select className="form-select" value={nivelEducativoResponsable} onChange={e => setNivelEducativoResponsable(e.target.value)}><option value="">Seleccione...</option>{nivelesEducativosList.map(n => <option key={n.codigo} value={n.nombre}>{n.nombre}</option>)}</select></div>
               <div className="col-12 mt-3"><h6 className="text-muted border-bottom pb-2">Ubicación del Responsable</h6></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provinciaRes} onChange={e => { setProvinciaRes(e.target.value); setCantonRes(''); setParroquiaRes('') }}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
-              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => { setCantonRes(e.target.value); setParroquiaRes('') }} disabled={!provinciaRes}><option value="">Seleccione...</option>{cantonesResList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Provincia</label><select className="form-select" value={provinciaRes} onChange={e => handleProvinciaResChange(e.target.value)}><option value="">Seleccione...</option>{provincias.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
+              <div className="col-md-4"><label className="form-label fw-bold small">Cantón</label><select className="form-select" value={cantonRes} onChange={e => handleCantonResChange(e.target.value)} disabled={!provinciaRes}><option value="">Seleccione...</option>{cantonesResList.map(c => <option key={c.codigo} value={c.nombre}>{c.nombre}</option>)}</select></div>
               <div className="col-md-4"><label className="form-label fw-bold small">Parroquia</label><select className="form-select" value={parroquiaRes} onChange={e => setParroquiaRes(e.target.value)} disabled={!cantonRes}><option value="">Seleccione...</option>{parroquiasResList.map(p => <option key={p.codigo} value={p.nombre}>{p.nombre}</option>)}</select></div>
               <div className="col-12"><label className="form-label fw-bold small">Dirección Domiciliaria (Calle y Nro)</label><textarea className="form-control" rows={2} value={domicilioActual} onChange={e => setDomicilioActual(e.target.value)} placeholder="Ej: Calle Larga y Benigno Malo..."></textarea></div>
             </div>
           )}
         </div>
         <div className="card-footer bg-white text-end py-3">
-          {/* MODIFICACIÓN 2: Cambio de btn-success a btn-primary */}
-          <button className="btn btn-primary px-4 fw-bold" onClick={handleGuardarPaciente}><i className="bi bi-save me-2"></i> GUARDAR PACIENTE</button>
+          <button className="btn btn-primary px-4 fw-bold" onClick={handleGuardarPaciente}><i className="bi bi-save me-2"></i> {pacienteEditar ? 'GUARDAR CAMBIOS' : 'GUARDAR PACIENTE'}</button>
         </div>
       </div>
     </>

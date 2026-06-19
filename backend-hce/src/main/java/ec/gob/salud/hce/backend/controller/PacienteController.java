@@ -2,9 +2,13 @@ package ec.gob.salud.hce.backend.controller;
 
 import ec.gob.salud.hce.backend.dto.PacienteRequestDTO;
 import ec.gob.salud.hce.backend.dto.PacienteResponseDTO;
+import ec.gob.salud.hce.backend.dto.TutorDTO;
 import ec.gob.salud.hce.backend.entity.Paciente;
+import ec.gob.salud.hce.backend.entity.PacienteTutor;
+import ec.gob.salud.hce.backend.entity.Tutor;
 import ec.gob.salud.hce.backend.repository.PacienteRepository;
 import ec.gob.salud.hce.backend.service.PacienteService;
+import ec.gob.salud.hce.backend.mapper.PacienteMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,12 +25,13 @@ public class PacienteController {
 
     private final PacienteService pacienteService;
     private final PacienteRepository pacienteRepository;
+    private final PacienteMapper pacienteMapper;
 
     // --- 1. CREAR PACIENTE ---
     @PostMapping
     public ResponseEntity<PacienteResponseDTO> crear(@Valid @RequestBody PacienteRequestDTO request) {
         Paciente pacienteGuardado = pacienteService.crearPaciente(request);
-        PacienteResponseDTO response = mapToDTO(pacienteGuardado);
+        PacienteResponseDTO response = pacienteMapper.toDTO(pacienteGuardado);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -42,7 +47,7 @@ public class PacienteController {
             try {
                 Integer id = Integer.parseInt(valor);
                 return pacienteRepository.findById(id)
-                        .map(this::mapToDTO)
+                        .map(pacienteMapper::toDTO)
                         .map(ResponseEntity::ok)
                         .orElse(ResponseEntity.notFound().build());
             } catch (NumberFormatException e) {
@@ -79,7 +84,7 @@ public class PacienteController {
         }
 
         // 4. Devolvemos el paciente unificado como si fuera uno solo
-        return ResponseEntity.ok(mapToDTO(pacienteUnificado));
+        return ResponseEntity.ok(pacienteMapper.toDTO(pacienteUnificado));
     }
 
     // --- 3. LISTAR TODOS ---
@@ -87,7 +92,7 @@ public class PacienteController {
     public ResponseEntity<List<PacienteResponseDTO>> listar() {
         List<PacienteResponseDTO> lista = pacienteService.listarTodos()
                 .stream()
-                .map(this::mapToDTO)
+                .map(pacienteMapper::toDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(lista);
     }
@@ -97,49 +102,8 @@ public class PacienteController {
     public ResponseEntity<List<PacienteResponseDTO>> buscar(@RequestParam("q") String criterio) {
         List<PacienteResponseDTO> lista = pacienteService.buscarPorCriterio(criterio)
                 .stream()
-                .map(this::mapToDTO)
+                .map(pacienteMapper::toDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(lista);
-    }
-    
-    // ==========================================
-    // MAPPER ENTIDAD -> DTO
-    // ==========================================
-    private PacienteResponseDTO mapToDTO(Paciente entity) {
-        if (entity == null) return null;
-
-        PacienteResponseDTO dto = new PacienteResponseDTO();
-        
-        dto.setIdPaciente(entity.getIdPaciente());
-        dto.setNumeroHistoriaClinica(entity.getNumeroHistoriaClinica());
-        dto.setCedula(entity.getCedula());
-        dto.setTipoIdentificacion(entity.getTipoIdentificacion());
-        dto.setPrimerNombre(entity.getPrimerNombre());
-        dto.setSegundoNombre(entity.getSegundoNombre());
-        dto.setApellidoPaterno(entity.getApellidoPaterno());
-        dto.setApellidoMaterno(entity.getApellidoMaterno());
-        dto.setFechaNacimiento(entity.getFechaNacimiento());
-        dto.setSexo(entity.getSexo());
-        dto.setTipoSangre(entity.getTipoSangre());
-
-        dto.setNombreCompleto(entity.getNombreCompleto());
-        dto.setEdad(entity.getEdad());
-        dto.setTipoPaciente(entity.getTipoPaciente());
-
-        dto.setIdGrupoEtnico(entity.getIdGrupoEtnico());
-        dto.setIdParroquia(entity.getIdParroquia());
-        dto.setIdPrqCanton(entity.getIdPrqCanton());
-        dto.setIdPrqCntProvincia(entity.getIdPrqCntProvincia());
-        
-        dto.setUsuario(entity.getUsuario());
-        dto.setUuidOffline(entity.getUuidOffline());
-        dto.setSyncStatus(entity.getSyncStatus());
-        dto.setLastModified(entity.getLastModified());
-        dto.setOrigin(entity.getOrigin());
-        dto.setIdPersonal(entity.getIdPersonal());
-        
-        dto.setTutor(null); 
-
-        return dto;
     }
 }
