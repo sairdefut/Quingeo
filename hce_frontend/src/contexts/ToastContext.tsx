@@ -1,10 +1,13 @@
-import { createContext, useContext } from 'react';
+// src/contexts/ToastContext.tsx
+// Context y Provider para gestionar notificaciones toast globalmente
+
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { notify } from '../services/notificationService';
-import type { NotificationType } from '../services/notificationService';
+import { ToastNotification } from '../components/Toast/ToastNotification';
+import type { Toast, ToastType } from '../components/Toast/ToastNotification';
 
 interface ToastContextValue {
-    showToast: (message: string, type?: NotificationType, duration?: number) => void;
+    showToast: (message: string, type?: ToastType, duration?: number) => void;
     showSyncToast: (message: string) => void;
     showSuccessToast: (message: string) => void;
     showErrorToast: (message: string) => void;
@@ -14,8 +17,17 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-    const showToast = (message: string, type: NotificationType = 'info', duration?: number) => {
-        notify(message, type, duration);
+    const [toasts, setToasts] = useState<Toast[]>([]);
+
+    const showToast = (message: string, type: ToastType = 'info', duration = 4000) => {
+        const id = `toast-${Date.now()}-${Math.random()}`;
+        const newToast: Toast = { id, message, type, duration };
+
+        setToasts(prev => [...prev, newToast]);
+    };
+
+    const dismissToast = (id: string) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
     };
 
     const showSyncToast = (message: string) => showToast(message, 'info', 3000);
@@ -32,6 +44,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             showWarningToast
         }}>
             {children}
+            <div className="toast-container">
+                {toasts.map(toast => (
+                    <ToastNotification
+                        key={toast.id}
+                        toast={toast}
+                        onDismiss={dismissToast}
+                    />
+                ))}
+            </div>
         </ToastContext.Provider>
     );
 }

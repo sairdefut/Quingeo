@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { notifySuccess } from '../../services/notificationService';
 
 interface Usuario {
   idPersonal: number;
@@ -61,7 +60,7 @@ export default function AdminUsuarios() {
         throw new Error(data.error || 'Error al crear usuario');
       }
 
-      notifySuccess('Usuario creado con éxito');
+      alert('Usuario creado con éxito');
       setNuevoUsuario({ username: '', password: '', nombres: '', apellidos: '', cargo: 'medico' });
       cargarUsuarios();
     } catch (err: any) {

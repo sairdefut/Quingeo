@@ -11,9 +11,8 @@ import VerHistorialCompleto from '../pages/historial/VerHistorialCompleto';
 import HistorialUsuarios from '../pages/dashboard/HistorialUsuarios';
 import AdminUsuarios from '../pages/admin/AdminUsuarios';
 import HistorialMedicinaGeneral from '../pages/historial/HistorialMedicinaGeneral';
-import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
-import { obtenerPacienteConConsultas } from '../services/dbPacienteService';
+import { obtenerConsultasPorCedula, obtenerPacientes } from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
 
 // Wrapper para cargar paciente por cédula para el reporte
@@ -23,8 +22,15 @@ const ReporteHCEWrapper = () => {
 
   useEffect(() => {
     const cargar = async () => {
-      const encontrado = cedula ? await obtenerPacienteConConsultas(cedula) : undefined;
-      setPaciente(encontrado || null);
+      const lista = await obtenerPacientes();
+      const encontrado = lista.find((p: any) => String(p.cedula) === String(cedula));
+      if (!encontrado) {
+        setPaciente(null);
+        return;
+      }
+
+      const historiaClinica = await obtenerConsultasPorCedula(encontrado.cedula);
+      setPaciente({ ...encontrado, historiaClinica });
     };
     cargar();
   }, [cedula]);
@@ -54,7 +60,6 @@ export default function AppRouter() {
           <Route path="/reporte-hce/:cedula" element={<ReporteHCEWrapper />} />
 
           <Route path="/historial-usuarios" element={<HistorialUsuarios />} />
-          <Route path="/perfil" element={<PerfilUsuario />} />
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
         </Route>
       </Routes>

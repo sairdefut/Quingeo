@@ -10,10 +10,8 @@ import ec.gob.salud.hce.backend.dto.SyncItemDTO;
 import ec.gob.salud.hce.backend.dto.SyncRejectedDTO;
 import ec.gob.salud.hce.backend.mapper.PacienteMapper;
 import ec.gob.salud.hce.backend.mapper.AntecedenteFamiliarMapper;
-import ec.gob.salud.hce.backend.entity.SyncMutation;
 import ec.gob.salud.hce.backend.repository.PacienteRepository;
 import ec.gob.salud.hce.backend.repository.AntecedenteFamiliarRepository;
-import ec.gob.salud.hce.backend.repository.SyncMutationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.List;
-import java.util.UUID;
+import java.util.ArrayList;
 
 @Service
 public class SyncService {
@@ -65,9 +63,6 @@ public class SyncService {
 
     @Autowired
     private ec.gob.salud.hce.backend.repository.ConsultaRepository consultaRepository;
-
-    @Autowired
-    private SyncMutationRepository syncMutationRepository;
 
     @Autowired
     private ec.gob.salud.hce.backend.mapper.PlanTerapeuticoMapper planMapper;
@@ -122,12 +117,34 @@ public class SyncService {
             System.out.println("DEBUG: Antecedentes cargados: "
                     + (response.getAntecedentesFamiliares() != null ? response.getAntecedentesFamiliares().size() : 0));
 
-            // Cargar Consultas completas desde el servicio normalizado
+            // Cargar Consultas completas (con planes y estudios)
             System.out.println("DEBUG: Cargando Consultas...");
             try {
-                List<ec.gob.salud.hce.backend.dto.ConsultaDTO> consultasDTO = consultaService.listarTodas();
-                response.setConsultas(consultasDTO);
-                System.out.println("DEBUG: Consultas mapeadas: " + consultasDTO.size());
+                List<ec.gob.salud.hce.backend.entity.Consulta> consultas = consultaRepository.findAllWithDetails();
+                System.out.println("DEBUG: Consultas encontradas en DB: " + (consultas != null ? consultas.size() : 0));
+
+                if (consultas != null) {
+                    List<ec.gob.salud.hce.backend.dto.ConsultaDTO> consultasDTO = consultas.stream()
+                            .map(c -> {
+                                try {
+                                    ec.gob.salud.hce.backend.dto.ConsultaDTO dto = ec.gob.salud.hce.backend.mapper.ConsultaMapper
+                                            .toDto(c, planMapper, estudioMapper);
+                                    if (c.getDatosCompletosJson() != null && !c.getDatosCompletosJson().isBlank()) {
+                                        dto.setJsonCompleto(objectMapper.readValue(c.getDatosCompletosJson(), java.util.Map.class));
+                                    }
+                                    return dto;
+                                } catch (Exception e) {
+                                    System.err.println(
+                                            "ERROR mapeando consulta ID " + c.getIdConsulta() + ": " + e.getMessage());
+                                    e.printStackTrace();
+                                    return null;
+                                }
+                            })
+                            .filter(java.util.Objects::nonNull)
+                            .collect(Collectors.toList());
+                    response.setConsultas(consultasDTO);
+                    System.out.println("DEBUG: Consultas mapeadas: " + consultasDTO.size());
+                }
             } catch (Exception e) {
                 System.err
                         .println("ERROR CRÍTICO recuperando consultas (Continuando con Pacientes): " + e.getMessage());
@@ -240,26 +257,16 @@ public class SyncService {
     public SyncBatchResponseDTO procesarSubida(SyncBatchRequestDTO request) {
         SyncBatchResponseDTO response = new SyncBatchResponseDTO();
         List<SyncItemDTO> items = normalizarItems(request);
-        String deviceId = normalizarDeviceId(request.getDeviceId());
-        String userId = request.getUserId();
 
         for (SyncItemDTO item : items) {
-            asegurarClientMutationId(item);
-
-            if (reproducirMutacionProcesada(deviceId, item, response)) {
-                continue;
-            }
-
             try {
                 procesarItemSubida(item, response);
-                registrarResultadoMutacion(deviceId, userId, item, response);
             } catch (Exception e) {
                 response.getRejected().add(new SyncRejectedDTO(
                         item.getClientMutationId(),
                         item.getUuidOffline(),
                         item.getEntity(),
                         e.getMessage()));
-                registrarRechazoMutacion(deviceId, userId, item, e.getMessage());
             }
         }
 
@@ -281,163 +288,6 @@ public class SyncService {
         legacy.setPayload(request.getPayload());
         legacy.setData(request.getData());
         return List.of(legacy);
-    }
-
-    private String normalizarDeviceId(String deviceId) {
-        return deviceId == null || deviceId.isBlank() ? "legacy-device" : deviceId.trim();
-    }
-
-    private void asegurarClientMutationId(SyncItemDTO item) {
-        if (item.getClientMutationId() == null || item.getClientMutationId().isBlank()) {
-            item.setClientMutationId("legacy-" + UUID.randomUUID());
-        }
-    }
-
-    private boolean reproducirMutacionProcesada(String deviceId, SyncItemDTO item, SyncBatchResponseDTO response) {
-        return syncMutationRepository
-                .findByDeviceIdAndClientMutationId(deviceId, item.getClientMutationId())
-                .map(mutation -> {
-                    reproducirResultado(mutation, item, response);
-                    return true;
-                })
-                .orElse(false);
-    }
-
-    private void reproducirResultado(SyncMutation mutation, SyncItemDTO item, SyncBatchResponseDTO response) {
-        String status = mutation.getStatus() == null ? "" : mutation.getStatus().toUpperCase();
-        String entity = mutation.getEntity() != null ? mutation.getEntity() : item.getEntity();
-        String uuidOffline = mutation.getUuidOffline() != null ? mutation.getUuidOffline() : item.getUuidOffline();
-
-        if ("ACCEPTED".equals(status)) {
-            response.getAccepted().add(new SyncAcceptedDTO(mutation.getClientMutationId(), uuidOffline, entity));
-            if (mutation.getServerId() != null) {
-                IdMappingDTO mapping = new IdMappingDTO(
-                        uuidOffline,
-                        mutation.getServerId(),
-                        entity,
-                        mutation.getNumeroHistoriaClinica());
-                mapping.setClientMutationId(mutation.getClientMutationId());
-                mapping.setServerId(mutation.getServerId());
-                mapping.setServerLastModified(mutation.getServerLastModified());
-                response.getMappings().add(mapping);
-            }
-            return;
-        }
-
-        if ("CONFLICT".equals(status)) {
-            SyncConflictDTO conflict = leerResultadoGuardado(mutation.getResponseJson(), SyncConflictDTO.class);
-            if (conflict == null) {
-                conflict = new SyncConflictDTO(
-                        mutation.getClientMutationId(),
-                        uuidOffline,
-                        entity,
-                        mutation.getReason(),
-                        item.effectivePayload(),
-                        null);
-            }
-            response.getConflicts().add(conflict);
-            return;
-        }
-
-        response.getRejected().add(new SyncRejectedDTO(
-                mutation.getClientMutationId(),
-                uuidOffline,
-                entity,
-                mutation.getReason() != null ? mutation.getReason() : "Mutacion rechazada previamente"));
-    }
-
-    private <T> T leerResultadoGuardado(String json, Class<T> clazz) {
-        if (json == null || json.isBlank()) {
-            return null;
-        }
-
-        try {
-            return objectMapper.readValue(json, clazz);
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private void registrarResultadoMutacion(String deviceId, String userId, SyncItemDTO item,
-            SyncBatchResponseDTO response) {
-        SyncAcceptedDTO accepted = response.getAccepted().stream()
-                .filter(a -> item.getClientMutationId().equals(a.getClientMutationId()))
-                .reduce((first, second) -> second)
-                .orElse(null);
-        if (accepted != null) {
-            IdMappingDTO mapping = response.getMappings().stream()
-                    .filter(m -> item.getClientMutationId().equals(m.getClientMutationId()))
-                    .reduce((first, second) -> second)
-                    .orElse(null);
-            guardarMutacion(deviceId, userId, item, "ACCEPTED", null, accepted,
-                    mapping != null ? mapping.getServerId() : null,
-                    mapping != null ? mapping.getNumeroHistoriaClinica() : null,
-                    mapping != null ? mapping.getServerLastModified() : null);
-            return;
-        }
-
-        SyncConflictDTO conflict = response.getConflicts().stream()
-                .filter(c -> item.getClientMutationId().equals(c.getClientMutationId()))
-                .reduce((first, second) -> second)
-                .orElse(null);
-        if (conflict != null) {
-            guardarMutacion(deviceId, userId, item, "CONFLICT", conflict.getReason(), conflict,
-                    null, null, null);
-            return;
-        }
-
-        SyncRejectedDTO rejected = response.getRejected().stream()
-                .filter(r -> item.getClientMutationId().equals(r.getClientMutationId()))
-                .reduce((first, second) -> second)
-                .orElse(null);
-        if (rejected != null) {
-            guardarMutacion(deviceId, userId, item, "REJECTED", rejected.getReason(), rejected,
-                    null, null, null);
-        }
-    }
-
-    private void registrarRechazoMutacion(String deviceId, String userId, SyncItemDTO item, String reason) {
-        guardarMutacion(deviceId, userId, item, "REJECTED", reason,
-                new SyncRejectedDTO(item.getClientMutationId(), item.getUuidOffline(), item.getEntity(), reason),
-                null, null, null);
-    }
-
-    private void guardarMutacion(String deviceId, String userId, SyncItemDTO item, String status, String reason,
-            Object resultado, Integer serverId, String numeroHistoriaClinica, LocalDateTime serverLastModified) {
-        if (syncMutationRepository.findByDeviceIdAndClientMutationId(deviceId, item.getClientMutationId()).isPresent()) {
-            return;
-        }
-
-        SyncMutation mutation = new SyncMutation();
-        mutation.setDeviceId(deviceId);
-        mutation.setUserId(userId);
-        mutation.setClientMutationId(item.getClientMutationId());
-        mutation.setEntity(item.getEntity());
-        mutation.setUuidOffline(item.getUuidOffline());
-        mutation.setStatus(status);
-        mutation.setServerId(serverId);
-        mutation.setNumeroHistoriaClinica(numeroHistoriaClinica);
-        mutation.setServerLastModified(serverLastModified);
-        mutation.setReason(reason);
-        mutation.setResponseJson(serializarResultado(resultado));
-
-        try {
-            syncMutationRepository.save(mutation);
-        } catch (Exception ignored) {
-            // Otro reintento concurrente pudo registrar la misma mutacion primero.
-        }
-    }
-
-    private String serializarResultado(Object resultado) {
-        if (resultado == null) {
-            return null;
-        }
-
-        try {
-            return objectMapper.writeValueAsString(resultado);
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     private void procesarItemSubida(SyncItemDTO item, SyncBatchResponseDTO response) {
@@ -502,11 +352,6 @@ public class SyncService {
 
         if (!existentesPorCedula.isEmpty()) {
             ec.gob.salud.hce.backend.entity.Paciente existente = existentesPorCedula.get(0);
-            if (existente.getUuidOffline() == null && dto.getUuidOffline() != null) {
-                existente.setUuidOffline(dto.getUuidOffline());
-                existente.setSyncStatus("SYNCED");
-                existente = pacienteRepository.save(existente);
-            }
             agregarMapping(response, item, dto.getUuidOffline(), existente.getIdPaciente(), "paciente",
                     existente.getNumeroHistoriaClinica(), existente.getLastModified());
             return;

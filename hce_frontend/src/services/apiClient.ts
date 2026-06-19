@@ -1,5 +1,3 @@
-import { notifySessionExpired } from './notificationService';
-
 export const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api';
 
 type ApiOptions = RequestInit & {
@@ -25,7 +23,8 @@ export function clearStoredSession() {
 
 export function handleUnauthorized(message = 'Su sesion expiro. Inicie sesion nuevamente.') {
     clearStoredSession();
-    notifySessionExpired(message);
+    window.alert(message);
+    window.location.replace('/');
 }
 
 async function readResponseBody(response: Response) {

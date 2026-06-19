@@ -184,20 +184,6 @@ export const dbHelpers = {
             .sortBy('timestamp');
     },
 
-    async getBlockingLogoutItems(): Promise<SyncQueueItem[]> {
-        const staleSyncingBefore = Date.now() - 2 * 60 * 1000;
-        await db.syncQueue
-            .where('status')
-            .equals('syncing')
-            .filter(item => (item.localUpdatedAt || item.timestamp || 0) < staleSyncingBefore)
-            .modify({ status: 'pending', lastError: 'Sincronizacion interrumpida; pendiente de reintento' });
-
-        return db.syncQueue
-            .where('status')
-            .anyOf('pending', 'failed', 'syncing', 'conflict')
-            .sortBy('timestamp');
-    },
-
     async markAsSynced(itemId: number): Promise<void> {
         await db.syncQueue.update(itemId, { synced: 1, status: 'synced' });
     },
@@ -245,41 +231,5 @@ export const dbHelpers = {
     async getSyncState(key: string): Promise<any> {
         const item = await db.syncState.get(key);
         return item?.value;
-    },
-
-    async hasUnresolvedConflicts(): Promise<boolean> {
-        const count = await db.conflicts.filter(conflict => !conflict.resolvedAt).count();
-        return count > 0;
-    },
-
-    async clearAllLocalData(): Promise<void> {
-        await db.transaction(
-            'rw',
-            [
-                db.pacientes,
-                db.consultas,
-                db.syncQueue,
-                db.metadata,
-                db.conflicts,
-                db.syncState,
-                db.failedSyncItems
-            ],
-            async () => {
-                await Promise.all([
-                    db.pacientes.clear(),
-                    db.consultas.clear(),
-                    db.syncQueue.clear(),
-                    db.conflicts.clear(),
-                    db.syncState.clear(),
-                    db.failedSyncItems.clear(),
-                    db.metadata.bulkDelete([
-                        'lastSyncTimestamp',
-                        'deviceId',
-                        'legacyLocalStorageMigrated',
-                        'lastSyncResult'
-                    ])
-                ]);
-            }
-        );
     }
 };

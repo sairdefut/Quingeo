@@ -51,7 +51,6 @@ public class AuthController {
             response.put("success", true);
             response.put("mensaje", "Login exitoso");
             response.put("username", usuarioReal.getUsername());
-            response.put("idPersonal", usuarioReal.getIdPersonal());
             response.put("nombres", usuarioReal.getNombres());
             response.put("apellidos", usuarioReal.getApellidos());
             response.put("cargo", usuarioReal.getCargo());

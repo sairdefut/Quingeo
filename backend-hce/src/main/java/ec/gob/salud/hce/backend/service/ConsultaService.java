@@ -6,8 +6,6 @@ import ec.gob.salud.hce.backend.mapper.ConsultaMapper;
 import ec.gob.salud.hce.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,12 +25,10 @@ public class ConsultaService {
     private final ConsultaRepository consultaRepository;
     private final PacienteRepository pacienteRepository;
     private final HistoriaClinicaRepository historiaRepository;
-    private final UsuarioRepository usuarioRepository;
     private final ec.gob.salud.hce.backend.mapper.PlanTerapeuticoMapper planMapper;
     private final ec.gob.salud.hce.backend.mapper.EstudioLaboratorioMapper estudioMapper;
     private final ObjectMapper objectMapper;
     private final ActividadClinicaService actividadClinicaService;
-    private final ConsultaDetallePersistenceService consultaDetallePersistenceService;
     private static final int HISTORIA_GRUPO_INICIAL = 1;
     private static final int HISTORIA_GRUPO_MAXIMO = 999;
 
@@ -59,7 +55,8 @@ public class ConsultaService {
             consulta.setUuidOffline(dto.getUuidOffline());
         }
         consulta.setSyncStatus("SYNCED");
-        aplicarAutorAutenticado(consulta, dto);
+        if (dto.getUsuario() != null)
+            consulta.setUsuarioMedico(dto.getUsuario());
 
         if (dto.getJsonCompleto() != null) {
             try {
@@ -71,16 +68,14 @@ public class ConsultaService {
 
         // UN SOLO SAVE - cascade automático guarda planes y estudios
         Consulta consultaGuardada = consultaRepository.save(consulta);
-        consultaDetallePersistenceService.guardarDetalle(consultaGuardada, dto, paciente, historia);
-        consultaGuardada = consultaRepository.save(consultaGuardada);
         actividadClinicaService.registrar(
                 "Creacion de consulta",
                 paciente,
-                consultaGuardada.getUsuarioMedico(),
+                dto.getUsuario(),
                 "Consulta creada con motivo: " + safeText(dto.getMotivo())
         );
 
-        return mapConsultaCompleta(consultaGuardada);
+        return ConsultaMapper.toDto(consultaGuardada, planMapper, estudioMapper);
     }
 
     @Transactional
@@ -100,24 +95,15 @@ public class ConsultaService {
         }
 
         actualizarCamposConsulta(consulta, dto);
-        aplicarAutorAutenticado(consulta, dto);
         if (dto.getUuidOffline() != null) {
             consulta.setUuidOffline(dto.getUuidOffline());
         }
         consulta.setSyncStatus("SYNCED");
         Consulta consultaGuardada = consultaRepository.save(consulta);
-        if (consultaGuardada.getHistoriaClinica() != null && paciente != null) {
-            consultaDetallePersistenceService.guardarDetalle(
-                    consultaGuardada,
-                    dto,
-                    paciente,
-                    consultaGuardada.getHistoriaClinica());
-            consultaGuardada = consultaRepository.save(consultaGuardada);
-        }
         actividadClinicaService.registrar(
                 "Edicion de consulta",
                 paciente,
-                consultaGuardada.getUsuarioMedico(),
+                dto.getUsuario(),
                 "Consulta editada ID " + idConsulta
         );
         return mapConsultaCompleta(consultaGuardada);
@@ -133,7 +119,7 @@ public class ConsultaService {
 
     @Transactional(readOnly = true)
     public List<ConsultaDTO> listarTodas() {
-        return consultaRepository.findAllWithDetails().stream().map(c -> {
+        return consultaRepository.findAll().stream().map(c -> {
             ConsultaDTO dto = mapConsultaCompleta(c);
             dto.setUsuario(c.getUsuarioMedico());
             return dto;
@@ -142,7 +128,6 @@ public class ConsultaService {
 
     private ConsultaDTO mapConsultaCompleta(Consulta consulta) {
         ConsultaDTO dto = ConsultaMapper.toDto(consulta, planMapper, estudioMapper);
-        consultaDetallePersistenceService.completarDtoDesdeTablas(consulta, dto);
         if (consulta.getDatosCompletosJson() != null && !consulta.getDatosCompletosJson().isBlank()) {
             try {
                 dto.setJsonCompleto(objectMapper.readValue(consulta.getDatosCompletosJson(), java.util.Map.class));
@@ -170,6 +155,9 @@ public class ConsultaService {
         consulta.setTipoDiagnostico(dto.getTipoDiagnostico());
         consulta.setReferenciaHospital(dto.getReferenciaHospital());
         consulta.setMotivoReferencia(dto.getMotivoReferencia());
+        if (dto.getUsuario() != null) {
+            consulta.setUsuarioMedico(dto.getUsuario());
+        }
 
         if (dto.getJsonCompleto() != null) {
             try {
@@ -208,38 +196,6 @@ public class ConsultaService {
         nueva.setPaciente(paciente);
         nueva.setUsuario(usuario);
         return historiaRepository.save(nueva);
-    }
-
-    private void aplicarAutorAutenticado(Consulta consulta, ConsultaDTO dto) {
-        java.util.Optional<Usuario> autenticado = obtenerUsuarioAutenticado();
-        if (autenticado.isPresent()) {
-            Usuario usuario = autenticado.get();
-            String nombreCompleto = fullName(usuario);
-            consulta.setIdPersonal(usuario.getIdPersonal());
-            consulta.setUsuario(usuario.getUsername());
-            consulta.setUsuarioMedico(!nombreCompleto.isBlank() ? nombreCompleto : usuario.getUsername());
-            dto.setUsuario(consulta.getUsuarioMedico());
-            return;
-        }
-
-        if (dto.getUsuario() != null) {
-            consulta.setUsuarioMedico(dto.getUsuario());
-            consulta.setUsuario(dto.getUsuario());
-        }
-    }
-
-    private java.util.Optional<Usuario> obtenerUsuarioAutenticado() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName() == null
-                || "anonymousUser".equals(authentication.getName())) {
-            return java.util.Optional.empty();
-        }
-        return usuarioRepository.findByUsername(authentication.getName());
-    }
-
-    private String fullName(Usuario usuario) {
-        return ((usuario.getNombres() == null ? "" : usuario.getNombres()) + " "
-                + (usuario.getApellidos() == null ? "" : usuario.getApellidos())).trim();
     }
 
     private String resolveNumeroNuevaHistoria(Paciente paciente) {

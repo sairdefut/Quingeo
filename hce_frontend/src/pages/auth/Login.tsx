@@ -41,7 +41,6 @@ export default function Login() {
         localStorage.setItem('hceAuthToken', data.token);
       }
       localStorage.setItem('usuarioLogueado', JSON.stringify(data));
-      syncService.resumeAfterLogin();
 
       // PASO 2: Sincronización automática de datos
       if (navigator.onLine) {

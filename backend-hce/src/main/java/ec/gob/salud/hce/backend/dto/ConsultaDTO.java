@@ -38,33 +38,7 @@ public class ConsultaDTO {
     
     private String usuario;
 
-    // --- Datos normalizados de la consulta completa ---
-    private AntecedentePerinatalDTO antecedentesPerinatales;
-    private List<DatoGestacionalDTO> datosGestacionales;
-    private List<ComplicacionPerinatalDTO> complicacionesPerinatales;
-    private List<AntecedenteInmunizacionDTO> antecedentesInmunizacion;
-    private AntecedentePatologicoPersonalDTO antecedentesPatologicosPersonales;
-    private List<EnfermedadDiagnosticadaDTO> enfermedadesDiagnosticadas;
-    private List<AlergiaPacienteDTO> alergiasPaciente;
-    private List<HospitalizacionPreviaDTO> hospitalizacionesPrevias;
-    private List<CirugiaPreviaDTO> cirugiasPrevias;
-    private List<AntecedenteFamiliarDTO> antecedentesFamiliares;
-    private DesarrolloPsicomotorDTO desarrolloPsicomotor;
-    private List<HitoDesarrolloDTO> hitosDesarrollo;
-    private List<AlimentacionDTO> alimentacion;
-    private ExamenFisicoDTO examenFisico;
-    private List<SignoVitalDTO> signosVitales;
-    private ExamenFisicoSegmentarioDTO examenFisicoSegmentario;
-    private List<PielFaneraDTO> pielFaneras;
-    private List<CabezaCuelloDTO> cabezaCuello;
-    private List<CardioPulmonarDTO> cardioPulmonar;
-    private List<AbdomenDTO> abdomen;
-    private List<NeurologicoDTO> neurologico;
-    private DiagnosticoPlanManejoDTO diagnosticoPlanManejo;
-    private List<PlanTerapeuticoDTO> planesTerapeuticos;
-    private List<EstudioLaboratorioDTO> estudiosLaboratorios;
-
-    // --- Listas historicas usadas por el frontend actual ---
+    // --- NUEVO: LISTAS PARA TABLAS DETALLADAS ---
     private List<PlanTerapeuticoDTO> listaPlan;
     private List<EstudioLaboratorioDTO> listaEstudios;
 
