@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { logout } from '../services/authSession';
+import { syncService } from '../services/syncService';
 
 // Prop opcional para mostrar el título de la página actual a la izquierda
 export default function HeaderUsuario({ titulo }: { titulo?: string }) {
@@ -27,19 +29,11 @@ export default function HeaderUsuario({ titulo }: { titulo?: string }) {
   }, []);
 
   const cerrarSesion = async () => {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-      try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
-          method: 'POST',
-          credentials: 'include'
-        });
-      } catch (error) {
-        console.warn('[HeaderUsuario] Error cerrando sesion en servidor:', error);
+      await syncService.prepareForLogout();
+      const loggedOut = await logout(navigate);
+      if (!loggedOut) {
+        syncService.resumeAfterLogin();
       }
-
-      localStorage.removeItem('usuarioLogueado');
-      navigate('/'); // Vuelve al Login
    };
 
   return (
