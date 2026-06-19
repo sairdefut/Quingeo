@@ -1,0 +1,20 @@
+name: DeployEasy — Test SSH
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ssh:
+    runs-on: ubuntu-latest
+    environment: Vinculacion
+    steps:
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "✅ Conexion SSH exitosa desde GitHub Actions"
+            whoami
+            hostname
+            uptime
