@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "puppeteer": "^25.1.0",
-    "react-to-print": "^3.3.0"
-  }
-}

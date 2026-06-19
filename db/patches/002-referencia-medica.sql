@@ -5,8 +5,23 @@
 
 -- ============================================
 -- D-1: Agregar tipo_identificacion a pacientes
--- (Este campo ya se encuentra en el dump base Dump20260519.sql)
 -- ============================================
+DELIMITER //
+CREATE PROCEDURE AddColumnIfNotExist()
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'pacientes' 
+        AND COLUMN_NAME = 'tipo_identificacion'
+    ) THEN
+        ALTER TABLE pacientes ADD COLUMN tipo_identificacion VARCHAR(20) DEFAULT 'CEDULA' AFTER cedula;
+    END IF;
+END//
+DELIMITER ;
+CALL AddColumnIfNotExist();
+DROP PROCEDURE AddColumnIfNotExist;
 
 -- ============================================
 -- D-5: Agregar referencia médica a consultas

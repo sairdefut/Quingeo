@@ -470,10 +470,10 @@ function RegistroPacienteInner() {
       fechaCreacion, fechaNacimiento,
       edad: edad ? `${edad.años} años, ${edad.meses} meses` : '',
       sexo, grupoEtnico, provincia, canton, parroquia, tipoSangre,
-      idGrupoEtnico: etniaSeleccionada?.codigo ? Number(etniaSeleccionada.codigo) : undefined,
-      idPrqCntProvincia: provinciaSeleccionada?.codigo ? Number(provinciaSeleccionada.codigo) : undefined,
-      idPrqCanton: cantonSeleccionado?.codigo ? Number(cantonSeleccionado.codigo) : undefined,
-      idParroquia: parroquiaSeleccionada?.codigo ? Number(parroquiaSeleccionada.codigo) : undefined,
+      idGrupoEtnico: etniaSeleccionada?.codigo ? Number(etniaSeleccionada.codigo) : pacienteEditar?.idGrupoEtnico,
+      idPrqCntProvincia: provinciaSeleccionada?.codigo ? Number(provinciaSeleccionada.codigo) : pacienteEditar?.idPrqCntProvincia,
+      idPrqCanton: cantonSeleccionado?.codigo ? Number(cantonSeleccionado.codigo) : pacienteEditar?.idPrqCanton,
+      idParroquia: parroquiaSeleccionada?.codigo ? Number(parroquiaSeleccionada.codigo) : pacienteEditar?.idParroquia,
       anioEscolar: (edad && edad.años < 25) ? anioEscolar : null,
       uuidOffline: nuevoId,
       idPaciente: idPaciente,
@@ -485,9 +485,9 @@ function RegistroPacienteInner() {
         segundoApellido: segundoApellidoRes.trim(),
         parentesco, telefonoContacto, nivelEducativoResponsable,
         domicilioActual, provincia: provinciaRes, canton: cantonRes, parroquia: parroquiaRes,
-        idPrqCntProvincia: provinciaResSeleccionada?.codigo ? Number(provinciaResSeleccionada.codigo) : undefined,
-        idPrqCanton: cantonResSeleccionado?.codigo ? Number(cantonResSeleccionado.codigo) : undefined,
-        idParroquia: parroquiaResSeleccionada?.codigo ? Number(parroquiaResSeleccionada.codigo) : undefined
+        idPrqCntProvincia: provinciaResSeleccionada?.codigo ? Number(provinciaResSeleccionada.codigo) : pacienteEditar?.filiacion?.idPrqCntProvincia,
+        idPrqCanton: cantonResSeleccionado?.codigo ? Number(cantonResSeleccionado.codigo) : pacienteEditar?.filiacion?.idPrqCanton,
+        idParroquia: parroquiaResSeleccionada?.codigo ? Number(parroquiaResSeleccionada.codigo) : pacienteEditar?.filiacion?.idParroquia
       },
       historiaClinica: []
     };

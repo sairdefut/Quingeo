@@ -158,9 +158,9 @@ export function mapPacienteBackendToFrontend(dto: PacienteResponseDTO): Paciente
         idParroquia: dto.idParroquia,
         idPrqCanton: dto.idPrqCanton,
         idPrqCntProvincia: dto.idPrqCntProvincia,
-        provincia: dto.idPrqCntProvincia ? `ID ${dto.idPrqCntProvincia}` : '',
-        canton: dto.idPrqCanton ? `ID ${dto.idPrqCanton}` : '',
-        parroquia: dto.idParroquia ? `ID ${dto.idParroquia}` : '',
+        provincia: '',
+        canton: '',
+        parroquia: '',
         usuario: dto.usuario,
         filiacion: dto.tutor ? {
             ...dto.tutor,

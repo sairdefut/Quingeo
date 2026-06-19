@@ -611,13 +611,9 @@ public class SyncService {
         if (dto.getTutor() != null) {
             ec.gob.salud.hce.backend.dto.TutorDTO tutorDto = dto.getTutor();
 
-            java.util.List<ec.gob.salud.hce.backend.entity.Tutor> existentes = tutorRepository.findByPrimerNombreAndPrimerApellidoAndSegundoNombreAndSegundoApellido(
-                tutorDto.getPrimerNombre(), tutorDto.getPrimerApellido(), tutorDto.getSegundoNombre(), tutorDto.getSegundoApellido()
-            );
-
             ec.gob.salud.hce.backend.entity.Tutor tutor;
-            if (!existentes.isEmpty()) {
-                tutor = existentes.get(0);
+            if (!paciente.getPacientesTutores().isEmpty()) {
+                tutor = paciente.getPacientesTutores().get(0).getTutor();
             } else {
                 tutor = new ec.gob.salud.hce.backend.entity.Tutor();
             }

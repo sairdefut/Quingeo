@@ -31,9 +31,11 @@ class ErrorBoundary extends Component<Props, State> {
           <pre style={{ whiteSpace: "pre-wrap", background: "#fff", padding: "10px" }}>
             {this.state.error?.toString()}
           </pre>
-          <pre style={{ whiteSpace: "pre-wrap", background: "#fff", padding: "10px", marginTop: "10px", fontSize: "0.8em" }}>
-            {this.state.error?.stack}
-          </pre>
+          {process.env.NODE_ENV === 'development' && (
+            <pre style={{ whiteSpace: "pre-wrap", background: "#fff", padding: "10px", marginTop: "10px", fontSize: "0.8em" }}>
+              {this.state.error?.stack}
+            </pre>
+          )}
           <button onClick={() => window.location.reload()} className="btn btn-primary mt-3">Recargar</button>
         </div>
       );
