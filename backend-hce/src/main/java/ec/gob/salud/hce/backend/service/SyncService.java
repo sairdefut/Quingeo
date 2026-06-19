@@ -79,6 +79,12 @@ public class SyncService {
     private PacienteService pacienteService;
 
     @Autowired
+    private ec.gob.salud.hce.backend.repository.TutorRepository tutorRepository;
+
+    @Autowired
+    private ec.gob.salud.hce.backend.repository.PacienteTutorRepository pacienteTutorRepository;
+
+    @Autowired
     private ConsultaService consultaService;
 
     @Autowired
@@ -601,6 +607,44 @@ public class SyncService {
         paciente.setUsuario(dto.getUsuario());
         paciente.setOrigin(dto.getOrigin());
         paciente.setSyncStatus("SYNCED");
+
+        if (dto.getTutor() != null) {
+            ec.gob.salud.hce.backend.dto.TutorDTO tutorDto = dto.getTutor();
+
+            java.util.List<ec.gob.salud.hce.backend.entity.Tutor> existentes = tutorRepository.findByPrimerNombreAndPrimerApellidoAndSegundoNombreAndSegundoApellido(
+                tutorDto.getPrimerNombre(), tutorDto.getPrimerApellido(), tutorDto.getSegundoNombre(), tutorDto.getSegundoApellido()
+            );
+
+            ec.gob.salud.hce.backend.entity.Tutor tutor;
+            if (!existentes.isEmpty()) {
+                tutor = existentes.get(0);
+            } else {
+                tutor = new ec.gob.salud.hce.backend.entity.Tutor();
+            }
+
+            tutor.setPrimerNombre(tutorDto.getPrimerNombre());
+            tutor.setSegundoNombre(tutorDto.getSegundoNombre());
+            tutor.setPrimerApellido(tutorDto.getPrimerApellido());
+            tutor.setSegundoApellido(tutorDto.getSegundoApellido());
+            tutor.setTelefono(tutorDto.getTelefono());
+            tutor.setNivelEducativo(tutorDto.getNivelEducativo());
+            tutor.setDireccion(tutorDto.getDireccion());
+            tutor.setIdParroquia(tutorDto.getIdParroquia());
+            tutor.setIdPrqCanton(tutorDto.getCanton());
+            tutor.setIdPrqCntProvincia(tutorDto.getProvincia());
+
+            tutor = tutorRepository.save(tutor);
+
+            // Relacionar si no existe
+            boolean existeRelacion = pacienteTutorRepository.findByPacienteAndTutor(paciente, tutor).isPresent();
+            if (!existeRelacion) {
+                ec.gob.salud.hce.backend.entity.PacienteTutor relacion = new ec.gob.salud.hce.backend.entity.PacienteTutor();
+                relacion.setPaciente(paciente);
+                relacion.setTutor(tutor);
+                relacion.setParentesco(tutorDto.getParentesco());
+                pacienteTutorRepository.save(relacion);
+            }
+        }
     }
 
     private void agregarMapping(SyncBatchResponseDTO response, SyncItemDTO item, String uuidOffline, Integer serverId,

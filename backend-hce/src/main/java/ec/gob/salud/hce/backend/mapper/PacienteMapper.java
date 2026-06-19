@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class PacienteMapper {
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ec.gob.salud.hce.backend.repository.GrupoEtnicoRepository grupoEtnicoRepository;
+
     // --- 1. CONVERTIR DE ENTIDAD (BD) A DTO (RESPONSE) ---
     public PacienteResponseDTO toDTO(Paciente entity) {
         if (entity == null) {
@@ -29,9 +32,11 @@ public class PacienteMapper {
         dto.setTipoSangre(entity.getTipoSangre());
 
         // --- CORRECCIÓN: ASIGNACIÓN DIRECTA DE IDs ---
-        // Antes: dto.setIdGrupoEtnico(entity.getGrupoEtnico().getId());
         // Ahora: entity.getIdGrupoEtnico() ya devuelve el Integer
         dto.setIdGrupoEtnico(entity.getIdGrupoEtnico());
+        if (entity.getIdGrupoEtnico() != null && grupoEtnicoRepository != null) {
+            grupoEtnicoRepository.findById(entity.getIdGrupoEtnico()).ifPresent(ge -> dto.setNombreGrupoEtnico(ge.getDescripcion()));
+        }
 
         // Antes: dto.setIdParroquia(entity.getParroquia().getId());
         dto.setIdParroquia(entity.getIdParroquia());

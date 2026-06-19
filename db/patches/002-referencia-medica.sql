@@ -5,9 +5,8 @@
 
 -- ============================================
 -- D-1: Agregar tipo_identificacion a pacientes
+-- (Este campo ya se encuentra en el dump base Dump20260519.sql)
 -- ============================================
-ALTER TABLE pacientes 
-ADD COLUMN tipo_identificacion VARCHAR(20) DEFAULT 'CEDULA' AFTER cedula;
 
 -- ============================================
 -- D-5: Agregar referencia médica a consultas

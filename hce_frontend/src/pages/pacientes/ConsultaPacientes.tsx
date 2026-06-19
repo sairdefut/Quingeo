@@ -193,6 +193,17 @@ export default function ConsultaPacientes() {
                           
                           <button 
                             className="btn btn-white btn-sm border-end px-3 py-2" 
+                            title="Editar Paciente"
+                            onClick={async () => {
+                              const fullP = await hydratePaciente(p);
+                              navigate(`/pacientes/registro`, { state: { pacienteEditar: fullP } });
+                            }}
+                          >
+                            <i className="bi bi-pencil-fill text-warning"></i>
+                          </button>
+
+                          <button 
+                            className="btn btn-white btn-sm border-end px-3 py-2" 
                             title="Ver Reporte Completo"
                             onClick={() => navigate(`/reporte-hce/${p.cedula}`)}
                           >

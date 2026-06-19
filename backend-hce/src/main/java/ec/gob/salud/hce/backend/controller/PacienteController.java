@@ -2,7 +2,10 @@ package ec.gob.salud.hce.backend.controller;
 
 import ec.gob.salud.hce.backend.dto.PacienteRequestDTO;
 import ec.gob.salud.hce.backend.dto.PacienteResponseDTO;
+import ec.gob.salud.hce.backend.dto.TutorDTO;
 import ec.gob.salud.hce.backend.entity.Paciente;
+import ec.gob.salud.hce.backend.entity.PacienteTutor;
+import ec.gob.salud.hce.backend.entity.Tutor;
 import ec.gob.salud.hce.backend.repository.PacienteRepository;
 import ec.gob.salud.hce.backend.service.PacienteService;
 import jakarta.validation.Valid;
@@ -125,6 +128,7 @@ public class PacienteController {
         dto.setNombreCompleto(entity.getNombreCompleto());
         dto.setEdad(entity.getEdad());
         dto.setTipoPaciente(entity.getTipoPaciente());
+        dto.setAnioEscolar(entity.getAnioEscolar());
 
         dto.setIdGrupoEtnico(entity.getIdGrupoEtnico());
         dto.setIdParroquia(entity.getIdParroquia());
@@ -138,7 +142,29 @@ public class PacienteController {
         dto.setOrigin(entity.getOrigin());
         dto.setIdPersonal(entity.getIdPersonal());
         
-        dto.setTutor(null); 
+        if (entity.getPacientesTutores() != null && !entity.getPacientesTutores().isEmpty()) {
+            PacienteTutor pt = entity.getPacientesTutores().get(0);
+            Tutor t = pt.getTutor();
+            if (t != null) {
+                TutorDTO tutorDto = new TutorDTO();
+                tutorDto.setPrimerNombre(t.getPrimerNombre());
+                tutorDto.setSegundoNombre(t.getSegundoNombre());
+                tutorDto.setPrimerApellido(t.getPrimerApellido());
+                tutorDto.setSegundoApellido(t.getSegundoApellido());
+                tutorDto.setParentesco(pt.getParentesco());
+                tutorDto.setTelefono(t.getTelefono());
+                tutorDto.setNivelEducativo(t.getNivelEducativo());
+                tutorDto.setDireccion(t.getDireccion());
+                tutorDto.setIdParroquia(t.getIdParroquia());
+                tutorDto.setProvincia(t.getIdPrqCntProvincia());
+                tutorDto.setCanton(t.getIdPrqCanton());
+                dto.setTutor(tutorDto);
+            } else {
+                dto.setTutor(null);
+            }
+        } else {
+            dto.setTutor(null); 
+        }
 
         return dto;
     }

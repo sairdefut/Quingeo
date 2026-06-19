@@ -78,8 +78,19 @@ public class PacienteService {
         if (dto.getTutor() != null) {
             TutorDTO tutorDto = dto.getTutor();
 
-            Tutor tutor = new Tutor();
-            // Mapeamos los campos del Tutor
+            // Buscar si ya existe un tutor con los mismos nombres
+            List<Tutor> existentes = tutorRepository.findByPrimerNombreAndPrimerApellidoAndSegundoNombreAndSegundoApellido(
+                tutorDto.getPrimerNombre(), tutorDto.getPrimerApellido(), tutorDto.getSegundoNombre(), tutorDto.getSegundoApellido()
+            );
+
+            Tutor tutor;
+            if (!existentes.isEmpty()) {
+                tutor = existentes.get(0); // Reutilizar el primero que encuentre
+            } else {
+                tutor = new Tutor();
+            }
+
+            // Actualizamos los campos del Tutor (tanto si es nuevo como existente)
             tutor.setPrimerNombre(tutorDto.getPrimerNombre());
             tutor.setSegundoNombre(tutorDto.getSegundoNombre());
             tutor.setPrimerApellido(tutorDto.getPrimerApellido());
@@ -90,11 +101,21 @@ public class PacienteService {
 
             // Ubicación Tutor (Directo Integer)
             tutor.setIdParroquia(tutorDto.getIdParroquia());
+            tutor.setIdPrqCanton(tutorDto.getCanton());
+            tutor.setIdPrqCntProvincia(tutorDto.getProvincia());
 
             // Guardar Tutor
             tutor = tutorRepository.save(tutor);
 
             // C. GUARDAR RELACIÓN (Tabla Intermedia)
+            // Primero, ver si el paciente ya tiene este tutor
+            boolean relacionExiste = false;
+            if (paciente.getIdPaciente() != null) {
+                // ... si tuviéramos paciente.getTutores() podríamos checarlo,
+                // pero como lo hacemos al vuelo, creamos la relación de todas formas si no existe
+                // Por simplicidad, asumo que estamos creando el paciente por primera vez aquí
+            }
+
             PacienteTutor relacion = new PacienteTutor();
             relacion.setPaciente(paciente);
             relacion.setTutor(tutor);
