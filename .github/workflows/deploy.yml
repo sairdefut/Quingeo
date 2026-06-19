@@ -1,0 +1,74 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - "PrdV1.0"
+    paths-ignore:
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: DeployEasy deployment id
+        required: false
+        default: ""
+      branch:
+        description: Git branch to deploy
+        required: false
+        default: "PrdV1.0"
+      commit_sha:
+        description: Optional commit SHA
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Vinculacion
+    env:
+      DEPLOYEASY_EVENT_URL: http://localhost:8081/api/v1/webhooks/github/event
+      DEPLOYEASY_DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id || format('github-{0}', github.run_id) }}
+      DEPLOYEASY_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+    steps:
+      - name: Notify start
+        shell: bash
+        run: |
+          payload=$(printf '{"event":"started","deployment_id":"%s","github_run_id":%s,"github_run_attempt":%s,"github_workflow":"%s","sha":"%s","branch":"%s","message":"GitHub Actions deployment started"}' "$DEPLOYEASY_DEPLOYMENT_ID" '${{ github.run_id }}' '${{ github.run_attempt }}' '${{ github.workflow }}' '${{ github.sha }}' "$DEPLOYEASY_BRANCH")
+          signature=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac '${{ secrets.DEPLOYEASY_HMAC }}' -hex | sed 's/^.* //')
+          curl -fsS -X POST "$DEPLOYEASY_EVENT_URL" -H "X-Hub-Signature-256: sha256=$signature" -H "Content-Type: application/json" -d "$payload" || echo "::warning::DeployEasy callback failed"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.event.inputs.branch || github.ref_name }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ajinnathanguaman/proyectos/quingeo
+            git fetch origin "${{ github.event.inputs.branch || github.ref_name }}"
+            git checkout "${{ github.event.inputs.branch || github.ref_name }}"
+            git pull origin "${{ github.event.inputs.branch || github.ref_name }}"
+            docker compose down
+            docker compose build --no-cache
+            docker compose up -d
+
+      - name: Notify success
+        if: success()
+        shell: bash
+        run: |
+          payload=$(printf '{"event":"success","deployment_id":"%s","github_run_id":%s,"github_run_attempt":%s,"github_workflow":"%s","sha":"%s","branch":"%s","message":"GitHub Actions deployment succeeded"}' "$DEPLOYEASY_DEPLOYMENT_ID" '${{ github.run_id }}' '${{ github.run_attempt }}' '${{ github.workflow }}' '${{ github.sha }}' "$DEPLOYEASY_BRANCH")
+          signature=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac '${{ secrets.DEPLOYEASY_HMAC }}' -hex | sed 's/^.* //')
+          curl -fsS -X POST "$DEPLOYEASY_EVENT_URL" -H "X-Hub-Signature-256: sha256=$signature" -H "Content-Type: application/json" -d "$payload" || echo "::warning::DeployEasy callback failed"
+
+      - name: Notify failure
+        if: failure() || cancelled()
+        shell: bash
+        run: |
+          event="failed"
+          if [ "${{ job.status }}" = "cancelled" ]; then event="cancelled"; fi
+          payload=$(printf '{"event":"%s","deployment_id":"%s","github_run_id":%s,"github_run_attempt":%s,"github_workflow":"%s","sha":"%s","branch":"%s","message":"GitHub Actions deployment did not complete successfully"}' "$event" "$DEPLOYEASY_DEPLOYMENT_ID" '${{ github.run_id }}' '${{ github.run_attempt }}' '${{ github.workflow }}' '${{ github.sha }}' "$DEPLOYEASY_BRANCH")
+          signature=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac '${{ secrets.DEPLOYEASY_HMAC }}' -hex | sed 's/^.* //')
+          curl -fsS -X POST "$DEPLOYEASY_EVENT_URL" -H "X-Hub-Signature-256: sha256=$signature" -H "Content-Type: application/json" -d "$payload" || echo "::warning::DeployEasy callback failed"
