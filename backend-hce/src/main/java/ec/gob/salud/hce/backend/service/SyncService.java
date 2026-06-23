@@ -32,6 +32,7 @@ import java.util.UUID;
 
 @Service
 public class SyncService {
+    private static final ZoneId APP_ZONE = ZoneId.of("America/Guayaquil");
 
     private record CantonCatalogEntry(Long id, Long provinciaId, String nombre, long parroquias) {
     }
@@ -100,7 +101,7 @@ public class SyncService {
         System.out.println("DEBUG: Iniciando obtenerDatosParaDescargaInicial");
         try {
             SyncDownResponseDTO response = new SyncDownResponseDTO();
-            response.setServerTime(LocalDateTime.now());
+            response.setServerTime(nowInAppZone());
 
             // Cargar Pacientes con sus tutores y deduplicar por cédula
             System.out.println("DEBUG: Cargando Pacientes...");
@@ -269,7 +270,7 @@ public class SyncService {
             }
         }
 
-        response.setServerTime(LocalDateTime.now());
+        response.setServerTime(nowInAppZone());
         return response;
     }
 
@@ -664,7 +665,7 @@ public class SyncService {
             return;
         }
 
-        LocalDateTime sinceDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(since), ZoneId.systemDefault());
+        LocalDateTime sinceDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(since), APP_ZONE);
 
         if (response.getPacientes() != null) {
             response.setPacientes(response.getPacientes().stream()
@@ -696,5 +697,9 @@ public class SyncService {
                 .replaceAll("[^\\p{Alnum}]+", " ")
                 .trim()
                 .toLowerCase();
+    }
+
+    private LocalDateTime nowInAppZone() {
+        return LocalDateTime.now(APP_ZONE);
     }
 }

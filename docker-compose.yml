@@ -41,11 +41,13 @@ services:
     restart: unless-stopped
     environment:
       # Variables de base de datos
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-hce_prueba2}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-hce_prueba2}?useSSL=false&serverTimezone=America/Guayaquil&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://hce.codifyhub.dev}
       HCE_DEFAULT_USER_PASSWORD: ${HCE_DEFAULT_USER_PASSWORD}
+      TZ: America/Guayaquil
+      JAVA_TOOL_OPTIONS: -Duser.timezone=America/Guayaquil
 
       # Spring profile (opcional)
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
