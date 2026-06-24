@@ -64,6 +64,8 @@ let pacientesRefreshPromise: Promise<Paciente[]> | null = null;
 let allConsultasRefreshPromise: Promise<any[]> | null = null;
 const pacienteRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
 const pacienteConsultasRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
+const PACIENTES_SNAPSHOT_KEY = 'hce_pacientes_snapshot_v1';
+let pacientesMemorySnapshot: Paciente[] | null = null;
 
 function splitFullName(value?: string) {
     const parts = value?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -94,6 +96,27 @@ function getCurrentUsername(): string | undefined {
 
 function isOnline() {
     return typeof navigator !== 'undefined' && navigator.onLine;
+}
+
+function guardarPacientesSnapshot(pacientes: Paciente[]) {
+    pacientesMemorySnapshot = pacientes;
+    try {
+        sessionStorage.setItem(PACIENTES_SNAPSHOT_KEY, JSON.stringify(pacientes));
+    } catch {
+        // El snapshot es solo una mejora de respuesta visual; IndexedDB sigue siendo la fuente real.
+    }
+}
+
+export function obtenerPacientesSnapshot(): Paciente[] {
+    if (pacientesMemorySnapshot) return pacientesMemorySnapshot;
+    try {
+        const raw = sessionStorage.getItem(PACIENTES_SNAPSHOT_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        pacientesMemorySnapshot = Array.isArray(parsed) ? parsed : [];
+    } catch {
+        pacientesMemorySnapshot = [];
+    }
+    return pacientesMemorySnapshot;
 }
 
 function fireAndForgetSync() {
@@ -413,14 +436,16 @@ function estadoConsultaLocal(status?: SyncItemStatus) {
 
 export async function obtenerPacientesLocales(): Promise<Paciente[]> {
     await ensureLegacyLocalStorageMigrated();
-    return db.pacientes.toArray();
+    const pacientes = await db.pacientes.toArray();
+    guardarPacientesSnapshot(pacientes);
+    return pacientes;
 }
 
 export async function refrescarPacientesDesdeServidor(): Promise<Paciente[]> {
     await ensureLegacyLocalStorageMigrated();
 
     if (!isOnline() || syncService.isSyncing()) {
-        return db.pacientes.toArray();
+        return obtenerPacientesLocales();
     }
 
     if (!pacientesRefreshPromise) {
@@ -436,7 +461,7 @@ export async function refrescarPacientesDesdeServidor(): Promise<Paciente[]> {
                 pacientesRefreshPromise = null;
             }
 
-            return db.pacientes.toArray();
+            return obtenerPacientesLocales();
         })();
     }
 

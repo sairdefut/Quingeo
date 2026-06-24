@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   obtenerPacienteConConsultasLocal,
   obtenerPacientesLocales,
+  obtenerPacientesSnapshot,
   refrescarPacientesDesdeServidor
 } from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
@@ -12,10 +13,10 @@ import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE";
 
 export default function ConsultaPacientes() {
   const navigate = useNavigate();
-  const [pacientes, setPacientes] = useState<any[]>([]);
+  const [pacientes, setPacientes] = useState<any[]>(() => obtenerPacientesSnapshot());
   const [busqueda, setBusqueda] = useState("");
   const [pacienteConsultas, setPacienteConsultas] = useState<any | null>(null);
-  const [cargandoInicial, setCargandoInicial] = useState(true);
+  const [cargandoInicial, setCargandoInicial] = useState(() => obtenerPacientesSnapshot().length === 0);
   const refreshSeqRef = useRef(0);
 
   // --- LÓGICA DE IMPRESIÓN DIRECTA ---
@@ -86,19 +87,15 @@ export default function ConsultaPacientes() {
 
   useEffect(() => {
     let activo = true;
-    let fallbackTimer: number | undefined;
+    const tieneSnapshot = obtenerPacientesSnapshot().length > 0;
+    let fallbackTimer: number | undefined = window.setTimeout(() => {
+      if (activo) setCargandoInicial(false);
+    }, tieneSnapshot ? 0 : 1200);
 
     const cargar = async () => {
-      const totalLocales = await cargarPacientesLocales();
+      await cargarPacientesLocales();
       if (!activo) return;
-
-      if (totalLocales > 0) {
-        setCargandoInicial(false);
-      } else {
-        fallbackTimer = window.setTimeout(() => {
-          if (activo) setCargandoInicial(false);
-        }, 1500);
-      }
+      setCargandoInicial(false);
 
       refrescarPacientesEnSegundoPlano()
         .then(() => {
