@@ -1,7 +1,11 @@
 /// <reference types="react" />
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { obtenerPacienteConConsultas, obtenerPacientes } from "../../services/dbPacienteService";
+import {
+  obtenerPacienteConConsultasLocal,
+  obtenerPacientesLocales,
+  refrescarPacientesDesdeServidor
+} from "../../services/dbPacienteService";
 import type { Paciente } from "../../models/Paciente";
 import { useReactToPrint } from "react-to-print";
 import { ReporteCompletoHCE } from "../historial/components/ReporteCompletoHCE";
@@ -11,6 +15,8 @@ export default function ConsultaPacientes() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [pacienteConsultas, setPacienteConsultas] = useState<any | null>(null);
+  const [cargandoInicial, setCargandoInicial] = useState(true);
+  const refreshSeqRef = useRef(0);
 
   // --- LÓGICA DE IMPRESIÓN DIRECTA ---
   const [pacienteAImprimir, setPacienteAImprimir] = useState<any | null>(null);
@@ -26,7 +32,7 @@ export default function ConsultaPacientes() {
   };
 
   const hydratePaciente = async (paciente: Paciente) => {
-    return await obtenerPacienteConConsultas(paciente.cedula) || paciente;
+    return await obtenerPacienteConConsultasLocal(paciente.cedula) || paciente;
   };
 
   const getConsultaSyncBadge = (status?: string) => {
@@ -49,14 +55,24 @@ export default function ConsultaPacientes() {
     return { className: 'text-success', icon: 'bi-cloud-check-fill', label: 'Sincronizado' };
   };
 
-  const cargarPacientes = async () => {
+  const cargarPacientesLocales = useCallback(async () => {
     try {
-      const lista = await obtenerPacientes();
+      const lista = await obtenerPacientesLocales();
       setPacientes(Array.isArray(lista) ? lista : []);
+      return Array.isArray(lista) ? lista.length : 0;
     } catch (error) {
       console.error("Error cargando pacientes:", error);
+      return 0;
     }
-  };
+  }, []);
+
+  const refrescarPacientesEnSegundoPlano = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
+    await refrescarPacientesDesdeServidor();
+    if (seq === refreshSeqRef.current) {
+      await cargarPacientesLocales();
+    }
+  }, [cargarPacientesLocales]);
 
   const triggerPrint = async (paciente: Paciente) => {
     const pacienteCompleto = await hydratePaciente(paciente);
@@ -69,20 +85,52 @@ export default function ConsultaPacientes() {
   // -----------------------------------
 
   useEffect(() => {
-    cargarPacientes();
-  }, []);
+    let activo = true;
+    let fallbackTimer: number | undefined;
+
+    const cargar = async () => {
+      const totalLocales = await cargarPacientesLocales();
+      if (!activo) return;
+
+      if (totalLocales > 0) {
+        setCargandoInicial(false);
+      } else {
+        fallbackTimer = window.setTimeout(() => {
+          if (activo) setCargandoInicial(false);
+        }, 1500);
+      }
+
+      refrescarPacientesEnSegundoPlano()
+        .then(() => {
+          if (activo) setCargandoInicial(false);
+        })
+        .catch(error => {
+          console.warn('[ConsultaPacientes] no se pudo refrescar pacientes:', error);
+          if (activo) setCargandoInicial(false);
+        });
+    };
+
+    cargar();
+    return () => {
+      activo = false;
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+    };
+  }, [cargarPacientesLocales, refrescarPacientesEnSegundoPlano]);
 
   useEffect(() => {
+    let debounceTimer: number | undefined;
     const refreshPacientes = () => {
-      cargarPacientes().catch(console.error);
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        cargarPacientesLocales().catch(console.error);
+      }, 300);
     };
     window.addEventListener('hce-sync-complete', refreshPacientes);
-    window.addEventListener('hce-sync-status-change', refreshPacientes);
     return () => {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
       window.removeEventListener('hce-sync-complete', refreshPacientes);
-      window.removeEventListener('hce-sync-status-change', refreshPacientes);
     };
-  }, []);
+  }, [cargarPacientesLocales]);
 
   const pacientesFiltrados = pacientes.filter((p: Paciente) =>
     `${p.nombres} ${p.apellidos} ${p.cedula} ${p.numeroHistoriaClinica || ''}`.toLowerCase().includes(busqueda.toLowerCase())
@@ -146,7 +194,13 @@ export default function ConsultaPacientes() {
                 </tr>
               </thead>
               <tbody>
-                {pacientesFiltrados.length > 0 ? (
+                {cargandoInicial && pacientes.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-5 text-center">
+                      <div className="spinner-border text-primary" role="status"></div>
+                    </td>
+                  </tr>
+                ) : pacientesFiltrados.length > 0 ? (
                   pacientesFiltrados.map((p: Paciente) => (
                     <tr key={p.cedula} className="border-bottom transition-hover">
                       <td className="px-4">

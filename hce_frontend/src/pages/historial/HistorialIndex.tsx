@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obtenerPacientes, obtenerTodasConsultas } from '../../services/dbPacienteService';
+import {
+    obtenerPacientesLocales,
+    obtenerTodasConsultasLocales,
+    refrescarPacientesDesdeServidor,
+    refrescarTodasConsultasDesdeServidor
+} from '../../services/dbPacienteService';
 
 function agruparConsultasPorPaciente(consultas: any[]) {
     const porIdPaciente = new Map<number, any[]>();
@@ -52,12 +57,11 @@ export default function HistorialIndex() {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState("");
 
-    const cargarDatos = async (showLoading = true) => {
-        if (showLoading) setLoading(true);
+    const cargarDatosLocales = async () => {
         try {
             const [lista, consultas] = await Promise.all([
-                obtenerPacientes(),
-                obtenerTodasConsultas()
+                obtenerPacientesLocales(),
+                obtenerTodasConsultasLocales()
             ]);
             const pacientesLista = Array.isArray(lista) ? lista : [];
             const consultasLista = Array.isArray(consultas) ? consultas : [];
@@ -67,26 +71,66 @@ export default function HistorialIndex() {
                 ...paciente,
                 historiaClinica: obtenerConsultasDelPaciente(paciente, gruposConsultas)
             })));
+            return pacientesLista.length;
         } catch (error) {
             console.error("Error cargando pacientes:", error);
-        } finally {
-            if (showLoading) setLoading(false);
+            return 0;
         }
     };
 
+    const refrescarDatosEnSegundoPlano = async () => {
+        await Promise.all([
+            refrescarPacientesDesdeServidor(),
+            refrescarTodasConsultasDesdeServidor()
+        ]);
+        await cargarDatosLocales();
+    };
+
     useEffect(() => {
-        cargarDatos();
+        let activo = true;
+        let fallbackTimer: number | undefined;
+
+        const cargar = async () => {
+            const totalLocales = await cargarDatosLocales();
+            if (!activo) return;
+
+            if (totalLocales > 0) {
+                setLoading(false);
+            } else {
+                fallbackTimer = window.setTimeout(() => {
+                    if (activo) setLoading(false);
+                }, 1500);
+            }
+
+            refrescarDatosEnSegundoPlano()
+                .then(() => {
+                    if (activo) setLoading(false);
+                })
+                .catch(error => {
+                    console.warn('[HistorialIndex] no se pudo refrescar historiales:', error);
+                    if (activo) setLoading(false);
+                });
+        };
+
+        cargar();
+        return () => {
+            activo = false;
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+        };
     }, []);
 
     useEffect(() => {
+        let debounceTimer: number | undefined;
         const refreshHistoriales = () => {
-            cargarDatos(false).catch(console.error);
+            if (debounceTimer) window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+                cargarDatosLocales().catch(console.error);
+            }, 300);
         };
         window.addEventListener('hce-sync-complete', refreshHistoriales);
-        window.addEventListener('hce-sync-status-change', refreshHistoriales);
         return () => {
+            if (debounceTimer) window.clearTimeout(debounceTimer);
             window.removeEventListener('hce-sync-complete', refreshHistoriales);
-            window.removeEventListener('hce-sync-status-change', refreshHistoriales);
         };
     }, []);
 

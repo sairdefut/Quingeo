@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { obtenerPacienteConConsultas } from '../../services/dbPacienteService';
+import {
+    obtenerPacienteConConsultasLocal,
+    refrescarPacienteConConsultasDesdeServidor
+} from '../../services/dbPacienteService';
 
 export default function VerHistorialCompleto() {
     const { cedula } = useParams();
@@ -9,28 +12,61 @@ export default function VerHistorialCompleto() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const cargarDatos = async (showLoading = true) => {
+        let activo = true;
+        let fallbackTimer: number | undefined;
+
+        const cargarDatosLocales = async () => {
             if (!cedula) return;
-            if (showLoading) setLoading(true);
             try {
-                const encontrado = await obtenerPacienteConConsultas(cedula);
-                setPaciente(encontrado || null);
+                const encontrado = await obtenerPacienteConConsultasLocal(cedula);
+                if (activo) setPaciente(encontrado || null);
+                return Boolean(encontrado);
             } catch (error) {
                 console.error('Error cargando datos:', error);
-            } finally {
-                if (showLoading) setLoading(false);
+                return false;
             }
         };
+
+        const cargarDatos = async () => {
+            if (!cedula) return;
+            const tieneLocal = await cargarDatosLocales();
+            if (!activo) return;
+
+            if (tieneLocal) {
+                setLoading(false);
+            } else {
+                fallbackTimer = window.setTimeout(() => {
+                    if (activo) setLoading(false);
+                }, 1500);
+            }
+
+            refrescarPacienteConConsultasDesdeServidor(cedula)
+                .then(encontrado => {
+                    if (!activo) return;
+                    setPaciente(encontrado || null);
+                    setLoading(false);
+                })
+                .catch(error => {
+                    console.warn('[VerHistorialCompleto] no se pudo refrescar historial:', error);
+                    if (activo) setLoading(false);
+                });
+        };
+
         cargarDatos();
 
+        let debounceTimer: number | undefined;
         const refreshHistorial = () => {
-            cargarDatos(false).catch(console.error);
+            if (debounceTimer) window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+                cargarDatosLocales().catch(console.error);
+            }, 300);
         };
         window.addEventListener('hce-sync-complete', refreshHistorial);
-        window.addEventListener('hce-sync-status-change', refreshHistorial);
         return () => {
+            activo = false;
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+            if (debounceTimer) window.clearTimeout(debounceTimer);
             window.removeEventListener('hce-sync-complete', refreshHistorial);
-            window.removeEventListener('hce-sync-status-change', refreshHistorial);
         };
     }, [cedula]);
 

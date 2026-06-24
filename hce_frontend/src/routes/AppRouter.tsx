@@ -15,7 +15,10 @@ import AdminRoute from './AdminRoute';
 import OnlineRoute from './OnlineRoute';
 import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
-import { obtenerPacienteConConsultas } from '../services/dbPacienteService';
+import {
+  obtenerPacienteConConsultasLocal,
+  refrescarPacienteConConsultasDesdeServidor
+} from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
 
 // Wrapper para cargar paciente por cédula para el reporte
@@ -24,11 +27,27 @@ const ReporteHCEWrapper = () => {
   const [paciente, setPaciente] = useState<any>(null);
 
   useEffect(() => {
+    let activo = true;
     const cargar = async () => {
-      const encontrado = cedula ? await obtenerPacienteConConsultas(cedula) : undefined;
-      setPaciente(encontrado || null);
+      if (!cedula) {
+        setPaciente(null);
+        return;
+      }
+
+      const local = await obtenerPacienteConConsultasLocal(cedula);
+      if (activo) setPaciente(local || null);
+
+      refrescarPacienteConConsultasDesdeServidor(cedula)
+        .then(encontrado => {
+          if (activo) setPaciente(encontrado || null);
+        })
+        .catch(error => console.warn('[ReporteHCEWrapper] no se pudo refrescar reporte:', error));
     };
     cargar();
+
+    return () => {
+      activo = false;
+    };
   }, [cedula]);
 
   return <ReporteCompletoHCE paciente={paciente} />;

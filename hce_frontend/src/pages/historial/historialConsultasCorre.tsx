@@ -1,5 +1,5 @@
 /// <reference types="react" />
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,7 +8,11 @@ import { VistaIdentificacion } from './components/VistaIdentificacion';
 import { SeccionAntecedentes } from './components/SeccionAntecedentes';
 import { TabsConsultaActual } from './components/TabsConsultaActual';
 
-import { guardarConsultaOffline, obtenerPacienteConConsultas } from '../../services/dbPacienteService';
+import {
+    guardarConsultaOffline,
+    obtenerPacienteConConsultasLocal,
+    refrescarPacienteConConsultasDesdeServidor
+} from '../../services/dbPacienteService';
 import { calcularIMC, obtenerZScore, calcularEdadMeses } from './medicaCalcular';
 import { notifyError, notifySuccess, notifyWarning } from '../../services/notificationService';
 
@@ -48,6 +52,7 @@ export default function HistorialConsultas() {
     const [tabActiva, setTabActiva] = useState('anamnesis');
     const [pacienteActual, setPacienteActual] = useState<any>(null);
     const [bloquearAntecedentes, setBloquearAntecedentes] = useState(true);
+    const antecedentesInicializadosRef = useRef(false);
 
     const [motivoConsulta, setMotivoConsulta] = useState('');
     const [enfermedadActual, setEnfermedadActual] = useState('');
@@ -138,19 +143,29 @@ export default function HistorialConsultas() {
     };
 
     useEffect(() => {
+        let activo = true;
+
+        const aplicarPaciente = (encontrado: any, hidratarAntecedentes = true) => {
+            if (!encontrado || !activo) return;
+            const historia = encontrado.historiaClinica || [];
+            setPacienteActual(encontrado);
+            setBloquearAntecedentes(historia.length > 0);
+
+            if (hidratarAntecedentes && !antecedentesInicializadosRef.current && historia.length > 0) {
+                const ult = historia[historia.length - 1];
+                cargarAntecedentesEnFormulario(ult);
+                antecedentesInicializadosRef.current = true;
+            }
+        };
+
         const cargarPaciente = async () => {
             if (!cedula) return;
-            const encontrado = await obtenerPacienteConConsultas(cedula);
-            if (encontrado) {
-                const historia = encontrado.historiaClinica || [];
-                setPacienteActual(encontrado);
-                setBloquearAntecedentes(historia.length > 0);
+            const local = await obtenerPacienteConConsultasLocal(cedula);
+            aplicarPaciente(local);
 
-                if (historia.length > 0) {
-                    const ult = historia[historia.length - 1];
-                    cargarAntecedentesEnFormulario(ult);
-                }
-            }
+            refrescarPacienteConConsultasDesdeServidor(cedula)
+                .then(encontrado => aplicarPaciente(encontrado, !local))
+                .catch(error => console.warn('[HistorialConsultas] no se pudo refrescar paciente:', error));
         };
         cargarPaciente();
 
@@ -174,6 +189,10 @@ export default function HistorialConsultas() {
             setReferenciaHospital(Boolean(consultaEdicion.diagnostico?.cierre?.referenciaHospital ?? consultaEdicion.referenciaHospital));
             setMotivoReferencia(consultaEdicion.diagnostico?.cierre?.motivoReferencia || consultaEdicion.motivoReferencia || '');
         }
+
+        return () => {
+            activo = false;
+        };
     }, [cedula, consultaEnEdicion]);
 
     const edadM = useMemo(() => pacienteActual ? calcularEdadMeses(pacienteActual.fechaNacimiento) : 0, [pacienteActual]);

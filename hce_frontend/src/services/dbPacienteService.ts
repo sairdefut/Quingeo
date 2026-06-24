@@ -59,6 +59,12 @@ type PacienteRequestDTO = {
 type ConsultaSaveMode = 'create' | 'update';
 type ConflictResolution = 'local' | 'server';
 
+let legacyMigrationPromise: Promise<void> | null = null;
+let pacientesRefreshPromise: Promise<Paciente[]> | null = null;
+let allConsultasRefreshPromise: Promise<any[]> | null = null;
+const pacienteRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
+const pacienteConsultasRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
+
 function splitFullName(value?: string) {
     const parts = value?.trim().split(/\s+/).filter(Boolean) ?? [];
     return {
@@ -131,6 +137,13 @@ async function migrateLegacyLocalStorage() {
     } finally {
         await dbHelpers.setMetadata('legacyLocalStorageMigrated', true);
     }
+}
+
+function ensureLegacyLocalStorageMigrated() {
+    if (!legacyMigrationPromise) {
+        legacyMigrationPromise = migrateLegacyLocalStorage();
+    }
+    return legacyMigrationPromise;
 }
 
 export function mapPacienteBackendToFrontend(dto: PacienteResponseDTO): Paciente {
@@ -398,31 +411,68 @@ function estadoConsultaLocal(status?: SyncItemStatus) {
     return 'synced';
 }
 
-export async function obtenerPacientes(): Promise<Paciente[]> {
-    await migrateLegacyLocalStorage();
-
-    if (isOnline()) {
-        try {
-            const data = await apiGet<PacienteResponseDTO[]>('/pacientes');
-            if (Array.isArray(data)) {
-                await upsertRemotePacientes(data);
-            }
-        } catch (error) {
-            console.warn('[dbPacienteService] usando pacientes locales:', error);
-        }
-    }
-
+export async function obtenerPacientesLocales(): Promise<Paciente[]> {
+    await ensureLegacyLocalStorageMigrated();
     return db.pacientes.toArray();
 }
 
-export async function buscarPacientePorCedula(cedula: string): Promise<Paciente | undefined> {
-    await migrateLegacyLocalStorage();
+export async function refrescarPacientesDesdeServidor(): Promise<Paciente[]> {
+    await ensureLegacyLocalStorageMigrated();
 
-    const local = await db.pacientes.where('cedula').equals(cedula).first();
+    if (!isOnline()) {
+        return db.pacientes.toArray();
+    }
 
+    if (!pacientesRefreshPromise) {
+        pacientesRefreshPromise = (async () => {
+            try {
+                const data = await apiGet<PacienteResponseDTO[]>('/pacientes');
+                if (Array.isArray(data)) {
+                    await upsertRemotePacientes(data);
+                }
+            } catch (error) {
+                console.warn('[dbPacienteService] usando pacientes locales:', error);
+            } finally {
+                pacientesRefreshPromise = null;
+            }
+
+            return db.pacientes.toArray();
+        })();
+    }
+
+    return pacientesRefreshPromise;
+}
+
+export async function obtenerPacientes(): Promise<Paciente[]> {
+    const locales = await obtenerPacientesLocales();
     if (isOnline()) {
+        refrescarPacientesDesdeServidor().catch(error => {
+            console.warn('[dbPacienteService] no se pudo refrescar pacientes en background:', error);
+        });
+    }
+    return locales;
+}
+
+export async function buscarPacientePorCedulaLocal(cedula: string): Promise<Paciente | undefined> {
+    await ensureLegacyLocalStorageMigrated();
+    return db.pacientes.where('cedula').equals(cedula).first();
+}
+
+export async function refrescarPacienteDesdeServidor(cedula: string): Promise<Paciente | undefined> {
+    await ensureLegacyLocalStorageMigrated();
+
+    if (!isOnline()) {
+        return buscarPacientePorCedulaLocal(cedula);
+    }
+
+    const key = cedula.trim();
+    const existingRefresh = pacienteRefreshPromises.get(key);
+    if (existingRefresh) return existingRefresh;
+
+    const refresh = (async () => {
+        const local = await buscarPacientePorCedulaLocal(cedula);
+
         try {
-            // Check if there are pending offline changes for this patient
             const pending = await dbHelpers.getPendingSyncItems();
             const hasPending = pending.some(item =>
                 item.entity === 'paciente' &&
@@ -433,8 +483,6 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
                 const data = await apiGet<PacienteResponseDTO>(`/pacientes/${encodeURIComponent(cedula)}`);
                 if (data) {
                     const mapped = mapPacienteBackendToFrontend(data);
-
-                    // Merge local properties like historiaClinica if they exist
                     const merged = {
                         ...(local || {}),
                         ...mapped,
@@ -458,10 +506,29 @@ export async function buscarPacientePorCedula(cedula: string): Promise<Paciente 
         } catch (error: any) {
             console.warn('[dbPacienteService] Could not fetch full patient info from server:', error);
             if (error?.status === 404 && !local) return undefined;
+        } finally {
+            pacienteRefreshPromises.delete(key);
         }
+
+        return local || undefined;
+    })();
+
+    pacienteRefreshPromises.set(key, refresh);
+    return refresh;
+}
+
+export async function buscarPacientePorCedula(cedula: string): Promise<Paciente | undefined> {
+    const local = await buscarPacientePorCedulaLocal(cedula);
+    if (local) {
+        if (isOnline()) {
+            refrescarPacienteDesdeServidor(cedula).catch(error => {
+                console.warn('[dbPacienteService] no se pudo refrescar paciente en background:', error);
+            });
+        }
+        return local;
     }
 
-    return local || undefined;
+    return refrescarPacienteDesdeServidor(cedula);
 }
 
 export async function buscarPacientes(criterio: string): Promise<Paciente[]> {
@@ -478,19 +545,22 @@ export async function buscarPacientes(criterio: string): Promise<Paciente[]> {
 }
 
 export async function obtenerPacienteConConsultas(cedula: string): Promise<Paciente | undefined> {
-    const paciente = await buscarPacientePorCedula(cedula);
-    if (!paciente) return undefined;
-
-    if (isOnline() && paciente.idPaciente) {
-        try {
-            const data = await apiGet<ConsultaBackend[]>(`/consultas/paciente/${paciente.idPaciente}`);
-            if (Array.isArray(data)) {
-                await upsertRemoteConsultas(data);
-            }
-        } catch (error) {
-            console.warn('[dbPacienteService] usando consultas locales del paciente:', error);
+    const local = await obtenerPacienteConConsultasLocal(cedula);
+    if (local) {
+        if (isOnline()) {
+            refrescarPacienteConConsultasDesdeServidor(cedula).catch(error => {
+                console.warn('[dbPacienteService] no se pudo refrescar paciente con consultas en background:', error);
+            });
         }
+        return local;
     }
+
+    return refrescarPacienteConConsultasDesdeServidor(cedula);
+}
+
+export async function obtenerPacienteConConsultasLocal(cedula: string): Promise<Paciente | undefined> {
+    const paciente = await buscarPacientePorCedulaLocal(cedula);
+    if (!paciente) return undefined;
 
     const rows = await obtenerFilasConsultaDelPaciente(paciente);
     return {
@@ -503,8 +573,39 @@ export async function obtenerPacienteConConsultas(cedula: string): Promise<Pacie
     };
 }
 
+export async function refrescarPacienteConConsultasDesdeServidor(cedula: string): Promise<Paciente | undefined> {
+    if (!isOnline()) {
+        return obtenerPacienteConConsultasLocal(cedula);
+    }
+
+    const key = cedula.trim();
+    const existingRefresh = pacienteConsultasRefreshPromises.get(key);
+    if (existingRefresh) return existingRefresh;
+
+    const refresh = (async () => {
+        try {
+            const paciente = await refrescarPacienteDesdeServidor(cedula);
+            if (paciente?.idPaciente) {
+                const data = await apiGet<ConsultaBackend[]>(`/consultas/paciente/${paciente.idPaciente}`);
+                if (Array.isArray(data)) {
+                    await upsertRemoteConsultas(data);
+                }
+            }
+        } catch (error) {
+            console.warn('[dbPacienteService] usando consultas locales del paciente:', error);
+        } finally {
+            pacienteConsultasRefreshPromises.delete(key);
+        }
+
+        return obtenerPacienteConConsultasLocal(cedula);
+    })();
+
+    pacienteConsultasRefreshPromises.set(key, refresh);
+    return refresh;
+}
+
 export async function registrarPaciente(paciente: Paciente): Promise<Paciente> {
-    await migrateLegacyLocalStorage();
+    await ensureLegacyLocalStorageMigrated();
 
     const existing = await db.pacientes.where('cedula').equals(paciente.cedula).first();
     if (existing && existing.uuidOffline !== paciente.uuidOffline) {
@@ -558,28 +659,58 @@ export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise
 }
 
 export async function obtenerConsultasPorCedula(cedula: string): Promise<any[]> {
-    const paciente = await obtenerPacienteConConsultas(cedula);
+    const paciente = await obtenerPacienteConConsultasLocal(cedula);
+    if (isOnline()) {
+        refrescarPacienteConConsultasDesdeServidor(cedula).catch(error => {
+            console.warn('[dbPacienteService] no se pudo refrescar consultas por cedula:', error);
+        });
+    }
     return paciente?.historiaClinica || [];
 }
 
-export async function obtenerTodasConsultas(): Promise<any[]> {
-    if (isOnline()) {
-        try {
-            const data = await apiGet<ConsultaBackend[]>('/consultas');
-            if (Array.isArray(data)) {
-                await upsertRemoteConsultas(data);
-            }
-        } catch (error) {
-            console.warn('[dbPacienteService] usando todas las consultas locales:', error);
-        }
-    }
-
+export async function obtenerTodasConsultasLocales(): Promise<any[]> {
     const rows = await db.consultas.orderBy('localUpdatedAt').toArray();
     return rows.map(row => ({
         ...row.data,
         syncStatus: estadoConsultaLocal(row.syncStatus),
         lastModified: row.lastModified || row.data?.lastModified
     }));
+}
+
+export async function refrescarTodasConsultasDesdeServidor(): Promise<any[]> {
+    if (!isOnline()) {
+        return obtenerTodasConsultasLocales();
+    }
+
+    if (!allConsultasRefreshPromise) {
+        allConsultasRefreshPromise = (async () => {
+            try {
+                const data = await apiGet<ConsultaBackend[]>('/consultas');
+                if (Array.isArray(data)) {
+                    await upsertRemoteConsultas(data);
+                }
+            } catch (error) {
+                console.warn('[dbPacienteService] usando todas las consultas locales:', error);
+            } finally {
+                allConsultasRefreshPromise = null;
+            }
+
+            return obtenerTodasConsultasLocales();
+        })();
+    }
+
+    return allConsultasRefreshPromise;
+}
+
+export async function obtenerTodasConsultas(): Promise<any[]> {
+    const locales = await obtenerTodasConsultasLocales();
+    if (isOnline()) {
+        refrescarTodasConsultasDesdeServidor().catch(error => {
+            console.warn('[dbPacienteService] no se pudo refrescar todas las consultas:', error);
+        });
+    }
+
+    return locales;
 }
 
 export async function guardarConsultaOffline(cedula: string, consulta: any): Promise<boolean> {
