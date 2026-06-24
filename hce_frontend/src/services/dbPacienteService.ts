@@ -65,7 +65,9 @@ let allConsultasRefreshPromise: Promise<any[]> | null = null;
 const pacienteRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
 const pacienteConsultasRefreshPromises = new Map<string, Promise<Paciente | undefined>>();
 const PACIENTES_SNAPSHOT_KEY = 'hce_pacientes_snapshot_v1';
+const PACIENTE_DETALLE_SNAPSHOT_PREFIX = 'hce_paciente_detalle_snapshot_v1:';
 let pacientesMemorySnapshot: Paciente[] | null = null;
+const pacienteDetalleMemorySnapshot = new Map<string, Paciente>();
 
 function splitFullName(value?: string) {
     const parts = value?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -117,6 +119,38 @@ export function obtenerPacientesSnapshot(): Paciente[] {
         pacientesMemorySnapshot = [];
     }
     return pacientesMemorySnapshot;
+}
+
+function guardarPacienteDetalleSnapshot(paciente: Paciente) {
+    if (!paciente?.cedula) return;
+    pacienteDetalleMemorySnapshot.set(paciente.cedula, paciente);
+    try {
+        sessionStorage.setItem(`${PACIENTE_DETALLE_SNAPSHOT_PREFIX}${paciente.cedula}`, JSON.stringify(paciente));
+    } catch {
+        // El detalle cacheado solo evita pantallas de carga; IndexedDB sigue siendo la fuente real.
+    }
+}
+
+export function obtenerPacienteSnapshot(cedula: string): Paciente | null {
+    const key = cedula.trim();
+    if (!key) return null;
+
+    const memoryDetail = pacienteDetalleMemorySnapshot.get(key);
+    if (memoryDetail) return memoryDetail;
+
+    try {
+        const raw = sessionStorage.getItem(`${PACIENTE_DETALLE_SNAPSHOT_PREFIX}${key}`);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed?.cedula) {
+            pacienteDetalleMemorySnapshot.set(key, parsed);
+            return parsed;
+        }
+    } catch {
+        // Continuar con snapshot de lista.
+    }
+
+    const pacienteLista = obtenerPacientesSnapshot().find(paciente => paciente.cedula === key);
+    return pacienteLista ? { ...pacienteLista, historiaClinica: pacienteLista.historiaClinica || [] } : null;
 }
 
 function fireAndForgetSync() {
@@ -588,7 +622,7 @@ export async function obtenerPacienteConConsultasLocal(cedula: string): Promise<
     if (!paciente) return undefined;
 
     const rows = await obtenerFilasConsultaDelPaciente(paciente);
-    return {
+    const pacienteConConsultas = {
         ...paciente,
         historiaClinica: rows.map(row => ({
             ...row.data,
@@ -596,6 +630,8 @@ export async function obtenerPacienteConConsultasLocal(cedula: string): Promise<
             lastModified: row.lastModified || row.data?.lastModified
         }))
     };
+    guardarPacienteDetalleSnapshot(pacienteConConsultas);
+    return pacienteConConsultas;
 }
 
 export async function refrescarPacienteConConsultasDesdeServidor(cedula: string): Promise<Paciente | undefined> {

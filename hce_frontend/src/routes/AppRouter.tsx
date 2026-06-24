@@ -17,6 +17,7 @@ import PerfilUsuario from '../pages/perfil/PerfilUsuario';
 import { ReporteCompletoHCE } from '../pages/historial/components/ReporteCompletoHCE';
 import {
   obtenerPacienteConConsultasLocal,
+  obtenerPacienteSnapshot,
   refrescarPacienteConConsultasDesdeServidor
 } from '../services/dbPacienteService';
 import { useState, useEffect } from 'react';
@@ -24,7 +25,7 @@ import { useState, useEffect } from 'react';
 // Wrapper para cargar paciente por cédula para el reporte
 const ReporteHCEWrapper = () => {
   const { cedula } = useParams();
-  const [paciente, setPaciente] = useState<any>(null);
+  const [paciente, setPaciente] = useState<any>(() => cedula ? obtenerPacienteSnapshot(cedula) : null);
 
   useEffect(() => {
     let activo = true;
@@ -33,6 +34,9 @@ const ReporteHCEWrapper = () => {
         setPaciente(null);
         return;
       }
+
+      const snapshot = obtenerPacienteSnapshot(cedula);
+      if (snapshot) setPaciente(snapshot);
 
       const local = await obtenerPacienteConConsultasLocal(cedula);
       if (activo) setPaciente(local || null);
