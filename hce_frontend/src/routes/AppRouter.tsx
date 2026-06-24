@@ -45,8 +45,26 @@ const ReporteHCEWrapper = () => {
     };
     cargar();
 
+    let debounceTimer: number | undefined;
+    const refreshReporteLocal = (event: Event) => {
+      const entities = (event as CustomEvent<{ entities?: string[] }>).detail?.entities || [];
+      if (entities.length > 0 && !entities.includes('pacientes') && !entities.includes('consultas')) return;
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        if (!cedula) return;
+        obtenerPacienteConConsultasLocal(cedula)
+          .then(encontrado => {
+            if (activo) setPaciente(encontrado || null);
+          })
+          .catch(console.error);
+      }, 300);
+    };
+    window.addEventListener('hce-local-data-updated', refreshReporteLocal);
+
     return () => {
       activo = false;
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      window.removeEventListener('hce-local-data-updated', refreshReporteLocal);
     };
   }, [cedula]);
 

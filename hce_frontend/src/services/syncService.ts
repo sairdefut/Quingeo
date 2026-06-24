@@ -1,7 +1,7 @@
 // src/services/syncService.ts
 // Bidirectional offline-first synchronization service.
 
-import { db, dbHelpers, type SyncQueueItem } from '../db/db';
+import { db, dbHelpers, type ConsultaLocal, type SyncQueueItem } from '../db/db';
 import { mapConsultaFrontendToBackend, mapConsultaBackendToFrontend } from './consultaMapper';
 import type { Paciente } from '../models/Paciente';
 import { API_BASE_URL } from './authSession';
@@ -48,6 +48,8 @@ type SyncOptions = {
     reconcile?: boolean;
 };
 
+type LocalDataEntity = 'pacientes' | 'consultas' | 'catalogos' | 'syncQueue';
+
 class SyncService {
     private syncInProgress = false;
     private initialized = false;
@@ -61,6 +63,10 @@ class SyncService {
     private readonly retryDelaysMs = [1000, 2000, 4000];
     private readonly connectivityCacheMs = 1000;
     private readonly pingTimeoutMs = 1000;
+
+    isSyncing(): boolean {
+        return this.syncInProgress;
+    }
 
     setToastCallback(callback: ToastCallback) {
         this.toastCallback = callback;
@@ -126,6 +132,18 @@ class SyncService {
         }));
     }
 
+    private emitLocalDataUpdated(source: 'up' | 'down' | 'full', entities: LocalDataEntity[], background = false) {
+        if (entities.length === 0) return;
+        window.dispatchEvent(new CustomEvent('hce-local-data-updated', {
+            detail: {
+                source,
+                entities,
+                background,
+                at: Date.now()
+            }
+        }));
+    }
+
     private async setBackendOnline(online: boolean, notify = true) {
         if (this.backendOnline !== online) {
             this.backendOnline = online;
@@ -181,9 +199,10 @@ class SyncService {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
-            await this.applyDownloadedData(data);
+            const updatedEntities = await this.applyDownloadedData(data);
             if (options.reconcile) {
-                await this.reconcileFullSnapshot(data);
+                const reconciledEntities = await this.reconcileFullSnapshot(data);
+                updatedEntities.push(...reconciledEntities);
             }
 
             const serverTime = data.serverTime ? Date.parse(data.serverTime) : Date.now();
@@ -192,6 +211,7 @@ class SyncService {
             if (!options.background) {
                 this.showToast('Datos actualizados', 'success');
             }
+            this.emitLocalDataUpdated(options.full ? 'full' : 'down', Array.from(new Set(updatedEntities)), Boolean(options.background));
             this.emitSyncCompleted(options.full ? 'full' : 'down', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync down:', error);
@@ -207,7 +227,9 @@ class SyncService {
         }
     }
 
-    private async applyDownloadedData(data: any) {
+    private async applyDownloadedData(data: any): Promise<LocalDataEntity[]> {
+        const updatedEntities = new Set<LocalDataEntity>();
+
         if (Array.isArray(data.pacientes)) {
             const pendingItems = await dbHelpers.getPendingSyncItems();
             const pendingPacientesCedulas = new Set(
@@ -239,6 +261,7 @@ class SyncService {
 
             if (pacientesToUpdate.length > 0) {
                 await db.pacientes.bulkPut(pacientesToUpdate);
+                updatedEntities.add('pacientes');
             }
         }
 
@@ -247,6 +270,7 @@ class SyncService {
                 await db.catalogos.clear();
                 await db.catalogos.bulkPut(data.catalogos);
             });
+            updatedEntities.add('catalogos');
         }
 
         if (Array.isArray(data.consultas)) {
@@ -257,14 +281,21 @@ class SyncService {
                     .map(item => item.uuidOffline)
                     .filter(Boolean)
             );
+            const pacientes = await db.pacientes.toArray();
+            const pacientesById = new Map(pacientes.map(paciente => [paciente.idPaciente, paciente]));
+            const pacientesByCedula = new Map(pacientes.map(paciente => [paciente.cedula, paciente]));
+            const now = Date.now();
+            const consultasToUpdate: ConsultaLocal[] = [];
 
             for (const c of data.consultas) {
-                const paciente = await db.pacientes.where('idPaciente').equals(c.idPaciente).first();
                 const consultaFE = mapConsultaBackendToFrontend(c);
                 const uuidOffline = consultaFE.uuidOffline || c.uuidOffline || consultaFE.id || `srv-consulta-${c.idConsulta}`;
                 if (blockedConsultaUuids.has(uuidOffline)) continue;
 
-                await db.consultas.put({
+                const paciente = (c.idPaciente ? pacientesById.get(c.idPaciente) : undefined)
+                    || (consultaFE.cedula ? pacientesByCedula.get(consultaFE.cedula) : undefined);
+
+                consultasToUpdate.push({
                     uuidOffline,
                     id: String(consultaFE.id || uuidOffline),
                     idConsulta: c.idConsulta,
@@ -274,10 +305,17 @@ class SyncService {
                     data: { ...consultaFE, uuidOffline, sincronizado: true, syncStatus: 'synced' },
                     syncStatus: 'synced',
                     lastModified: c.lastModified,
-                    localUpdatedAt: Date.now()
+                    localUpdatedAt: now
                 });
             }
+
+            if (consultasToUpdate.length > 0) {
+                await db.consultas.bulkPut(consultasToUpdate);
+                updatedEntities.add('consultas');
+            }
         }
+
+        return Array.from(updatedEntities);
     }
 
     async syncUp(options: SyncOptions = {}): Promise<void> {
@@ -297,11 +335,12 @@ class SyncService {
             const result = await this.uploadPreparedItems(prepared, options);
             if (!result) return;
 
-            await this.applySyncResult(prepared.map(p => p.item), result);
+            const updatedEntities = await this.applySyncResult(prepared.map(p => p.item), result);
             await dbHelpers.clearSyncedItems();
             prepared = [];
             await this.syncReadyPendingConsultas(options);
             await dbHelpers.setSyncState('lastSyncResult', { ok: true, at: Date.now() });
+            this.emitLocalDataUpdated('up', [...updatedEntities, 'syncQueue'], Boolean(options.background));
             this.emitSyncCompleted('up', Boolean(options.background));
         } catch (error) {
             console.error('[SyncService] Error sync up:', error);
@@ -316,7 +355,8 @@ class SyncService {
         }
     }
 
-    private async reconcileFullSnapshot(data: any) {
+    private async reconcileFullSnapshot(data: any): Promise<LocalDataEntity[]> {
+        const updatedEntities = new Set<LocalDataEntity>();
         const pendingItems = await dbHelpers.getPendingSyncItems();
         const pendingPacienteUuids = new Set(
             pendingItems
@@ -375,11 +415,15 @@ class SyncService {
 
             if (pacientesToDelete.length > 0) {
                 await db.pacientes.bulkDelete(pacientesToDelete);
+                updatedEntities.add('pacientes');
             }
             if (consultasToDelete.length > 0) {
                 await db.consultas.bulkDelete(consultasToDelete);
+                updatedEntities.add('consultas');
             }
         });
+
+        return Array.from(updatedEntities);
     }
 
     private async uploadPreparedItems(
@@ -446,8 +490,9 @@ class SyncService {
         try {
             const result = await this.uploadPreparedItems(prepared, options);
             if (!result) return;
-            await this.applySyncResult(prepared.map(p => p.item), result);
+            const updatedEntities = await this.applySyncResult(prepared.map(p => p.item), result);
             await dbHelpers.clearSyncedItems();
+            this.emitLocalDataUpdated('up', [...updatedEntities, 'syncQueue'], Boolean(options.background));
         } catch (error) {
             await this.markPreparedItemsFailed(prepared, String(error));
             throw error;
@@ -525,7 +570,8 @@ class SyncService {
         return data || {};
     }
 
-    private async applySyncResult(sentItems: SyncQueueItem[], result: SyncBatchResponse) {
+    private async applySyncResult(sentItems: SyncQueueItem[], result: SyncBatchResponse): Promise<LocalDataEntity[]> {
+        const updatedEntities = new Set<LocalDataEntity>();
         const mappings = result.mappings || [];
         for (const mapping of mappings) {
             const serverId = mapping.serverId ?? mapping.newId;
@@ -536,6 +582,7 @@ class SyncService {
                     lastModified: mapping.serverLastModified,
                     syncStatus: 'synced'
                 });
+                updatedEntities.add('pacientes');
                 await db.consultas
                     .where('pacienteUuidOffline')
                     .equals(mapping.uuidOffline)
@@ -545,6 +592,7 @@ class SyncService {
                             consulta.data.idPaciente = serverId;
                         }
                     });
+                updatedEntities.add('consultas');
                 await db.syncQueue
                     .where('entity')
                     .equals('consulta')
@@ -557,6 +605,7 @@ class SyncService {
                             item.payload.idPaciente = serverId;
                         }
                     });
+                updatedEntities.add('syncQueue');
             }
             if (mapping.entityType === 'consulta' && mapping.uuidOffline && serverId) {
                 const consultaLocal = await db.consultas.get(mapping.uuidOffline);
@@ -575,6 +624,7 @@ class SyncService {
                     syncStatus: 'synced',
                     ...(data ? { data } : {})
                 });
+                updatedEntities.add('consultas');
             }
         }
 
@@ -588,6 +638,7 @@ class SyncService {
                 serverPayload: conflict.serverPayload,
                 reason: conflict.reason || 'Conflicto de sincronizacion'
             });
+            updatedEntities.add('syncQueue');
         }
 
         const rejected = new Map((result.rejected || []).map(r => [r.clientMutationId, r.reason || 'Rechazado por el servidor']));
@@ -600,31 +651,39 @@ class SyncService {
             if (!item.id) continue;
             if (conflictIds.has(item.clientMutationId)) {
                 await db.syncQueue.update(item.id, { status: 'conflict', synced: 0 });
+                updatedEntities.add('syncQueue');
                 if (item.entity === 'consulta' && item.uuidOffline) {
                     const row = await db.consultas.get(item.uuidOffline);
                     await db.consultas.update(item.uuidOffline, {
                         syncStatus: 'conflict',
                         data: row?.data ? { ...row.data, syncStatus: 'conflict' } : row?.data
                     });
+                    updatedEntities.add('consultas');
                 }
                 continue;
             }
             if (rejected.has(item.clientMutationId)) {
                 await dbHelpers.markAsFailed(item, rejected.get(item.clientMutationId)!);
+                updatedEntities.add('syncQueue');
                 continue;
             }
 
             // Empty accepted list means backward-compatible success for all sent items.
             if (acceptedIds.size === 0 || acceptedIds.has(item.clientMutationId)) {
                 await dbHelpers.markAsSynced(item.id);
+                updatedEntities.add('syncQueue');
                 if (item.entity === 'paciente' && item.uuidOffline) {
                     await db.pacientes.update(item.uuidOffline, { syncStatus: 'synced' });
+                    updatedEntities.add('pacientes');
                 }
                 if (item.entity === 'consulta' && item.uuidOffline) {
                     await db.consultas.update(item.uuidOffline, { syncStatus: 'synced' });
+                    updatedEntities.add('consultas');
                 }
             }
         }
+
+        return Array.from(updatedEntities);
     }
 
     async sync(options: SyncOptions = {}): Promise<void> {

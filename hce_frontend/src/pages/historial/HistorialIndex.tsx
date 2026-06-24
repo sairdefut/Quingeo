@@ -121,16 +121,18 @@ export default function HistorialIndex() {
 
     useEffect(() => {
         let debounceTimer: number | undefined;
-        const refreshHistoriales = () => {
+        const refreshHistoriales = (event: Event) => {
+            const entities = (event as CustomEvent<{ entities?: string[] }>).detail?.entities || [];
+            if (entities.length > 0 && !entities.includes('pacientes') && !entities.includes('consultas')) return;
             if (debounceTimer) window.clearTimeout(debounceTimer);
             debounceTimer = window.setTimeout(() => {
                 cargarDatosLocales().catch(console.error);
             }, 300);
         };
-        window.addEventListener('hce-sync-complete', refreshHistoriales);
+        window.addEventListener('hce-local-data-updated', refreshHistoriales);
         return () => {
             if (debounceTimer) window.clearTimeout(debounceTimer);
-            window.removeEventListener('hce-sync-complete', refreshHistoriales);
+            window.removeEventListener('hce-local-data-updated', refreshHistoriales);
         };
     }, []);
 

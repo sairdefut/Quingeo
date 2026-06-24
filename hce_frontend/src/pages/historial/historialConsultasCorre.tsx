@@ -169,6 +169,20 @@ export default function HistorialConsultas() {
         };
         cargarPaciente();
 
+        let debounceTimer: number | undefined;
+        const refreshPacienteLocal = (event: Event) => {
+            const entities = (event as CustomEvent<{ entities?: string[] }>).detail?.entities || [];
+            if (entities.length > 0 && !entities.includes('pacientes') && !entities.includes('consultas')) return;
+            if (debounceTimer) window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+                if (!cedula) return;
+                obtenerPacienteConConsultasLocal(cedula)
+                    .then(encontrado => aplicarPaciente(encontrado, false))
+                    .catch(console.error);
+            }, 300);
+        };
+        window.addEventListener('hce-local-data-updated', refreshPacienteLocal);
+
         const consultaEdicion = consultaEnEdicion;
         if (consultaEdicion) {
             cargarAntecedentesEnFormulario(consultaEdicion);
@@ -192,6 +206,8 @@ export default function HistorialConsultas() {
 
         return () => {
             activo = false;
+            if (debounceTimer) window.clearTimeout(debounceTimer);
+            window.removeEventListener('hce-local-data-updated', refreshPacienteLocal);
         };
     }, [cedula, consultaEnEdicion]);
 

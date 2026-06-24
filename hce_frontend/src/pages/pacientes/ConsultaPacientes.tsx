@@ -119,16 +119,18 @@ export default function ConsultaPacientes() {
 
   useEffect(() => {
     let debounceTimer: number | undefined;
-    const refreshPacientes = () => {
+    const refreshPacientes = (event: Event) => {
+      const entities = (event as CustomEvent<{ entities?: string[] }>).detail?.entities || [];
+      if (entities.length > 0 && !entities.includes('pacientes') && !entities.includes('consultas')) return;
       if (debounceTimer) window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(() => {
         cargarPacientesLocales().catch(console.error);
       }, 300);
     };
-    window.addEventListener('hce-sync-complete', refreshPacientes);
+    window.addEventListener('hce-local-data-updated', refreshPacientes);
     return () => {
       if (debounceTimer) window.clearTimeout(debounceTimer);
-      window.removeEventListener('hce-sync-complete', refreshPacientes);
+      window.removeEventListener('hce-local-data-updated', refreshPacientes);
     };
   }, [cargarPacientesLocales]);
 

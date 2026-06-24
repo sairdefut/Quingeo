@@ -55,18 +55,20 @@ export default function VerHistorialCompleto() {
         cargarDatos();
 
         let debounceTimer: number | undefined;
-        const refreshHistorial = () => {
+        const refreshHistorial = (event: Event) => {
+            const entities = (event as CustomEvent<{ entities?: string[] }>).detail?.entities || [];
+            if (entities.length > 0 && !entities.includes('pacientes') && !entities.includes('consultas')) return;
             if (debounceTimer) window.clearTimeout(debounceTimer);
             debounceTimer = window.setTimeout(() => {
                 cargarDatosLocales().catch(console.error);
             }, 300);
         };
-        window.addEventListener('hce-sync-complete', refreshHistorial);
+        window.addEventListener('hce-local-data-updated', refreshHistorial);
         return () => {
             activo = false;
             if (fallbackTimer) window.clearTimeout(fallbackTimer);
             if (debounceTimer) window.clearTimeout(debounceTimer);
-            window.removeEventListener('hce-sync-complete', refreshHistorial);
+            window.removeEventListener('hce-local-data-updated', refreshHistorial);
         };
     }, [cedula]);
 

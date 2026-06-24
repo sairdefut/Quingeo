@@ -419,7 +419,7 @@ export async function obtenerPacientesLocales(): Promise<Paciente[]> {
 export async function refrescarPacientesDesdeServidor(): Promise<Paciente[]> {
     await ensureLegacyLocalStorageMigrated();
 
-    if (!isOnline()) {
+    if (!isOnline() || syncService.isSyncing()) {
         return db.pacientes.toArray();
     }
 
@@ -461,7 +461,7 @@ export async function buscarPacientePorCedulaLocal(cedula: string): Promise<Paci
 export async function refrescarPacienteDesdeServidor(cedula: string): Promise<Paciente | undefined> {
     await ensureLegacyLocalStorageMigrated();
 
-    if (!isOnline()) {
+    if (!isOnline() || syncService.isSyncing()) {
         return buscarPacientePorCedulaLocal(cedula);
     }
 
@@ -574,7 +574,7 @@ export async function obtenerPacienteConConsultasLocal(cedula: string): Promise<
 }
 
 export async function refrescarPacienteConConsultasDesdeServidor(cedula: string): Promise<Paciente | undefined> {
-    if (!isOnline()) {
+    if (!isOnline() || syncService.isSyncing()) {
         return obtenerPacienteConConsultasLocal(cedula);
     }
 
@@ -639,7 +639,7 @@ export async function registrarPaciente(paciente: Paciente): Promise<Paciente> {
 }
 
 export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise<any[]> {
-    if (isOnline()) {
+    if (isOnline() && !syncService.isSyncing()) {
         try {
             const data = await apiGet<ConsultaBackend[]>(`/consultas/paciente/${idPaciente}`);
             if (Array.isArray(data)) {
@@ -660,7 +660,7 @@ export async function obtenerConsultasPorPacienteId(idPaciente: number): Promise
 
 export async function obtenerConsultasPorCedula(cedula: string): Promise<any[]> {
     const paciente = await obtenerPacienteConConsultasLocal(cedula);
-    if (isOnline()) {
+    if (isOnline() && !syncService.isSyncing()) {
         refrescarPacienteConConsultasDesdeServidor(cedula).catch(error => {
             console.warn('[dbPacienteService] no se pudo refrescar consultas por cedula:', error);
         });
@@ -678,7 +678,7 @@ export async function obtenerTodasConsultasLocales(): Promise<any[]> {
 }
 
 export async function refrescarTodasConsultasDesdeServidor(): Promise<any[]> {
-    if (!isOnline()) {
+    if (!isOnline() || syncService.isSyncing()) {
         return obtenerTodasConsultasLocales();
     }
 
@@ -714,7 +714,7 @@ export async function obtenerTodasConsultas(): Promise<any[]> {
 }
 
 export async function guardarConsultaOffline(cedula: string, consulta: any): Promise<boolean> {
-    const paciente = await buscarPacientePorCedula(cedula);
+    const paciente = await buscarPacientePorCedulaLocal(cedula);
     if (!paciente?.uuidOffline) return false;
     const pacienteUuidOffline = paciente.uuidOffline;
 
