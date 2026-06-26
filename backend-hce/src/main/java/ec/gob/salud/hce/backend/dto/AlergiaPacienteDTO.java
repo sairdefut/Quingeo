@@ -15,6 +15,7 @@ public class AlergiaPacienteDTO {
     
     // --- NUEVO: Para mostrar el nombre en la pantalla sin hacer otra consulta ---
     private String nombreAlergia; 
+    private String estadoAlergia;
     
     private Integer idAntecedentePatologicoPersonal;
     

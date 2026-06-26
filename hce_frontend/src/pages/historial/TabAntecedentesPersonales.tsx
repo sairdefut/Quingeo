@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ModernSelect } from '../../components/ui/ModernSelect';
 
 const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className = "form-control" }: any) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -35,6 +36,18 @@ const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className 
     );
 };
 
+const emptyHospitalizacion = () => ({ descripcion: '', fecha: '' });
+const emptyCirugia = () => ({ descripcion: '', fecha: '' });
+const emptyAlergia = () => ({ descripcion: '', estado: 'ACTIVA' });
+
+const normalizeItems = (section: any, createItem: () => any) => {
+    if (Array.isArray(section?.items) && section.items.length > 0) return section.items;
+    if (section?.descripcion || section?.fecha || section?.estado) {
+        return [{ descripcion: section.descripcion || '', fecha: section.fecha || '', estado: section.estado || 'ACTIVA' }];
+    }
+    return [createItem()];
+};
+
 export const TabAntecedentesPersonales = ({
     isAntBlocked, enfermedadesCronicas, setEnfermedadesCronicas,
     hospitalizaciones, setHospitalizaciones,
@@ -46,6 +59,24 @@ export const TabAntecedentesPersonales = ({
 }: any) => {
 
     const today = new Date().toISOString().split('T')[0];
+
+    const updateSectionItem = (section: any, setSection: any, index: number, changes: any, createItem: () => any) => {
+        const items = normalizeItems(section, createItem).map((item: any, idx: number) => (
+            idx === index ? { ...item, ...changes } : item
+        ));
+        setSection({ ...section, items, descripcion: items[0]?.descripcion || '', fecha: items[0]?.fecha || '', estado: items[0]?.estado || section.estado });
+    };
+
+    const addSectionItem = (section: any, setSection: any, createItem: () => any) => {
+        const items = [...normalizeItems(section, createItem), createItem()];
+        setSection({ ...section, tiene: true, items });
+    };
+
+    const removeSectionItem = (section: any, setSection: any, index: number, createItem: () => any) => {
+        const nextItems = normalizeItems(section, createItem).filter((_: any, idx: number) => idx !== index);
+        const items = nextItems.length > 0 ? nextItems : [createItem()];
+        setSection({ ...section, items, descripcion: items[0]?.descripcion || '', fecha: items[0]?.fecha || '', estado: items[0]?.estado || section.estado });
+    };
 
     const handleFamiliaresChange = (key: string) => {
         if (key === 'Ninguna') {
@@ -95,100 +126,198 @@ export const TabAntecedentesPersonales = ({
 
             <div className="row g-4 mb-4">
                 <div className="col-12 mb-3">
-                    <div className="form-check form-switch mb-2">
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            checked={hospitalizaciones.tiene}
-                            disabled={isAntBlocked}
-                            onChange={e => setHospitalizaciones({ ...hospitalizaciones, tiene: e.target.checked })}
-                        />
-                        <label className="fw-bold small">Hospitalizaciones</label>
+                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div className="form-check form-switch mb-0">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={hospitalizaciones.tiene}
+                                disabled={isAntBlocked}
+                                onChange={e => setHospitalizaciones({ ...hospitalizaciones, tiene: e.target.checked, items: normalizeItems(hospitalizaciones, emptyHospitalizacion) })}
+                            />
+                            <label className="fw-bold small">Hospitalizaciones</label>
+                        </div>
+                        {hospitalizaciones.tiene && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                disabled={isAntBlocked}
+                                onClick={() => addSectionItem(hospitalizaciones, setHospitalizaciones, emptyHospitalizacion)}
+                            >
+                                <i className="bi bi-plus-lg me-1"></i>Añadir
+                            </button>
+                        )}
                     </div>
                     {hospitalizaciones.tiene && (
-                        <div className="mt-2 row">
-                            <div className="col-md-8">
-                                <label className="x-small text-muted d-block">Causa:</label>
-                                <ExpandableTextarea
-                                    className="form-control mb-2"
-                                    placeholder="Describa la causa de forma detallada"
-                                    value={hospitalizaciones.descripcion}
-                                    onChange={(e: any) => setHospitalizaciones({ ...hospitalizaciones, descripcion: e.target.value })}
-                                    disabled={isAntBlocked}
-                                />
-                            </div>
-                            <div className="col-md-4">
-                                <label className="x-small text-muted d-block">Fecha:</label>
-                                <input
-                                    type="date"
-                                    className="form-control"
-                                    max={today}
-                                    value={hospitalizaciones.fecha || ''}
-                                    onChange={e => setHospitalizaciones({ ...hospitalizaciones, fecha: e.target.value })}
-                                />
-                            </div>
+                        <div className="mt-2 d-flex flex-column gap-3">
+                            {normalizeItems(hospitalizaciones, emptyHospitalizacion).map((item: any, index: number) => (
+                                <div className="row g-2" key={`hospitalizacion-${index}`}>
+                                    <div className="col-md-8">
+                                        <label className="x-small text-muted d-block">Causa:</label>
+                                        <ExpandableTextarea
+                                            className="form-control mb-2"
+                                            placeholder="Describa la causa de forma detallada"
+                                            value={item.descripcion}
+                                            onChange={(e: any) => updateSectionItem(hospitalizaciones, setHospitalizaciones, index, { descripcion: e.target.value }, emptyHospitalizacion)}
+                                            disabled={isAntBlocked}
+                                        />
+                                    </div>
+                                    <div className="col-md-3">
+                                        <label className="x-small text-muted d-block">Fecha:</label>
+                                        <input
+                                            type="date"
+                                            className="form-control"
+                                            max={today}
+                                            value={item.fecha || ''}
+                                            onChange={e => updateSectionItem(hospitalizaciones, setHospitalizaciones, index, { fecha: e.target.value }, emptyHospitalizacion)}
+                                            disabled={isAntBlocked}
+                                        />
+                                    </div>
+                                    <div className="col-md-1 d-flex align-items-end">
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline-danger btn-sm w-100 mb-2"
+                                            disabled={isAntBlocked || normalizeItems(hospitalizaciones, emptyHospitalizacion).length === 1}
+                                            onClick={() => removeSectionItem(hospitalizaciones, setHospitalizaciones, index, emptyHospitalizacion)}
+                                            title="Quitar hospitalización"
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
                 <div className="col-12 mb-3 border-top pt-3">
-                    <div className="form-check form-switch mb-2">
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            checked={cirugias.tiene}
-                            disabled={isAntBlocked}
-                            onChange={e => setCirugias({ ...cirugias, tiene: e.target.checked })}
-                        />
-                        <label className="fw-bold small">Cirugías Previas</label>
+                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div className="form-check form-switch mb-0">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={cirugias.tiene}
+                                disabled={isAntBlocked}
+                                onChange={e => setCirugias({ ...cirugias, tiene: e.target.checked, items: normalizeItems(cirugias, emptyCirugia) })}
+                            />
+                            <label className="fw-bold small">Cirugías Previas</label>
+                        </div>
+                        {cirugias.tiene && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                disabled={isAntBlocked}
+                                onClick={() => addSectionItem(cirugias, setCirugias, emptyCirugia)}
+                            >
+                                <i className="bi bi-plus-lg me-1"></i>Añadir
+                            </button>
+                        )}
                     </div>
                     {cirugias.tiene && (
-                        <div className="mt-2 row">
-                            <div className="col-md-8">
-                                <label className="x-small text-muted d-block">Tipo de Cirugía y Observaciones:</label>
-                                <ExpandableTextarea
-                                    className="form-control mb-2"
-                                    placeholder="Ej: Apendicectomía, sin complicaciones..."
-                                    value={cirugias.descripcion}
-                                    onChange={(e: any) => setCirugias({ ...cirugias, descripcion: e.target.value })}
-                                    disabled={isAntBlocked}
-                                />
-                            </div>
-                            <div className="col-md-4">
-                                <label className="x-small text-muted d-block">Fecha:</label>
-                                <input
-                                    type="date"
-                                    className="form-control"
-                                    max={today}
-                                    value={cirugias.fecha || ''}
-                                    onChange={e => setCirugias({ ...cirugias, fecha: e.target.value })}
-                                />
-                            </div>
+                        <div className="mt-2 d-flex flex-column gap-3">
+                            {normalizeItems(cirugias, emptyCirugia).map((item: any, index: number) => (
+                                <div className="row g-2" key={`cirugia-${index}`}>
+                                    <div className="col-md-8">
+                                        <label className="x-small text-muted d-block">Tipo de Cirugía y Observaciones:</label>
+                                        <ExpandableTextarea
+                                            className="form-control mb-2"
+                                            placeholder="Ej: Apendicectomía, sin complicaciones..."
+                                            value={item.descripcion}
+                                            onChange={(e: any) => updateSectionItem(cirugias, setCirugias, index, { descripcion: e.target.value }, emptyCirugia)}
+                                            disabled={isAntBlocked}
+                                        />
+                                    </div>
+                                    <div className="col-md-3">
+                                        <label className="x-small text-muted d-block">Fecha:</label>
+                                        <input
+                                            type="date"
+                                            className="form-control"
+                                            max={today}
+                                            value={item.fecha || ''}
+                                            onChange={e => updateSectionItem(cirugias, setCirugias, index, { fecha: e.target.value }, emptyCirugia)}
+                                            disabled={isAntBlocked}
+                                        />
+                                    </div>
+                                    <div className="col-md-1 d-flex align-items-end">
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline-danger btn-sm w-100 mb-2"
+                                            disabled={isAntBlocked || normalizeItems(cirugias, emptyCirugia).length === 1}
+                                            onClick={() => removeSectionItem(cirugias, setCirugias, index, emptyCirugia)}
+                                            title="Quitar cirugía"
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
                 <div className="col-12 border-top pt-3">
-                    <div className="form-check form-switch mb-2">
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            checked={alergias.tiene}
-                            disabled={isAntBlocked}
-                            onChange={e => setAlergias({ ...alergias, tiene: e.target.checked })}
-                        />
-                        <label className="fw-bold small">Alergias</label>
+                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div className="form-check form-switch mb-0">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={alergias.tiene}
+                                disabled={isAntBlocked}
+                                onChange={e => setAlergias({ ...alergias, tiene: e.target.checked, items: normalizeItems(alergias, emptyAlergia) })}
+                            />
+                            <label className="fw-bold small">Alergias</label>
+                        </div>
+                        {alergias.tiene && (
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                disabled={isAntBlocked}
+                                onClick={() => addSectionItem(alergias, setAlergias, emptyAlergia)}
+                            >
+                                <i className="bi bi-plus-lg me-1"></i>Añadir
+                            </button>
+                        )}
                     </div>
                     {alergias.tiene && (
-                        <div className="mt-2">
-                            <label className="x-small text-muted d-block">Tipo / Alimento / Fármaco / Reacción:</label>
-                            <ExpandableTextarea
-                                className="form-control"
-                                placeholder="Ej: Penicilina (shock anafiláctico), Mariscos (urticaria)..."
-                                value={alergias.descripcion}
-                                onChange={(e: any) => setAlergias({ ...alergias, descripcion: e.target.value })}
-                                disabled={isAntBlocked}
-                            />
+                        <div className="mt-2 d-flex flex-column gap-3">
+                            {normalizeItems(alergias, emptyAlergia).map((item: any, index: number) => (
+                                <div className="row g-2" key={`alergia-${index}`}>
+                                    <div className="col-md-8">
+                                        <label className="x-small text-muted d-block">Tipo / Alimento / Fármaco / Reacción:</label>
+                                        <ExpandableTextarea
+                                            className="form-control"
+                                            placeholder="Ej: Penicilina (shock anafiláctico), Mariscos (urticaria)..."
+                                            value={item.descripcion}
+                                            onChange={(e: any) => updateSectionItem(alergias, setAlergias, index, { descripcion: e.target.value }, emptyAlergia)}
+                                            disabled={isAntBlocked}
+                                        />
+                                    </div>
+                                    <div className="col-md-3">
+                                        <label className="x-small text-muted d-block">Estado:</label>
+                                        <ModernSelect
+                                            className="form-select"
+                                            value={item.estado || 'ACTIVA'}
+                                            onChange={e => updateSectionItem(alergias, setAlergias, index, { estado: e.target.value }, emptyAlergia)}
+                                            disabled={isAntBlocked}
+                                        >
+                                            <option value="ACTIVA">Activa</option>
+                                            <option value="INACTIVA">Inactiva</option>
+                                            <option value="RESUELTA">Resuelta</option>
+                                        </ModernSelect>
+                                    </div>
+                                    <div className="col-md-1 d-flex align-items-end">
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline-danger btn-sm w-100"
+                                            disabled={isAntBlocked || normalizeItems(alergias, emptyAlergia).length === 1}
+                                            onClick={() => removeSectionItem(alergias, setAlergias, index, emptyAlergia)}
+                                            title="Quitar alergia"
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

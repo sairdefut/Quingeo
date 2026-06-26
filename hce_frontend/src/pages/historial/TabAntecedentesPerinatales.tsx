@@ -1,4 +1,5 @@
 import React from 'react';
+import { ModernSelect } from '../../components/ui/ModernSelect';
 
 const ExpandableTextarea = ({ value, onChange, placeholder, disabled, className = 'form-control', baseHeight = '62px' }: any) => {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -132,10 +133,10 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
 
       <div className="col-md-3">
         <label className="small fw-bold">Producto Gestación</label>
-        <select className="form-select" disabled={isAntBlocked} value={productoGestacion} onChange={e => setProductoGestacion(e.target.value)}>
+        <ModernSelect className="form-select" disabled={isAntBlocked} value={productoGestacion} onChange={e => setProductoGestacion(e.target.value)}>
           <option value="">Seleccionar</option>
           <option>Única</option><option>Gemelar</option><option>Múltiple</option>
-        </select>
+        </ModernSelect>
       </div>
 
       <div className="col-md-2">
@@ -146,10 +147,10 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
 
       <div className="col-md-3">
         <label className="small fw-bold">Vía Parto</label>
-        <select className="form-select" disabled={isAntBlocked} value={viaParto} onChange={e => setViaParto(e.target.value)}>
+        <ModernSelect className="form-select" disabled={isAntBlocked} value={viaParto} onChange={e => setViaParto(e.target.value)}>
           <option value="">Seleccionar</option>
           <option>Vaginal</option><option>Cesárea</option>
-        </select>
+        </ModernSelect>
       </div>
 
       <div className="col-md-2">
@@ -215,7 +216,7 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
               ].map(({ key, label }) => (
                 <div className="col" key={key}>
                   <label className="small d-block text-muted mb-1">{label}</label>
-                  <select
+                  <ModernSelect
                     className="form-select form-select-sm"
                     disabled={isAntBlocked || noRecuerdaApgar}
                     value={apgar[key as keyof ApgarType]}
@@ -224,7 +225,7 @@ export const TabAntecedentesPerinatales: React.FC<Props> = ({
                     <option value={0}>0</option>
                     <option value={1}>1</option>
                     <option value={2}>2</option>
-                  </select>
+                  </ModernSelect>
                 </div>
               ))}
             </div>

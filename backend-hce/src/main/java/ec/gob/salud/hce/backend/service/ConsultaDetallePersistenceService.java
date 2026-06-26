@@ -236,21 +236,32 @@ public class ConsultaDetallePersistenceService {
             enfermedadDiagnosticadaRepository.save(enfermedad);
         }
 
-        for (String descripcion : alergias(dto)) {
-            Alergia alergia = alergiaRepository.findFirstByTipoAlergiaIgnoreCase(descripcion)
+        for (AlergiaPacienteDTO item : alergias(dto)) {
+            String descripcion = Optional.ofNullable(item.getNombreAlergia()).orElse(item.getObservaciones());
+            if (descripcion == null || descripcion.isBlank()) {
+                descripcion = "Alergia no especificada";
+            }
+            String estado = Optional.ofNullable(item.getEstadoAlergia()).orElse("ACTIVA");
+            final String descripcionAlergia = descripcion;
+            final String estadoAlergia = estado;
+            Alergia alergia = alergiaRepository.findFirstByTipoAlergiaIgnoreCase(descripcionAlergia)
                     .orElseGet(() -> {
                         Alergia nueva = new Alergia();
-                        nueva.setTipoAlergia(descripcion);
-                        nueva.setEstado("ACTIVA");
+                        nueva.setTipoAlergia(limit(descripcionAlergia, 150));
+                        nueva.setEstado(limit(estadoAlergia, 50));
                         nueva.setUsuario(dto.getUsuario());
                         nueva.setSyncStatus("SYNCED");
                         return alergiaRepository.save(nueva);
                     });
+            alergia.setEstado(limit(estadoAlergia, 50));
+            alergiaRepository.save(alergia);
+
             AlergiaPaciente alergiaPaciente = new AlergiaPaciente();
             alergiaPaciente.setPaciente(paciente);
             alergiaPaciente.setAlergia(alergia);
             alergiaPaciente.setIdAntecedentePatologicoPersonal(idPatologico);
-            alergiaPaciente.setObservaciones(limit(descripcion, 255));
+            alergiaPaciente.setObservaciones(limit(descripcionAlergia, 255));
+            alergiaPaciente.setReaccion(limit(item.getReaccion(), 255));
             alergiaPaciente.setUsuario(dto.getUsuario());
             alergiaPaciente.setSyncStatus("SYNCED");
             alergiaPacienteRepository.save(alergiaPaciente);
@@ -567,17 +578,32 @@ public class ConsultaDetallePersistenceService {
         return valores;
     }
 
-    private List<String> alergias(ConsultaDTO dto) {
+    private List<AlergiaPacienteDTO> alergias(ConsultaDTO dto) {
         if (hasItems(dto.getAlergiasPaciente())) {
-            return dto.getAlergiasPaciente().stream()
-                    .map(a -> Optional.ofNullable(a.getNombreAlergia()).orElse(a.getObservaciones()))
-                    .filter(Objects::nonNull)
-                    .toList();
+            return dto.getAlergiasPaciente();
         }
         Map<String, Object> a = mapAt(dto, "antecedentes", "personales", "alergias");
         if (a == null || !Boolean.TRUE.equals(a.get("tiene"))) return List.of();
+        Object items = a.get("items");
+        if (items instanceof List<?> list && !list.isEmpty()) {
+            return list.stream()
+                    .filter(Map.class::isInstance)
+                    .map(Map.class::cast)
+                    .map(item -> {
+                        AlergiaPacienteDTO dtoItem = new AlergiaPacienteDTO();
+                        dtoItem.setNombreAlergia(text(item.get("descripcion")));
+                        dtoItem.setObservaciones(text(item.get("descripcion")));
+                        dtoItem.setEstadoAlergia(Optional.ofNullable(text(item.get("estado"))).orElse("ACTIVA"));
+                        return dtoItem;
+                    })
+                    .toList();
+        }
         String descripcion = text(a.get("descripcion"));
-        return descripcion == null || descripcion.isBlank() ? List.of("Alergia no especificada") : List.of(descripcion);
+        AlergiaPacienteDTO item = new AlergiaPacienteDTO();
+        item.setNombreAlergia(descripcion == null || descripcion.isBlank() ? "Alergia no especificada" : descripcion);
+        item.setObservaciones(item.getNombreAlergia());
+        item.setEstadoAlergia(Optional.ofNullable(text(a.get("estado"))).orElse("ACTIVA"));
+        return List.of(item);
     }
 
     private List<HospitalizacionPreviaDTO> hospitalizaciones(ConsultaDTO dto) {
@@ -965,6 +991,7 @@ public class ConsultaDetallePersistenceService {
         dto.setIdPaciente(entity.getPaciente() != null ? entity.getPaciente().getIdPaciente() : null);
         dto.setIdAlergia(entity.getAlergia() != null ? entity.getAlergia().getIdAlergia().intValue() : null);
         dto.setNombreAlergia(entity.getAlergia() != null ? entity.getAlergia().getTipoAlergia() : null);
+        dto.setEstadoAlergia(entity.getAlergia() != null ? entity.getAlergia().getEstado() : null);
         dto.setObservaciones(entity.getObservaciones());
         dto.setReaccion(entity.getReaccion());
         dto.setIdAntecedentePatologicoPersonal(entity.getIdAntecedentePatologicoPersonal());
