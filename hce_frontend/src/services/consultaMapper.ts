@@ -293,23 +293,30 @@ export function mapConsultaFrontendToBackend(consulta: any, idPaciente: number):
             ...(personales.descripcionOtrasCronicas ? [{ descripcion: personales.descripcionOtrasCronicas, fecha: fechaISO, usuario }] : [])
         ],
         alergiasPaciente: personales.alergias?.tiene
-            ? [{
-                nombreAlergia: personales.alergias.descripcion || 'Alergia no especificada',
-                observaciones: personales.alergias.descripcion || '',
-                fechaCreacion: fechaISO
-            }]
+            ? (personales.alergias.items?.length ? personales.alergias.items : [personales.alergias])
+                .filter((item: any) => item?.descripcion || item?.estado)
+                .map((item: any) => ({
+                    nombreAlergia: item.descripcion || 'Alergia no especificada',
+                    observaciones: item.descripcion || '',
+                    estadoAlergia: item.estado || 'ACTIVA',
+                    fechaCreacion: fechaISO
+                }))
             : [],
         hospitalizacionesPrevias: personales.hospitalizaciones?.tiene
-            ? [{
-                causa: personales.hospitalizaciones.descripcion || 'Hospitalizacion previa',
-                fecha: toIsoDateOrNull(personales.hospitalizaciones.fecha)
-            }]
+            ? (personales.hospitalizaciones.items?.length ? personales.hospitalizaciones.items : [personales.hospitalizaciones])
+                .filter((item: any) => item?.descripcion || item?.fecha)
+                .map((item: any) => ({
+                    causa: item.descripcion || 'Hospitalizacion previa',
+                    fecha: toIsoDateOrNull(item.fecha)
+                }))
             : [],
         cirugiasPrevias: personales.cirugias?.tiene
-            ? [{
-                tipo: personales.cirugias.descripcion || 'Cirugia previa',
-                fecha: toIsoDateOrNull(personales.cirugias.fecha)
-            }]
+            ? (personales.cirugias.items?.length ? personales.cirugias.items : [personales.cirugias])
+                .filter((item: any) => item?.descripcion || item?.fecha)
+                .map((item: any) => ({
+                    tipo: item.descripcion || 'Cirugia previa',
+                    fecha: toIsoDateOrNull(item.fecha)
+                }))
             : [],
         antecedentesFamiliares: selectedLabels(personales.familiares)
             .map(enfermedadHereditaria => ({ enfermedadHereditaria, descripcion: enfermedadHereditaria, fecha: fechaISO })),
@@ -482,16 +489,29 @@ function buildFrontendFromNormalizedBackend(consulta: ConsultaBackend): any | nu
                 hospitalizaciones: {
                     tiene: Boolean(consulta.hospitalizacionesPrevias?.length),
                     descripcion: consulta.hospitalizacionesPrevias?.[0]?.causa || '',
-                    fecha: consulta.hospitalizacionesPrevias?.[0]?.fecha || ''
+                    fecha: consulta.hospitalizacionesPrevias?.[0]?.fecha || '',
+                    items: (consulta.hospitalizacionesPrevias || []).map((item: any) => ({
+                        descripcion: item.causa || '',
+                        fecha: item.fecha || ''
+                    }))
                 },
                 cirugias: {
                     tiene: Boolean(consulta.cirugiasPrevias?.length),
                     descripcion: consulta.cirugiasPrevias?.[0]?.tipo || '',
-                    fecha: consulta.cirugiasPrevias?.[0]?.fecha || ''
+                    fecha: consulta.cirugiasPrevias?.[0]?.fecha || '',
+                    items: (consulta.cirugiasPrevias || []).map((item: any) => ({
+                        descripcion: item.tipo || '',
+                        fecha: item.fecha || ''
+                    }))
                 },
                 alergias: {
                     tiene: Boolean(consulta.alergiasPaciente?.length),
-                    descripcion: consulta.alergiasPaciente?.[0]?.nombreAlergia || consulta.alergiasPaciente?.[0]?.observaciones || ''
+                    descripcion: consulta.alergiasPaciente?.[0]?.nombreAlergia || consulta.alergiasPaciente?.[0]?.observaciones || '',
+                    estado: consulta.alergiasPaciente?.[0]?.estadoAlergia || 'ACTIVA',
+                    items: (consulta.alergiasPaciente || []).map((item: any) => ({
+                        descripcion: item.nombreAlergia || item.observaciones || '',
+                        estado: item.estadoAlergia || 'ACTIVA'
+                    }))
                 },
                 familiares: labelsToFlags((consulta.antecedentesFamiliares || []).map((f: any) => f.enfermedadHereditaria || f.descripcion).join(', ')),
                 descripcionCronicas: consulta.antecedentesPatologicosPersonales?.observaciones || '',

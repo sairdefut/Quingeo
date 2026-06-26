@@ -62,9 +62,9 @@ export default function HistorialConsultas() {
     const [descripcionComplicaciones, setDescripcionComplicaciones] = useState('');
 
     const [enfermedadesCronicas, setEnfermedadesCronicas] = useState({ Asma: false, Diabetes: false, Cardiopatías: false, Epilepsia: false, Otros: false });
-    const [hospitalizaciones, setHospitalizaciones] = useState({ tiene: false, descripcion: '', fecha: '' });
-    const [cirugias, setCirugias] = useState({ tiene: false, descripcion: '', fecha: '' });
-    const [alergias, setAlergias] = useState({ tiene: false, descripcion: '' });
+    const [hospitalizaciones, setHospitalizaciones] = useState({ tiene: false, descripcion: '', fecha: '', items: [{ descripcion: '', fecha: '' }] });
+    const [cirugias, setCirugias] = useState({ tiene: false, descripcion: '', fecha: '', items: [{ descripcion: '', fecha: '' }] });
+    const [alergias, setAlergias] = useState({ tiene: false, descripcion: '', estado: 'ACTIVA', items: [{ descripcion: '', estado: 'ACTIVA' }] });
     const [familiares, setFamiliares] = useState({ HTA: false, Diabetes: false, Cáncer: false, Genéticas: false, Ninguna: false, Otros: false });
     const [descripcionCronicas, setDescripcionCronicas] = useState('');
     const [descripcionOtrasCronicas, setDescripcionOtrasCronicas] = useState('');
@@ -125,9 +125,24 @@ export default function HistorialConsultas() {
 
         const personales = antecedentes.personales || {};
         if (personales.enfermedadesCronicas) setEnfermedadesCronicas(personales.enfermedadesCronicas);
-        if (personales.hospitalizaciones) setHospitalizaciones(personales.hospitalizaciones);
-        if (personales.cirugias) setCirugias(personales.cirugias);
-        if (personales.alergias) setAlergias(personales.alergias);
+        if (personales.hospitalizaciones) {
+            const items = personales.hospitalizaciones.items?.length
+                ? personales.hospitalizaciones.items
+                : [{ descripcion: personales.hospitalizaciones.descripcion || '', fecha: personales.hospitalizaciones.fecha || '' }];
+            setHospitalizaciones({ ...personales.hospitalizaciones, items });
+        }
+        if (personales.cirugias) {
+            const items = personales.cirugias.items?.length
+                ? personales.cirugias.items
+                : [{ descripcion: personales.cirugias.descripcion || '', fecha: personales.cirugias.fecha || '' }];
+            setCirugias({ ...personales.cirugias, items });
+        }
+        if (personales.alergias) {
+            const items = personales.alergias.items?.length
+                ? personales.alergias.items
+                : [{ descripcion: personales.alergias.descripcion || '', estado: personales.alergias.estado || 'ACTIVA' }];
+            setAlergias({ ...personales.alergias, estado: personales.alergias.estado || items[0]?.estado || 'ACTIVA', items });
+        }
         if (personales.familiares) setFamiliares(personales.familiares);
         setDescripcionCronicas(personales.descripcionCronicas || '');
         setDescripcionOtrasCronicas(personales.descripcionOtrasCronicas || '');
@@ -279,7 +294,13 @@ export default function HistorialConsultas() {
                 </div>
             </div>
 
-            <AlertaAlergia tiene={alergias.tiene} descripcion={alergias.descripcion} />
+            <AlertaAlergia
+                tiene={alergias.tiene}
+                descripcion={(alergias.items?.length ? alergias.items : [alergias])
+                    .map((item: any) => item.descripcion)
+                    .filter(Boolean)
+                    .join(', ')}
+            />
 
             <div className="container-xl p-4">
                 <VistaIdentificacion cedula={cedula} paciente={pacienteActual} />

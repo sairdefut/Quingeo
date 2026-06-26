@@ -30,6 +30,7 @@ public class AlergiaPacienteMapper {
             }
             // ¡AQUÍ ESTÁ LA MEJORA!
             dto.setNombreAlergia(entity.getAlergia().getTipoAlergia());
+            dto.setEstadoAlergia(entity.getAlergia().getEstado());
         }
 
         dto.setIdAntecedentePatologicoPersonal(entity.getIdAntecedentePatologicoPersonal());
@@ -57,6 +58,7 @@ public class AlergiaPacienteMapper {
         if (dto.getIdAlergia() != null) {
             Alergia a = new Alergia();
             a.setIdAlergia(Long.valueOf(dto.getIdAlergia()));
+            a.setEstado(dto.getEstadoAlergia());
             entity.setAlergia(a);
         }
 

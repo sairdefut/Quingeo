@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { notifySuccess } from '../../services/notificationService';
+import { ModernSelect } from '../../components/ui/ModernSelect';
 
 interface Usuario {
   idPersonal: number;
@@ -101,11 +102,11 @@ export default function AdminUsuarios() {
               </div>
               <div className="mb-3">
                 <label className="form-label small fw-bold">Cargo</label>
-                <select className="form-select" value={nuevoUsuario.cargo} onChange={e => setNuevoUsuario({...nuevoUsuario, cargo: e.target.value})}>
+                <ModernSelect className="form-select" value={nuevoUsuario.cargo} onChange={e => setNuevoUsuario({...nuevoUsuario, cargo: e.target.value})}>
                   <option value="admin">Administrador</option>
                   <option value="medico">Médico</option>
                   <option value="posgradista">Posgradista</option>
-                </select>
+                </ModernSelect>
               </div>
               {error && <div className="alert alert-danger py-2 small">{error}</div>}
               <button type="submit" className="btn btn-primary w-100 fw-bold">CREAR USUARIO</button>

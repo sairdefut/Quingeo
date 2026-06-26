@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type FC, type SetStateAction } from 'react';
 import { buscarCie10 } from '../../services/catalogService';
+import { ModernSelect } from '../../components/ui/ModernSelect';
 
 type EnfermedadCatalogo = {
   codigo: string;
@@ -310,10 +311,10 @@ export const TabDiagnostico: FC<Props> = ({
               </div>
               <div className="col-md-3">
                 <label className="small fw-bold text-uppercase text-primary mb-2">Tipo</label>
-                <select className="form-select fw-bold" value={diagnosticoPrincipal.tipo} onChange={(e) => setDiagnosticoPrincipal({ ...diagnosticoPrincipal, tipo: e.target.value })}>
+                <ModernSelect className="form-select fw-bold" value={diagnosticoPrincipal.tipo} onChange={(e) => setDiagnosticoPrincipal({ ...diagnosticoPrincipal, tipo: e.target.value })}>
                   <option value="Presuntivo">PRESUNTIVO</option>
                   <option value="Definitivo">DEFINITIVO</option>
-                </select>
+                </ModernSelect>
               </div>
             </div>
 
@@ -331,10 +332,10 @@ export const TabDiagnostico: FC<Props> = ({
                   </div>
                   <div className="col-md-4">
                     <label className="small fw-bold text-uppercase text-primary mb-2">Tipo</label>
-                    <select className="form-select" value={diag.tipo || 'Presuntivo'} onChange={(e) => actualizarSecundario(idx, { tipo: e.target.value })}>
+                    <ModernSelect className="form-select" value={diag.tipo || 'Presuntivo'} onChange={(e) => actualizarSecundario(idx, { tipo: e.target.value })}>
                       <option value="Presuntivo">PRESUNTIVO</option>
                       <option value="Definitivo">DEFINITIVO</option>
-                    </select>
+                    </ModernSelect>
                   </div>
                   <div className="col-md-1 d-flex align-items-end justify-content-end">
                     <button type="button" className="btn btn-sm btn-outline-danger" title="Quitar diagnóstico secundario" onClick={() => eliminarDiagnosticoSecundario(idx)}>
@@ -458,11 +459,11 @@ export const TabDiagnostico: FC<Props> = ({
           <div className="row g-3 align-items-end border-top pt-3">
             <div className="col-md-4">
               <label className="small fw-bold text-primary text-uppercase">Pronóstico del Paciente</label>
-              <select className="form-select border-primary fw-bold text-primary" value={pronostico} onChange={(e) => setPronostico(e.target.value)}>
+              <ModernSelect className="form-select border-primary fw-bold text-primary" value={pronostico} onChange={(e) => setPronostico(e.target.value)}>
                 <option value="Bueno">BUENO</option>
                 <option value="Reservado">RESERVADO</option>
                 <option value="Malo">MALO</option>
-              </select>
+              </ModernSelect>
             </div>
 
             <div className="col-md-4">
@@ -494,12 +495,12 @@ export const TabDiagnostico: FC<Props> = ({
                 </div>
                 <div className="col-md-5">
                   <label className="small fw-bold">Tipo</label>
-                  <select className="form-select" value={examenTemporal.tipo} onChange={(e) => setExamenTemporal((prev) => ({ ...prev, tipo: e.target.value as TipoExamen }))}>
+                  <ModernSelect className="form-select" value={examenTemporal.tipo} onChange={(e) => setExamenTemporal((prev) => ({ ...prev, tipo: e.target.value as TipoExamen }))}>
                     <option value="Sangre">Sangre</option>
                     <option value="Heces">Heces</option>
                     <option value="Orina">Orina</option>
                     <option value="Imagen">Imagen</option>
-                  </select>
+                  </ModernSelect>
                 </div>
                 <div className="col-12">
                   <label className="small fw-bold">Resultado / Hallazgo</label>
