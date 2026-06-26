@@ -201,11 +201,10 @@ h1, h2, h3, h4, h5 {
 }
 
 .profile-page {
-  height: calc(100dvh - 1.5rem);
-  min-height: 0;
+  min-height: calc(100dvh - 1.5rem);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   gap: 0.875rem;
 }
 
@@ -216,18 +215,42 @@ h1, h2, h3, h4, h5 {
 .profile-grid {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: minmax(260px, 1.05fr) minmax(300px, 1.2fr) minmax(190px, 0.65fr);
+  grid-template-columns: minmax(320px, 0.88fr) minmax(360px, 1.12fr);
   gap: 0.875rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .profile-card {
-  padding: 1rem;
+  padding: 1.1rem;
   min-width: 0;
+  border: 1px solid rgba(0, 45, 90, 0.06);
 }
 
 .profile-card h5 {
   overflow-wrap: anywhere;
+}
+
+.profile-identity-card,
+.profile-side-stack {
+  min-height: 245px;
+}
+
+.profile-identity-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.profile-side-stack {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.875rem;
+}
+
+.profile-security-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .profile-form {
@@ -250,32 +273,43 @@ h1, h2, h3, h4, h5 {
 
 .profile-summary {
   display: grid;
-  gap: 0.15rem;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
 .profile-summary-row {
-  min-height: 34px;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.7rem;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
-.profile-grid .profile-card:nth-child(2) {
-  min-height: 0;
-}
-
-.profile-grid .profile-card:nth-child(2) .btn {
+.profile-security-card .btn {
   white-space: nowrap;
 }
 
 .profile-consultas {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .profile-consultas-table {
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden;
 }
 
@@ -286,9 +320,110 @@ h1, h2, h3, h4, h5 {
 }
 
 .profile-table thead th {
+  z-index: 1;
+}
+
+.clinical-record-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.clinical-record-sidebar {
+  flex: 0 0 clamp(220px, 18vw, 300px);
+  width: clamp(220px, 18vw, 300px);
+  min-width: 0;
+  height: 100dvh;
   position: sticky;
   top: 0;
-  z-index: 1;
+  overflow-y: auto;
+}
+
+.clinical-record-sidebar .badge {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.clinical-record-content {
+  min-width: 0;
+  max-width: 100%;
+  padding: clamp(1.25rem, 3vw, 3rem);
+  overflow-x: hidden;
+}
+
+.clinical-record-header {
+  flex-wrap: wrap;
+}
+
+.clinical-record-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.clinical-record-info-item {
+  min-width: 0;
+  padding-right: 1rem;
+  border-right: 1px solid #dee2e6;
+}
+
+.clinical-record-info-item:last-child {
+  border-right: 0;
+}
+
+.clinical-record-info-item div,
+.clinical-record-consulta-card h6,
+.clinical-record-consulta-card p,
+.clinical-record-consulta-card div {
+  overflow-wrap: anywhere;
+}
+
+.timeline-wrapper {
+  max-width: 100%;
+}
+
+.clinical-record-timeline-item {
+  display: grid;
+  grid-template-columns: minmax(92px, 120px) 20px minmax(0, 1fr);
+  gap: 1rem;
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.clinical-record-timeline-date {
+  min-width: 0;
+  text-align: right;
+}
+
+.clinical-record-timeline-marker {
+  width: 20px;
+  height: 20px;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  position: relative;
+  margin-top: 0.35rem;
+}
+
+.clinical-record-timeline-marker::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: -2.4rem;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(108, 117, 125, 0.25);
+}
+
+.clinical-record-timeline-item:last-child .clinical-record-timeline-marker::after {
+  display: none;
+}
+
+.clinical-record-consulta-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .profile-table th,
@@ -341,7 +476,7 @@ h1, h2, h3, h4, h5 {
 
 @media (max-width: 1399px) {
   .profile-page {
-    height: calc(100dvh - 1rem);
+    min-height: calc(100dvh - 1rem);
   }
 
   .profile-header h3 {
@@ -353,20 +488,31 @@ h1, h2, h3, h4, h5 {
   }
 
   .profile-card {
-    padding: 0.82rem;
+    padding: 0.9rem;
   }
 
   .profile-grid {
-    grid-template-columns: minmax(260px, 0.95fr) minmax(300px, 1.05fr) minmax(180px, 0.65fr);
+    grid-template-columns: minmax(300px, 0.9fr) minmax(340px, 1.1fr);
     gap: 0.75rem;
   }
 
-  .profile-summary {
-    display: flex;
+  .profile-identity-card,
+  .profile-side-stack {
+    min-height: 220px;
   }
 
   .profile-password-form {
     grid-template-columns: 1fr;
+  }
+
+  .profile-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .profile-summary-row {
+    min-height: 66px;
+    padding: 0.6rem;
   }
 
   .profile-table th,
@@ -408,33 +554,34 @@ h1, h2, h3, h4, h5 {
 
 @media (max-width: 991px) {
   .profile-page {
-    height: auto;
     min-height: 100vh;
     overflow: visible;
   }
 
   .profile-grid,
   .profile-password-form,
-  .profile-summary {
+  .profile-summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .profile-summary {
-    display: block;
+  .profile-identity-card,
+  .profile-side-stack {
+    min-height: 0;
   }
 
-  .profile-summary > div {
-    border-bottom: 1px solid #dee2e6 !important;
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
+  .profile-side-stack {
+    display: grid;
+    grid-template-rows: auto;
   }
 
-  .profile-consultas {
-    max-height: 58vh;
+  .profile-summary-row {
+    min-height: 52px;
+    flex-direction: row;
+    align-items: center;
   }
 
   .profile-consultas-table {
-    overflow: auto;
+    overflow: visible;
   }
 
   .profile-table {
@@ -471,6 +618,54 @@ h1, h2, h3, h4, h5 {
     font-weight: 700;
     text-transform: uppercase;
     margin-bottom: 0.12rem;
+  }
+
+  .clinical-record-page {
+    display: block !important;
+  }
+
+  .clinical-record-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: 0 !important;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .clinical-record-content {
+    padding: 1rem;
+  }
+
+  .clinical-record-info-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .clinical-record-timeline-item {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .clinical-record-timeline-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    text-align: left;
+  }
+
+  .clinical-record-timeline-marker {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .clinical-record-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clinical-record-info-item {
+    border-right: 0;
+    padding-right: 0;
   }
 }
 

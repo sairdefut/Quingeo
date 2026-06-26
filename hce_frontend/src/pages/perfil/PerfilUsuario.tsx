@@ -159,89 +159,93 @@ export default function PerfilUsuario() {
             </div>
 
             <div className="profile-grid">
-                <section className="profile-card bg-white rounded shadow-sm">
+                <section className="profile-card profile-identity-card bg-white rounded shadow-sm">
                     <div className="d-flex align-items-center gap-3 mb-3">
-                            <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style={{ width: 52, height: 52 }}>
-                                {fullName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <h5 className="mb-1 fw-bold">{fullName}</h5>
-                                <div className="text-muted small">@{profile?.username}</div>
-                                <span className="badge text-bg-light border text-capitalize mt-1">{profile?.cargo}</span>
-                            </div>
+                        <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style={{ width: 52, height: 52 }}>
+                            {fullName.charAt(0).toUpperCase()}
                         </div>
-
-                        <form onSubmit={handleSaveProfile} className="profile-form">
-                            <div>
-                                <label className="form-label small fw-bold">Nombres</label>
-                                <input className="form-control" value={nombres} onChange={e => setNombres(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label small fw-bold">Apellidos</label>
-                                <input className="form-control" value={apellidos} onChange={e => setApellidos(e.target.value)} />
-                            </div>
-                            <button className="btn btn-primary w-100" type="submit" disabled={savingProfile}>
-                                {savingProfile ? 'Guardando...' : 'Guardar perfil'}
-                            </button>
-                        </form>
-                </section>
-
-                <section className="profile-card bg-white rounded shadow-sm">
-                    <div className="d-flex align-items-center justify-content-between gap-3">
-                        <div className="d-flex align-items-center gap-3 min-w-0">
-                            <div className="rounded-circle bg-soft-primary text-primary d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 42, height: 42 }}>
-                                <i className="bi bi-shield-lock"></i>
-                            </div>
-                            <div className="min-w-0">
-                                <h5 className="fw-bold mb-1">Seguridad</h5>
-                                <p className="text-muted small mb-0">Contraseña protegida.</p>
-                            </div>
+                        <div className="min-w-0">
+                            <h5 className="mb-1 fw-bold">{fullName}</h5>
+                            <div className="text-muted small">@{profile?.username}</div>
+                            <span className="badge text-bg-light border text-capitalize mt-1">{profile?.cargo}</span>
                         </div>
-                        <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm flex-shrink-0"
-                            onClick={() => setShowPasswordForm(current => !current)}
-                        >
-                            {showPasswordForm ? 'Cerrar' : 'Cambiar contraseña'}
-                        </button>
                     </div>
 
-                    {showPasswordForm && (
-                        <form onSubmit={handleChangePassword} className="profile-form profile-password-form mt-3">
-                            <div>
-                                <label className="form-label small fw-bold">Contraseña actual</label>
-                                <input className="form-control" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label small fw-bold">Nueva contraseña</label>
-                                <input className="form-control" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label small fw-bold">Confirmar contraseña</label>
-                                <input className="form-control" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-                            </div>
-                            <button className="btn btn-outline-primary w-100" type="submit" disabled={savingPassword}>
-                                {savingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
-                            </button>
-                        </form>
-                    )}
+                    <form onSubmit={handleSaveProfile} className="profile-form">
+                        <div>
+                            <label className="form-label small fw-bold">Nombres</label>
+                            <input className="form-control" value={nombres} onChange={e => setNombres(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="form-label small fw-bold">Apellidos</label>
+                            <input className="form-control" value={apellidos} onChange={e => setApellidos(e.target.value)} />
+                        </div>
+                        <button className="btn btn-primary w-100" type="submit" disabled={savingProfile}>
+                            {savingProfile ? 'Guardando...' : 'Guardar perfil'}
+                        </button>
+                    </form>
                 </section>
 
-                <section className="profile-card profile-summary bg-white rounded shadow-sm">
+                <div className="profile-side-stack">
+                    <section className="profile-card profile-security-card bg-white rounded shadow-sm">
+                        <div className="d-flex align-items-center justify-content-between gap-3">
+                            <div className="d-flex align-items-center gap-3 min-w-0">
+                                <div className="rounded-circle bg-soft-primary text-primary d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 42, height: 42 }}>
+                                    <i className="bi bi-shield-lock"></i>
+                                </div>
+                                <div className="min-w-0">
+                                    <h5 className="fw-bold mb-1">Seguridad</h5>
+                                    <p className="text-muted small mb-0">Contraseña protegida.</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm flex-shrink-0"
+                                onClick={() => setShowPasswordForm(current => !current)}
+                            >
+                                {showPasswordForm ? 'Cerrar' : 'Cambiar contraseña'}
+                            </button>
+                        </div>
+
+                        {showPasswordForm && (
+                            <form onSubmit={handleChangePassword} className="profile-form profile-password-form mt-3">
+                                <div>
+                                    <label className="form-label small fw-bold">Contraseña actual</label>
+                                    <input className="form-control" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="form-label small fw-bold">Nueva contraseña</label>
+                                    <input className="form-control" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="form-label small fw-bold">Confirmar contraseña</label>
+                                    <input className="form-control" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                                </div>
+                                <button className="btn btn-outline-primary w-100" type="submit" disabled={savingPassword}>
+                                    {savingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
+                                </button>
+                            </form>
+                        )}
+                    </section>
+
+                    <section className="profile-card profile-summary bg-white rounded shadow-sm">
                         <h5 className="fw-bold mb-2">Resumen</h5>
-                        <div className="profile-summary-row d-flex align-items-center justify-content-between border-bottom py-2 gap-3">
-                            <span className="text-muted">Consultas registradas</span>
-                            <strong>{consultas.length}</strong>
+                        <div className="profile-summary-grid">
+                            <div className="profile-summary-row">
+                                <span className="text-muted">Consultas</span>
+                                <strong>{consultas.length}</strong>
+                            </div>
+                            <div className="profile-summary-row">
+                                <span className="text-muted">ID personal</span>
+                                <strong>{profile?.idPersonal}</strong>
+                            </div>
+                            <div className="profile-summary-row">
+                                <span className="text-muted">Modo</span>
+                                <span className="badge text-bg-success">Online</span>
+                            </div>
                         </div>
-                        <div className="profile-summary-row d-flex align-items-center justify-content-between border-bottom py-2 gap-3">
-                            <span className="text-muted">ID personal</span>
-                            <strong>{profile?.idPersonal}</strong>
-                        </div>
-                        <div className="profile-summary-row d-flex align-items-center justify-content-between py-2 gap-3">
-                            <span className="text-muted">Modo</span>
-                            <span className="badge text-bg-success">Online</span>
-                        </div>
-                </section>
+                    </section>
+                </div>
             </div>
 
             <section className="profile-consultas bg-white rounded shadow-sm mt-3">
