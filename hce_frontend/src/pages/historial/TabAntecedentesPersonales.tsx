@@ -137,16 +137,20 @@ export const TabAntecedentesPersonales = ({
                             />
                             <label className="fw-bold small">Hospitalizaciones</label>
                         </div>
-                        {hospitalizaciones.tiene && (
-                            <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm"
-                                disabled={isAntBlocked}
-                                onClick={() => addSectionItem(hospitalizaciones, setHospitalizaciones, emptyHospitalizacion)}
-                            >
-                                <i className="bi bi-plus-lg me-1"></i>Añadir
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            disabled={isAntBlocked}
+                            onClick={() => {
+                                if (!hospitalizaciones.tiene) {
+                                    setHospitalizaciones({ ...hospitalizaciones, tiene: true, items: normalizeItems(hospitalizaciones, emptyHospitalizacion) });
+                                    return;
+                                }
+                                addSectionItem(hospitalizaciones, setHospitalizaciones, emptyHospitalizacion);
+                            }}
+                        >
+                            <i className="bi bi-plus-lg me-1"></i>Añadir
+                        </button>
                     </div>
                     {hospitalizaciones.tiene && (
                         <div className="mt-2 d-flex flex-column gap-3">
@@ -202,16 +206,20 @@ export const TabAntecedentesPersonales = ({
                             />
                             <label className="fw-bold small">Cirugías Previas</label>
                         </div>
-                        {cirugias.tiene && (
-                            <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm"
-                                disabled={isAntBlocked}
-                                onClick={() => addSectionItem(cirugias, setCirugias, emptyCirugia)}
-                            >
-                                <i className="bi bi-plus-lg me-1"></i>Añadir
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            disabled={isAntBlocked}
+                            onClick={() => {
+                                if (!cirugias.tiene) {
+                                    setCirugias({ ...cirugias, tiene: true, items: normalizeItems(cirugias, emptyCirugia) });
+                                    return;
+                                }
+                                addSectionItem(cirugias, setCirugias, emptyCirugia);
+                            }}
+                        >
+                            <i className="bi bi-plus-lg me-1"></i>Añadir
+                        </button>
                     </div>
                     {cirugias.tiene && (
                         <div className="mt-2 d-flex flex-column gap-3">

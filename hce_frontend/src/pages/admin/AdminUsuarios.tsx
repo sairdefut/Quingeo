@@ -115,9 +115,9 @@ export default function AdminUsuarios() {
         </div>
 
         <div className="col-md-8">
-          <div className="card shadow-sm border-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0">
+          <div className="card shadow-sm border-0 admin-users-card">
+            <div className="table-responsive admin-users-table-responsive">
+              <table className="table table-hover mb-0 admin-users-table">
                 <thead className="bg-light">
                   <tr>
                     <th className="px-4 py-3 small fw-bold">Usuario</th>
@@ -131,10 +131,10 @@ export default function AdminUsuarios() {
                     <tr><td colSpan={4} className="text-center py-4">Cargando...</td></tr>
                   ) : usuarios.map(u => (
                     <tr key={u.idPersonal}>
-                      <td className="px-4 py-3 fw-bold">{u.username}</td>
-                      <td className="py-3">{u.nombres} {u.apellidos}</td>
-                      <td className="py-3 text-capitalize"><span className={`badge ${u.cargo === 'admin' ? 'bg-danger' : 'bg-success'}`}>{u.cargo}</span></td>
-                      <td className="py-3 text-muted">{u.idPersonal}</td>
+                      <td className="px-4 py-3 fw-bold" data-label="Usuario">{u.username}</td>
+                      <td className="py-3" data-label="Nombre Completo">{u.nombres} {u.apellidos}</td>
+                      <td className="py-3 text-capitalize" data-label="Cargo"><span className={`badge ${u.cargo === 'admin' ? 'bg-danger' : 'bg-success'}`}>{u.cargo}</span></td>
+                      <td className="py-3 text-muted" data-label="ID">{u.idPersonal}</td>
                     </tr>
                   ))}
                 </tbody>

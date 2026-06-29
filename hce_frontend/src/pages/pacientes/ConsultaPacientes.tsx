@@ -132,9 +132,9 @@ export default function ConsultaPacientes() {
       </div>
 
       <div className="px-4 pb-5">
-        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden patient-list-card">
+          <div className="table-responsive patient-table-responsive">
+            <table className="table table-hover align-middle mb-0 patient-table">
               <thead className="bg-light">
                 <tr>
                   <th className="px-4 py-3 text-muted small text-uppercase fw-bold" style={{ width: '170px' }}>Historia Clinica</th>
@@ -149,17 +149,17 @@ export default function ConsultaPacientes() {
                 {pacientesFiltrados.length > 0 ? (
                   pacientesFiltrados.map((p: Paciente) => (
                     <tr key={p.cedula} className="border-bottom transition-hover">
-                      <td className="px-4">
+                      <td className="px-4" data-label="Historia Clínica">
                       <span className="badge bg-light text-dark border fw-bold px-2 py-1">
                           {getNumeroHistoriaClinica(p)}
                       </span>
                         </td>
-                      <td>
+                      <td data-label="Cédula">
                         <span className="badge bg-light text-dark border fw-bold px-2 py-1">
                           {p.cedula}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Paciente">
                         <div className="d-flex align-items-center">
                           <div className={`rounded-circle p-2 me-3 d-flex align-items-center justify-content-center ${p.sexo?.toLowerCase() === 'm' || p.sexo?.toLowerCase() === 'masculino' ? 'bg-soft-primary' : 'bg-soft-danger'}`} style={{ width: '40px', height: '40px' }}>
                             <i className={`bi ${getAvatar(p.sexo)} fs-5 ${p.sexo?.toLowerCase() === 'm' || p.sexo?.toLowerCase() === 'masculino' ? 'text-vibrant-info' : 'text-vibrant-danger'}`}></i>
@@ -170,8 +170,8 @@ export default function ConsultaPacientes() {
                           </div>
                         </div>
                       </td>
-                      <td className="text-muted">{p.fechaNacimiento}</td>
-                      <td>
+                      <td className="text-muted" data-label="Fecha Nacimiento">{p.fechaNacimiento}</td>
+                      <td data-label="Estado Sync">
                         {(() => {
                           const state = getPacienteSyncState(p);
                           return (
@@ -181,8 +181,8 @@ export default function ConsultaPacientes() {
                           );
                         })()}
                       </td>
-                      <td className="text-end px-4">
-                        <div className="btn-group shadow-sm rounded-3">
+                      <td className="text-end px-4" data-label="Acciones">
+                        <div className="patient-action-buttons">
                           <button 
                             className="btn btn-white btn-sm border-end px-3 py-2" 
                             title="Nueva Consulta"
