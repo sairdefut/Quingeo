@@ -743,39 +743,49 @@ h1, h2, h3, h4, h5 {
 
 .patient-table th:nth-child(3),
 .patient-table td:nth-child(3) {
-  width: 27%;
+  width: 24%;
 }
 
 .patient-table th:nth-child(4),
 .patient-table td:nth-child(4) {
-  width: 17%;
+  width: 15%;
 }
 
 .patient-table th:nth-child(5),
 .patient-table td:nth-child(5) {
-  width: 15%;
+  width: 14%;
 }
 
 .patient-table th:nth-child(6),
 .patient-table td:nth-child(6) {
-  width: 13%;
+  width: 19%;
 }
 
 .patient-action-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  gap: 0;
+  flex-wrap: nowrap;
 }
 
 .patient-action-buttons .btn {
-  width: 38px;
+  width: 40px;
   height: 38px !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0 !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
+}
+
+.patient-action-buttons .btn:first-child {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+
+.patient-action-buttons .btn:last-child {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
 }
 
 .admin-users-table th:nth-child(1),
